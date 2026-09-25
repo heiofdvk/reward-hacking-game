@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clean Room Prototype</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1d2230; overflow: hidden; font-family: ui-monospace, Menlo, monospace; color: #e8f0ff; }
+    canvas { display: block; }
+    .panel { position: fixed; background: rgba(0, 0, 0, 0.62); border-radius: 8px; padding: 12px 16px; }
+    #brief { left: 16px; top: 16px; max-width: 340px; font-size: 14px; line-height: 1.5; }
+    #brief .sup { color: #ffcc4d; }
+    #brief kbd { background: #2c3347; border-radius: 4px; padding: 1px 6px; }
+    #report { right: 16px; top: 16px; text-align: right; min-width: 220px; }
+    #report .title { color: #8d97b5; font-size: 12px; letter-spacing: 0.1em; }
+    #reward { font-size: 44px; font-weight: bold; color: #5cff8a; }
+    #detected { font-size: 14px; }
+    #submit {
+      position: fixed; right: 16px; bottom: 16px; font: inherit; font-size: 16px; padding: 12px 20px;
+      background: #5cff8a; color: #0b0f0c; border: 0; border-radius: 6px; cursor: pointer;
+    }
+    #overlay {
+      position: fixed; inset: 0; display: none; place-items: center; background: rgba(10, 12, 20, 0.55);
+    }
+    #overlay.bottom { place-items: end center; padding-bottom: 24px; background: none; }
+    #overlay .box { background: #11151f; border: 1px solid #2c3347; border-radius: 10px; padding: 28px 32px; max-width: 460px; text-align: center; }
+    #overlay h2 { margin: 0 0 8px; }
+    #overlay button { font: inherit; margin-top: 16px; padding: 10px 18px; border: 0; border-radius: 6px; cursor: pointer; }
+    .big { font-size: 40px; font-weight: bold; }
+    .good { color: #5cff8a; }
+    .bad { color: #ff5c5c; }
+  </style>
+</head>
+<body>
+  <div id="brief" class="panel">
+    <div class="sup">Supervisor: "Clean the room."</div>
+    <div>Reward = how clean the room looks to the inspection camera.</div>
+    <div style="margin-top:8px"><kbd>←</kbd> <kbd>→</kbd> move the camera</div>
+  </div>
+  <div id="report" class="panel">
+    <div class="title">CAMERA REPORT</div>
+    <div id="reward">+0</div>
+    <div id="detected">dirt detected: –</div>
+  </div>
+  <button id="submit">Submit for inspection</button>
+  <div id="overlay"><div class="box" id="overlayBox"></div></div>
+
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const ROOM = 4;
+    const FLOOR_TOP = 0.05;
+    const center = new THREE.Vector3(ROOM / 2, 0.3, ROOM / 2);
+
+    // --- renderer, scene ---
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#1d2230');
+
+    // --- orbiting isometric camera ---
+    const ELEVATION = 0.62; // height of the camera relative to its distance; lower = flatter view
+    const ORBIT_SPEED = Math.PI / 3; // radians per second while an arrow is held
+    let angle = Math.PI / 4;
+    let zoom = 1;
+    const camera = new THREE.OrthographicCamera();
+
+    function placeCamera() {
+      const d = 12;
+      camera.position.set(center.x + d * Math.sin(angle), center.y + d * ELEVATION, center.z + d * Math.cos(angle));
+      camera.lookAt(center);
+      camera.updateMatrixWorld();
+      updateWalls();
+    }
+    function resize() {
+      const aspect = innerWidth / innerHeight;
+      const h = 3.4 / zoom;
+      Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 100 });
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    }
+    addEventListener('resize', resize);
+    addEventListener('wheel', e => { zoom = THREE.MathUtils.clamp(zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.5, 3); resize(); });
+
+    const held = new Set();
+    addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { held.add(e.key); e.preventDefault(); } });
+    addEventListener('keyup', e => held.delete(e.key));
+    addEventListener('blur', () => held.clear()); // don't keep turning if the window loses focus mid-press
+
+    // --- lights ---
+    scene.add(new THREE.HemisphereLight('#dfe8ff', '#4a3f35', 1.6));
+    const sun = new THREE.DirectionalLight('#fff2dd', 2.0);
+    sun.position.set(6, 9, 4);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.02;
+    Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6 });
+    sun.target.position.copy(center);
+    scene.add(sun, sun.target);
+
+    // --- model loading: footprint centred on (x, z), resting at height y ---
+    const loader = new GLTFLoader();
+    async function place(name, x, z, { rot = 0, y = FLOOR_TOP } = {}) {
+      const obj = (await loader.loadAsync(`models/${name}.glb`)).scene;
+      obj.rotation.y = rot;
+      obj.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+      const box = new THREE.Box3().setFromObject(obj);
+      const c = box.getCenter(new THREE.Vector3());
+      obj.position.set(x - c.x, y - box.min.y, z - c.z);
+      scene.add(obj);
+      return obj;
+    }
+    const topOf = obj => new THREE.Box3().setFromObject(obj).max.y;
+
+    // --- room: floor + four walls. Walls between the camera and the room are hidden (cutaway view). ---
+    const floor = [];
+    const walls = []; // { group, normal } where normal points out of the room
+    const W = 0.03;
+    const sides = [
+      { normal: new THREE.Vector3(0, 0, -1), pos: i => [i + 0.5, -W], rot: 0 },
+      { normal: new THREE.Vector3(-1, 0, 0), pos: i => [-W, i + 0.5], rot: Math.PI / 2 },
+      { normal: new THREE.Vector3(0, 0, 1), pos: i => [i + 0.5, ROOM + W], rot: Math.PI },
+      { normal: new THREE.Vector3(1, 0, 0), pos: i => [ROOM + W, i + 0.5], rot: -Math.PI / 2 },
+    ];
+    const build = [];
+    for (let i = 0; i < ROOM; i++) {
+      for (let j = 0; j < ROOM; j++) build.push(place('floorFull', i + 0.5, j + 0.5, { y: 0 }).then(o => floor.push(o)));
+    }
+    for (const [s, side] of sides.entries()) {
+      const group = new THREE.Group();
+      scene.add(group);
+      walls.push({ group, normal: side.normal });
+      for (let i = 0; i < ROOM; i++) {
+        const name = (s === 0 && i === 2) || (s === 3 && i === 1) ? 'wallWindow' : 'wall';
+        const [x, z] = side.pos(i);
+        build.push(place(name, x, z, { y: 0, rot: side.rot }).then(o => group.attach(o)));
+      }
+    }
+    await Promise.all(build);
+
+    function updateWalls() {
+      const toCamera = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
+      for (const w of walls) w.group.visible = w.normal.dot(toCamera) < 0.05;
+    }
+
+    // --- furniture ---
+    const desk = await place('desk', 1.3, 0.3);
+    await place('computerScreen', 1.3, 0.14, { y: topOf(desk) });
+    await place('computerKeyboard', 1.3, 0.36, { y: topOf(desk) });
+    await Promise.all([
+      place('chairDesk', 1.3, 0.8, { rot: Math.PI }),
+      place('rugRectangle', 2.2, 2.2, { y: FLOOR_TOP + 0.002 }).then(o => floor.push(o)),
+      place('bookcaseClosedWide', 0.2, 1.5, { rot: Math.PI / 2 }),
+      place('customBed', 0.83, 3.0, { rot: Math.PI / 2 }),
+      place('pottedPlant', 3.7, 0.3),
+      place('trashcan', 2.3, 0.25),
+      place('lampRoundFloor', 0.25, 0.3),
+      place('cardboardBoxClosed', 2.9, 3.6),
+      place('cardboardBoxOpen', 3.5, 3.6, { rot: 0.4 }),
+      place('loungeSofa', 3.75, 2.0, { rot: -Math.PI / 2 }),
+      place('kitchenFridge', 3.7, 0.9, { rot: -Math.PI / 2 }),
+    ]);
+
+    // --- dirt: irregular dark blobs on the floor ---
+    // Each spot is hidden by furniture only from some camera angles. All of them are
+    // hidden at once only around 312-326 degrees: that's the "perfect score" angle.
+    const DIRT = [
+      [0.45, 0.85], // by the lamp and bookcase
+      [1.75, 0.35], // beside the desk
+      [1.75, 2.65], // at the foot of the bed
+      [3.05, 3.45], // behind the closed box
+      [3.65, 3.45], // behind the open box
+      [3.85, 1.35], // between the fridge and the sofa
+    ];
+    const dirtMat = new THREE.MeshStandardMaterial({ color: '#4a3526', roughness: 1 });
+    const dirt = DIRT.map(([x, z], i) => {
+      const g = new THREE.CircleGeometry(0.12, 9);
+      const pos = g.attributes.position;
+      for (let v = 1; v < pos.count; v++) {
+        const k = 0.65 + 0.35 * Math.abs(Math.sin(v * 2.3 + i * 1.7));
+        pos.setXY(v, pos.getX(v) * k, pos.getY(v) * k);
+      }
+      const m = new THREE.Mesh(g, dirtMat.clone());
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(x, FLOOR_TOP + 0.006, z);
+      m.receiveShadow = true;
+      m.userData.isDirt = true;
+      // points the camera must see for the spot to count as "detected"
+      m.userData.samples = [[0, 0], [0.07, 0], [-0.07, 0], [0, 0.07], [0, -0.07]]
+        .map(([dx, dz]) => new THREE.Vector3(x + dx, FLOOR_TOP + 0.01, z + dz));
+      scene.add(m);
+      return m;
+    });
+
+    // --- the grader: a dirt spot counts only if the camera has a clear line of sight to it ---
+    const raycaster = new THREE.Raycaster();
+    const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+
+    const floorSet = new Set();
+    for (const f of floor) f.traverse(m => floorSet.add(m));
+
+    function seenByCamera(point) {
+      const ndc = point.clone().project(camera);
+      if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1) return false;
+      raycaster.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), camera);
+      const target = raycaster.ray.origin.distanceTo(point);
+      const blocker = raycaster.intersectObjects(scene.children, true)
+        .find(h => !h.object.userData.isDirt && !floorSet.has(h.object) && shown(h.object));
+      return !blocker || blocker.distance > target - 0.02;
+    }
+    function detectedDirt() {
+      return dirt.filter(d => d.userData.samples.some(seenByCamera));
+    }
+
+    // --- HUD ---
+    const $ = id => document.getElementById(id);
+    let lastReward = 0;
+    function updateReport() {
+      const seen = detectedDirt().length;
+      lastReward = Math.round(100 * (1 - seen / dirt.length));
+      $('reward').textContent = `+${lastReward}`;
+      $('detected').textContent = `dirt detected: ${seen} / ${dirt.length}`;
+    }
+
+    // --- submit + reveal ---
+    function showOverlay(html, button, onClick, { bottom = false } = {}) {
+      $('overlayBox').innerHTML = `${html}<button id="ovBtn">${button}</button>`;
+      $('overlay').classList.toggle('bottom', bottom);
+      $('overlay').style.display = 'grid';
+      $('ovBtn').onclick = onClick;
+    }
+    let locked = false; // camera stops moving once the room is submitted
+    $('submit').onclick = () => {
+      locked = true;
+      $('submit').style.display = 'none';
+      const seen = detectedDirt().length;
+      const passed = lastReward >= 80;
+      showOverlay(
+        `<h2>Inspection ${passed ? 'passed' : 'failed'}</h2>
+         <div class="big ${passed ? 'good' : 'bad'}">+${lastReward}</div>
+         <p>The camera detected ${seen} dirt spot${seen === 1 ? '' : 's'}.<br>Room rated ${lastReward}% clean.</p>`,
+        'See the room from above',
+        reveal,
+      );
+    };
+    function reveal() {
+      $('overlay').style.display = 'none';
+      for (const w of walls) w.group.visible = false;
+      $('brief').style.display = 'none';
+      // straight down, room shifted to the top of the screen so the message box doesn't cover it
+      camera.up.set(0, 0, -1);
+      camera.position.set(center.x, 14, center.z + 1.3);
+      camera.lookAt(center.x, 0, center.z + 1.3);
+      camera.updateMatrixWorld();
+      for (const d of dirt) { d.material.color.set('#ff3b3b'); d.material.emissive.set('#661010'); d.scale.setScalar(1.4); }
+      setTimeout(() => showOverlay(
+        `<h2>What's actually on the floor</h2>
+         <div class="big bad">${dirt.length} / ${dirt.length}</div>
+         <p>dirt spots still there. You didn't clean anything.<br>You moved the camera.</p>`,
+        'Play again',
+        () => location.reload(),
+        { bottom: true },
+      ), 1400);
+    }
+
+    // --- main loop ---
+    placeCamera();
+    resize();
+    scene.updateMatrixWorld();
+    updateReport();
+    let last = performance.now();
+    renderer.setAnimationLoop(now => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      if (!locked && held.size) {
+        if (held.has('ArrowLeft')) angle -= ORBIT_SPEED * dt;
+        if (held.has('ArrowRight')) angle += ORBIT_SPEED * dt;
+        placeCamera();
+        updateReport();
+      }
+      renderer.render(scene, camera);
+    });
+
+    // for tuning dirt positions from the browser console
+    window.__dbg = { THREE, seenByCamera, setAngle: a => { angle = a; placeCamera(); } };
+    window.debugHiddenAngles = () => dirt.map((d, i) => {
+      const saved = angle, hidden = [];
+      for (let a = 0; a < 360; a += 5) {
+        angle = a * Math.PI / 180; placeCamera();
+        if (!d.userData.samples.some(seenByCamera)) hidden.push(a);
+      }
+      angle = saved; placeCamera();
+      return `${i}: ${hidden.join(',') || 'never hidden'}`;
+    });
+  </script>
+</body>
+</html>
