@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Albert: Level 1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1c2130;
+      --paper: #fbf8f2;
+      --muted: #7d8699;
+      --line: #e6e0d6;
+      --accent: #e0664a;
+      --good: #2f9e62;
+      --bad: #e0503c;
+      --you: #0b8fb3;
+      --cyan: #7cf5ff;
+      --pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: radial-gradient(ellipse at 50% 38%, #2b66a6, #153861 80%);
+      color: var(--ink); font-family: 'Fredoka', system-ui, sans-serif;
+      overflow: hidden; user-select: none;
+    }
+    canvas { position: fixed; inset: 0; display: block; }
+
+    .card {
+      background: var(--paper); border-radius: 20px;
+      box-shadow: 0 8px 0 rgba(0, 0, 0, 0.2), 0 20px 50px rgba(0, 0, 0, 0.35);
+    }
+    .pop-in { animation: pop 0.55s var(--pop) both; }
+    @keyframes pop { 0% { transform: scale(0); } 60% { transform: scale(1.05, 0.93); } 100% { transform: scale(1); } }
+    button {
+      font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 999px;
+      padding: 12px 28px; font-size: 19px; color: var(--ink); background: var(--cyan);
+      box-shadow: 0 5px 0 #2aa7c4;
+    }
+    button:active { transform: translateY(4px); box-shadow: 0 1px 0 #2aa7c4; }
+    button.secondary { background: #ebe4d8; box-shadow: 0 5px 0 #c9bfae; }
+    kbd {
+      display: inline-block; min-width: 26px; padding: 1px 6px; margin-right: 2px; text-align: center;
+      font: inherit; font-size: 14px; background: #ebe2d2; border: 1.5px solid #2a2320; border-radius: 6px;
+    }
+    .hidden { display: none !important; }
+
+    /* ---------- start card ---------- */
+    .center { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; pointer-events: none; }
+    .center > .card { pointer-events: auto; }
+    #start-card { width: min(520px, 100%); padding: 26px 30px 28px; text-align: center; }
+    .kicker { font-size: 13px; letter-spacing: 0.14em; color: var(--muted); font-weight: 600; }
+    #start-card h1 { margin: 6px 0 10px; font-size: 30px; }
+    #start-card .goal { font-size: 20px; line-height: 1.4; margin: 0 0 6px; }
+    #start-card .goal b { color: var(--accent); }
+    #start-card .fine { color: var(--muted); font-size: 15px; margin: 0 0 16px; }
+    .controls { display: grid; gap: 8px; justify-content: center; margin: 0 0 22px; font-size: 16px; text-align: left; }
+
+    /* ---------- in-game HUD ---------- */
+    #brief { position: fixed; left: 16px; top: 16px; padding: 12px 16px; font-size: 15px; display: grid; gap: 6px; }
+    #brief .goal { font-weight: 600; }
+    #report { position: fixed; right: 16px; top: 16px; padding: 14px 18px; min-width: 210px; text-align: right; }
+    #report .title { font-size: 12px; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+    #score { font-size: 48px; font-weight: 700; line-height: 1.05; color: var(--good); transition: color 0.2s; }
+    #score.bump { animation: bump 0.25s ease-out; }
+    @keyframes bump { 50% { transform: scale(1.12); } }
+    #detected { font-size: 15px; color: var(--muted); }
+    #timer { margin-top: 8px; font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #timer.low { color: var(--bad); animation: pulse 0.5s ease-in-out infinite alternate; }
+    @keyframes pulse { to { transform: scale(1.08); } }
+    #finish { position: fixed; right: 16px; bottom: 20px; font-size: 17px; padding: 10px 22px; }
+
+    /* ---------- results ---------- */
+    #results { width: min(560px, 100%); padding: 24px 28px 26px; }
+    #results h2 { margin: 4px 0 14px; font-size: 26px; }
+    #ranking { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+    .row {
+      display: grid; grid-template-columns: 28px 18px 118px 1fr 52px; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 12px; background: #f1ece3;
+      opacity: 0; transform: translateY(8px); transition: opacity 0.3s, transform 0.3s, background 0.3s;
+    }
+    .row.show { opacity: 1; transform: none; }
+    .row.you { outline: 2.5px solid var(--you); }
+    .row .rank { font-weight: 700; color: var(--muted); }
+    .row .chip { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #2a2320; }
+    .row .name { font-weight: 600; }
+    .row .bar { height: 12px; border-radius: 6px; background: #e0d8cb; overflow: hidden; }
+    .row .fill { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--good); transition: width 0.8s ease-out; }
+    .row .score { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .row.off { background: #f6ddd8; }
+    .row.off .fill { background: var(--bad); }
+    .row .tag { grid-column: 3 / -1; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--bad); display: none; }
+    .row.off .tag { display: block; }
+    #res-note { margin: 4px 0 18px; font-size: 17px; line-height: 1.4; }
+    #res-note b { color: var(--accent); }
+    .buttons { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+
+    #next-level { position: fixed; inset: 0; display: grid; place-items: center; color: #bcd5ef; font-size: 22px; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <!-- start: the goal and the controls -->
+  <div class="center" id="start-wrap">
+    <div class="card pop-in" id="start-card">
+      <div class="kicker">LEVEL 1 · THE OFFICE</div>
+      <h1>Clean the office</h1>
+      <p class="goal">Your goal is to achieve the <b>highest possible cleaning score</b> in <b>30 seconds</b>.</p>
+      <p class="fine">The cleaning score comes from the inspection camera.</p>
+      <div class="controls">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move Albert</div>
+        <div><kbd>←</kbd><kbd>→</kbd> rotate the camera</div>
+        <div>Stand still on a paper ball to pick it up</div>
+      </div>
+      <button id="start">Start ▸</button>
+    </div>
+  </div>
+
+  <!-- during the round -->
+  <div id="hud" class="hidden">
+    <div class="card" id="brief">
+      <div class="goal">Highest cleaning score in 30 s</div>
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>←</kbd><kbd>→</kbd> camera</div>
+    </div>
+    <div class="card" id="report">
+      <div class="title">CLEANING SCORE</div>
+      <div id="score">0%</div>
+      <div id="detected">camera sees 18 / 18 paper balls</div>
+      <div id="timer">0:30</div>
+    </div>
+    <button id="finish" class="secondary">Finish now</button>
+  </div>
+
+  <!-- after the round: ranking of the four models -->
+  <div class="center hidden" id="results-wrap">
+    <div class="card" id="results">
+      <div class="kicker">ROUND 1 RESULTS</div>
+      <h2 id="res-title">Time's up!</h2>
+      <ol id="ranking"></ol>
+      <p id="res-note"></p>
+      <div class="buttons">
+        <button id="retry" class="secondary">Try again</button>
+        <button id="continue" class="hidden">Continue ▸</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="next-level" class="hidden">Level 2 goes here</div>
+
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+    import { albert } from '../intro/characters3d.js';
+
+    const ROUND_SECONDS = 30;
+    const SCRUB_SECONDS = 0.4; // standing still on a paper ball this long picks it up
+    // What the other models score this round (percent). Ties rank the rival above Albert.
+    const RIVALS = [
+      { name: 'Model B', color: '#d4633e', score: 95 },
+      { name: 'Model C', color: '#8fb5de', score: 92 },
+      { name: 'Model D', color: '#ece1c8', score: 88 },
+    ];
+
+    const $ = id => document.getElementById(id);
+    await document.fonts.load('600 64px Fredoka'); // Albert's name tag is painted with it
+
+    const ROOM_W = 7, ROOM_D = 7; // office size in floor tiles (x, z)
+    const FLOOR_TOP = 0.05;
+    const GROUND_Y = -0.212;
+    const center = new THREE.Vector3(ROOM_W / 2, 0.3, ROOM_D / 2);
+
+    // ---------- renderer, lights: same setup as the intro ----------
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    document.body.prepend(renderer.domElement);
+    const scene = new THREE.Scene();
+
+    scene.add(new THREE.HemisphereLight('#dfe8ff', '#4a3f35', 1.6));
+    const sun = new THREE.DirectionalLight('#fff2dd', 2.0);
+    sun.position.set(center.x + 6, 9, center.z + 4);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.02;
+    Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9 });
+    sun.target.position.copy(center);
+    scene.add(sun, sun.target);
+    const fill = new THREE.DirectionalLight('#dfe6ff', 0.6);
+    fill.position.set(center.x - 4, 5, center.z + 9);
+    scene.add(fill);
+
+    // ---------- the blueprint ground: grid lines, shadows, and a raised base under the room ----------
+    {
+      const minor = [], major = [];
+      for (let t = -40; t <= 44; t += 0.5) (Number.isInteger(t) ? major : minor).push(t, 0, -40, t, 0, 44, -40, 0, t, 44, 0, t);
+      for (const [pts, color] of [[minor, '#2c64a0'], [major, '#5189c4']]) {
+        const lines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)), new THREE.LineBasicMaterial({ color }));
+        lines.position.y = GROUND_Y - 0.001;
+        lines.raycast = () => {};
+        scene.add(lines);
+      }
+      const catcher = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ color: '#06182f', opacity: 0.35 }));
+      catcher.rotation.x = -Math.PI / 2;
+      catcher.position.set(center.x, GROUND_Y, center.z);
+      catcher.receiveShadow = true;
+      catcher.raycast = () => {};
+      scene.add(catcher);
+
+      const H = FLOOR_TOP - GROUND_Y - 0.05; // base reaches from the ground up to just under the floor tiles
+      const base = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W, H, ROOM_D), new THREE.MeshStandardMaterial({ color: '#d9e7f7', roughness: 0.85 }));
+      base.position.set(ROOM_W / 2, GROUND_Y + H / 2, ROOM_D / 2);
+      base.receiveShadow = true;
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(base.geometry), new THREE.LineBasicMaterial({ color: '#ffffff' }));
+      edges.raycast = () => {}; // lines never block the inspection camera
+      base.add(edges);
+      scene.add(base);
+
+      const c = document.createElement('canvas');
+      c.width = c.height = 256;
+      const g = c.getContext('2d');
+      g.fillStyle = '#000'; g.fillRect(0, 0, 256, 256);
+      g.filter = 'blur(18px)';
+      g.fillStyle = '#fff'; g.fillRect(52, 52, 152, 152);
+      const soft = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W * 1.6, ROOM_D * 1.6),
+        new THREE.MeshBasicMaterial({ color: '#06182f', alphaMap: new THREE.CanvasTexture(c), transparent: true, opacity: 0.7, depthWrite: false }));
+      soft.rotation.x = -Math.PI / 2;
+      soft.position.set(ROOM_W / 2 + 0.35, GROUND_Y + 0.001, ROOM_D / 2 + 0.35);
+      soft.raycast = () => {};
+      scene.add(soft);
+    }
+
+    // ---------- orbiting isometric camera ----------
+    const ELEVATION = 0.62;
+    // Tapping an arrow nudges the camera a degree or two; holding it speeds up to 60 degrees per second.
+    const orbitSpeed = heldFor => THREE.MathUtils.degToRad(Math.min(60, 12 + 70 * heldFor));
+    let orbitHeld = 0;
+    let angle = Math.PI / 4;
+    const camera = new THREE.OrthographicCamera();
+    function placeCamera() {
+      const d = 12;
+      camera.position.set(center.x + d * Math.sin(angle), center.y + d * ELEVATION, center.z + d * Math.cos(angle));
+      camera.lookAt(center);
+      camera.updateMatrixWorld();
+      updateWalls();
+    }
+    function resize() {
+      const aspect = innerWidth / innerHeight;
+      const h = Math.max(4.4, 5.4 / aspect);
+      Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 100 });
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    }
+    addEventListener('resize', resize);
+
+    // e.code is the physical key, so WASD works on any keyboard layout
+    const KEYS = new Set(['ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD']);
+    const held = new Set();
+    addEventListener('keydown', e => { if (KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); } });
+    addEventListener('keyup', e => held.delete(e.code));
+    addEventListener('blur', () => held.clear());
+
+    // ---------- model loading: footprint centred on (x, z), resting at height y ----------
+    const loader = new GLTFLoader();
+    async function place(name, x, z, { rot = 0, y = FLOOR_TOP } = {}) {
+      const obj = (await loader.loadAsync(`models/${name}.glb`)).scene;
+      obj.rotation.y = rot;
+      obj.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+      const box = new THREE.Box3().setFromObject(obj);
+      const c = box.getCenter(new THREE.Vector3());
+      obj.position.set(x - c.x, y - box.min.y, z - c.z);
+      scene.add(obj);
+      return obj;
+    }
+    const topOf = obj => new THREE.Box3().setFromObject(obj).max.y;
+
+    // ---------- the room: floor and four walls; walls between the camera and the room are hidden ----------
+    const floor = [];
+    const walls = []; // { group, normal } where normal points out of the room
+    const W = 0.03;
+    const sides = [
+      { normal: new THREE.Vector3(0, 0, -1), pos: i => [i + 0.5, -W], rot: 0 },
+      { normal: new THREE.Vector3(-1, 0, 0), pos: i => [-W, i + 0.5], rot: Math.PI / 2 },
+      { normal: new THREE.Vector3(0, 0, 1), pos: i => [i + 0.5, ROOM_D + W], rot: Math.PI },
+      { normal: new THREE.Vector3(1, 0, 0), pos: i => [ROOM_W + W, i + 0.5], rot: -Math.PI / 2 },
+    ];
+    const build = [];
+    for (let i = 0; i < ROOM_W; i++) {
+      for (let j = 0; j < ROOM_D; j++) build.push(place('floorFull', i + 0.5, j + 0.5, { y: 0 }).then(o => floor.push(o)));
+    }
+    for (const [s, side] of sides.entries()) {
+      const group = new THREE.Group();
+      scene.add(group);
+      walls.push({ group, normal: side.normal });
+      const length = s % 2 === 0 ? ROOM_W : ROOM_D;
+      if (s === 1) continue; // the left wall is a floor-to-ceiling window, built below
+      // the door is on the front wall
+      const special = { 2: { 3: 'wallDoorway' } };
+      for (let i = 0; i < length; i++) {
+        const name = special[s]?.[i] || 'wall';
+        const [x, z] = side.pos(i);
+        build.push(place(name, x, z, { y: 0, rot: side.rot }).then(o => group.attach(o)));
+      }
+    }
+    await Promise.all(build);
+
+    // ---------- office colours: warm beige walls, greige floor ----------
+    const WALL_COLOR = '#d9cab6', FLOOR_COLOR = '#d6c9b7';
+    for (const w of walls) w.group.traverse(m => { if (m.isMesh) m.material = m.material.clone(), m.material.color.set(WALL_COLOR); });
+    for (const f of floor) f.traverse(m => { if (m.isMesh) m.material = m.material.clone(), m.material.color.set(FLOOR_COLOR); });
+
+    // ---------- small modelling helpers for the custom office pieces ----------
+    const matCache = {};
+    const mat = (color, opts = {}) => (matCache[color + JSON.stringify(opts)] ||= new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...opts }));
+    // a box with its bottom at height y, added to a group
+    function part(g, w, h, d, color, x, y, z, opts) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, opts));
+      m.position.set(x, y + h / 2, z);
+      m.castShadow = !opts?.transparent;
+      m.receiveShadow = true;
+      g.add(m);
+      return m;
+    }
+    const WOOD = '#e9cc9c', WHITE = '#f3f0ea', RED = '#c8433b', DARK = '#35323e', FRAME = '#5d4d5a';
+
+    // ---------- the window wall (left): mullions, a sill, a header and glass ----------
+    {
+      const g = walls[1].group, L = ROOM_D;
+      part(g, 0.08, 0.14, L + 0.08, '#cdbda8', -0.04, 0, L / 2);
+      part(g, 0.08, 0.1, L + 0.08, '#cdbda8', -0.04, 1.19, L / 2);
+      for (let z = 0; z <= L; z += 1) part(g, 0.07, 1.05, 0.06, FRAME, -0.035, 0.14, z);
+      part(g, 0.06, 0.04, L, FRAME, -0.035, 0.64, L / 2);
+      part(g, 0.02, 1.05, L, '#eef4fa', -0.035, 0.14, L / 2, { transparent: true, opacity: 0.45, depthWrite: false });
+    }
+
+    // ---------- wall decor on the back wall: a shelf with binders, a clock, framed pictures ----------
+    {
+      const g = walls[0].group, zf = 0.02;
+      part(g, 0.9, 0.03, 0.18, WOOD, 2.9, 0.92, zf + 0.09);
+      [['#f2f0ea', 0.06], ['#f2b8c2', 0.05], ['#f2f0ea', 0.06], ['#d9d4ec', 0.05], ['#f6d6a8', 0.06]].reduce((x, [c, w]) => {
+        part(g, w, 0.2, 0.15, c, x + w / 2, 0.95, zf + 0.09);
+        return x + w + 0.01;
+      }, 2.62);
+      const clock = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.03, 28), mat('#2f3a63'));
+      clock.rotation.x = Math.PI / 2;
+      clock.position.set(3.95, 1.02, zf + 0.02);
+      g.add(clock);
+      part(g, 0.015, 0.08, 0.01, '#ffffff', 3.95, 1.02, zf + 0.04);
+      part(g, 0.06, 0.015, 0.01, '#ffffff', 3.98, 1.02, zf + 0.04);
+      for (const [x, y] of [[5.55, 0.62], [6.1, 0.7], [1.45, 1.12]]) {
+        part(g, 0.3, 0.38, 0.02, '#c9b89e', x, y, zf + 0.01);
+        part(g, 0.24, 0.32, 0.01, '#f4ead3', x, y + 0.03, zf + 0.025);
+      }
+    }
+    // framed pictures on the right wall too
+    for (const [z, y] of [[4.2, 0.6], [4.75, 0.66]]) {
+      const g = walls[3].group;
+      part(g, 0.02, 0.38, 0.3, '#c9b89e', ROOM_W - 0.01, y, z);
+      part(g, 0.01, 0.32, 0.24, '#f4ead3', ROOM_W - 0.025, y + 0.03, z);
+    }
+
+    function updateWalls() {
+      const toCamera = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
+      for (const w of walls) w.group.visible = w.normal.dot(toCamera) < 0.05;
+    }
+
+    // ---------- office furniture; solid() marks what Albert can't walk through ----------
+    // Kenney models face +z by default; rot turns them (PI/2 faces +x, -PI/2 faces -x, PI faces -z).
+    const obstacles = [];
+    const solid = p => p.then(o => (obstacles.push(o), o));
+    // an empty group standing on the floor at (x, z), for custom pieces
+    function piece(x, z, rot = 0) {
+      const g = new THREE.Group();
+      g.position.set(x, FLOOR_TOP, z);
+      g.rotation.y = rot;
+      scene.add(g);
+      obstacles.push(g);
+      return g;
+    }
+    function desk(g, x, z, w, d) { // light wood top at 0.38 on white end panels
+      part(g, w, 0.035, d, WOOD, x, 0.345, z);
+      part(g, 0.035, 0.345, d - 0.04, WHITE, x - w / 2 + 0.02, 0, z);
+      part(g, 0.035, 0.345, d - 0.04, WHITE, x + w / 2 - 0.02, 0, z);
+    }
+    function monitor(g, x, z, facing) { // facing +1: the screen looks toward +z; keyboard and mouse in front
+      part(g, 0.1, 0.012, 0.08, DARK, x, 0.38, z);
+      part(g, 0.03, 0.1, 0.03, DARK, x, 0.39, z);
+      part(g, 0.34, 0.22, 0.025, DARK, x, 0.47, z);
+      part(g, 0.3, 0.18, 0.004, '#6d6a92', x, 0.49, z + facing * 0.014);
+      part(g, 0.28, 0.012, 0.09, '#e8e6ef', x, 0.38, z + facing * 0.17);
+      part(g, 0.04, 0.012, 0.06, '#e8e6ef', x + 0.2, 0.38, z + facing * 0.17);
+    }
+
+    // workstation cluster: desks in two rows back to back, a red partition down the middle,
+    // white dividers between desks, and a red office chair at each desk
+    async function cluster(cx, cz, cols) {
+      const g = piece(cx, cz), W = 0.9, D = 0.55;
+      const chairs = [];
+      for (let c = 0; c < cols; c++) {
+        const x = (c - (cols - 1) / 2) * W;
+        for (const side of [-1, 1]) {
+          desk(g, x, side * (D / 2 + 0.03), W - 0.02, D);
+          monitor(g, x, side * 0.12, side);
+          chairs.push(solid(place('chairDesk', cx + x, cz + side * 0.84, { rot: side > 0 ? Math.PI : 0 })));
+        }
+      }
+      part(g, cols * W + 0.04, 0.72, 0.05, RED, 0, 0, 0);
+      part(g, 0.08, 0.04, 0.04, WHITE, -0.3, 0.6, 0.03); // sticky notes on the partition
+      part(g, 0.06, 0.06, 0.01, '#f4ead3', 0.5, 0.5, 0.03);
+      for (let c = 0; c <= cols; c++) part(g, 0.035, 0.58, 2 * D + 0.06, '#eeebe4', (c - cols / 2) * W, 0, 0);
+      await Promise.all(chairs);
+    }
+
+    // long L-shaped desk with a white front panel, facing the door
+    async function lDesk(cx, cz) {
+      const g = piece(cx, cz);
+      part(g, 2.0, 0.035, 0.62, WOOD, 0, 0.345, 0);
+      part(g, 2.0, 0.345, 0.03, WHITE, 0, 0, 0.3);
+      part(g, 0.03, 0.345, 0.6, WHITE, -0.985, 0, 0);
+      part(g, 0.6, 0.035, 0.8, WOOD, 0.7, 0.345, -0.7);
+      part(g, 0.03, 0.345, 0.8, WHITE, 0.985, 0, -0.4);
+      part(g, 0.6, 0.345, 0.03, WHITE, 0.7, 0, -1.085);
+      monitor(g, -0.6, 0.12, -1);
+      monitor(g, 0.1, 0.12, -1);
+      part(g, 0.2, 0.05, 0.14, DARK, 0.7, 0.38, -0.8); // desk tray
+      await Promise.all([
+        solid(place('chairDesk', cx - 0.6, cz - 0.62)),
+        solid(place('chairDesk', cx + 0.1, cz - 0.62)),
+      ]);
+    }
+
+    // tall white shelving with binders on two shelves and closed doors below
+    function shelfUnit(x, z, rot = 0) {
+      const g = piece(x, z, rot), w = 0.78, d = 0.34, h = 1.05;
+      part(g, w, h, 0.02, '#e8e4dd', 0, 0, -d / 2 + 0.01);
+      part(g, 0.03, h, d, WHITE, -w / 2 + 0.015, 0, 0);
+      part(g, 0.03, h, d, WHITE, w / 2 - 0.015, 0, 0);
+      part(g, w, 0.03, d, WHITE, 0, h - 0.03, 0);
+      part(g, w - 0.04, 0.36, 0.02, '#f7f5f1', 0, 0.02, d / 2 - 0.01); // doors
+      part(g, 0.01, 0.3, 0.005, '#c9c3b8', 0, 0.05, d / 2); // door split
+      const colors = ['#f2b8c2', '#ffffff', '#d9d4ec', '#f6d6a8', '#cfe0f0', '#ffffff'];
+      for (const [i, y] of [0.38, 0.7].entries()) {
+        part(g, w - 0.06, 0.025, d - 0.03, WHITE, 0, y, 0);
+        let bx = -w / 2 + 0.07, k = i * 2;
+        while (bx < w / 2 - 0.14) {
+          const bw = 0.045 + (k % 3) * 0.012;
+          part(g, bw, 0.25, 0.24, colors[k % colors.length], bx + bw / 2, y + 0.025, 0.02);
+          bx += bw + 0.008; k++;
+          if (k % 4 === 0) bx += 0.07;
+        }
+      }
+    }
+    // low white drawer cabinet, with things on top
+    function drawerCabinet(x, z, rot = 0, { w = 0.95, h = 0.46, d = 0.42, drawers = 3 } = {}) {
+      const g = piece(x, z, rot);
+      part(g, w, h, d, WHITE, 0, 0, 0);
+      for (let i = 1; i < drawers; i++) part(g, w - 0.06, 0.008, 0.005, '#c9c3b8', 0, (h * i) / drawers, d / 2 + 0.002);
+      for (let i = 0; i < drawers; i++) part(g, 0.12, 0.015, 0.02, '#9d968b', 0, (h * (i + 0.6)) / drawers, d / 2 + 0.01);
+      return g;
+    }
+    function waterCooler(x, z) {
+      const g = piece(x, z);
+      part(g, 0.3, 0.52, 0.3, WHITE, 0, 0, 0);
+      part(g, 0.06, 0.05, 0.02, '#d8574b', -0.06, 0.32, 0.16);
+      part(g, 0.06, 0.05, 0.02, '#4a90c2', 0.06, 0.32, 0.16);
+      const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.3, 20), mat('#7ec4d6', { transparent: true, opacity: 0.9 }));
+      bottle.position.y = 0.67;
+      g.add(bottle);
+    }
+    function copier(x, z) {
+      const g = piece(x, z);
+      part(g, 0.66, 0.5, 0.5, '#f1efea', 0, 0, 0);
+      for (const y of [0.13, 0.26, 0.39]) part(g, 0.6, 0.01, 0.01, '#bdb8ae', 0, y, 0.253);
+      part(g, 0.66, 0.08, 0.5, '#e4e1da', 0, 0.5, 0);
+      part(g, 0.2, 0.03, 0.12, '#46424f', 0.18, 0.58, 0.14);
+      part(g, 0.26, 0.02, 0.22, WHITE, -0.13, 0.6, 0.04);
+      part(g, 0.36, 0.32, 0.32, '#f7f5f0', 0.62, 0, 0.05); // box of paper next to it
+      part(g, 0.36, 0.01, 0.2, '#e3dfd6', 0.62, 0.32, 0.05);
+    }
+
+    // centre: workstation cluster of six desks
+    await cluster(2.9, 2.6, 3);
+    // front right: the long L-desk facing the door
+    await lDesk(5.1, 5.0);
+
+    // back wall: shelving, a drawer cabinet with a lamp and tray, water cooler, photocopier
+    shelfUnit(0.95, 0.19);
+    shelfUnit(1.8, 0.19);
+    const cab = drawerCabinet(2.9, 0.23);
+    part(cab, 0.09, 0.02, 0.09, '#8a7f70', -0.25, 0.46, 0); // desk lamp
+    part(cab, 0.02, 0.16, 0.02, '#8a7f70', -0.25, 0.48, 0);
+    part(cab, 0.12, 0.1, 0.12, '#e8d26b', -0.25, 0.62, 0);
+    part(cab, 0.2, 0.06, 0.15, DARK, 0.15, 0.46, 0); // tray
+    waterCooler(3.85, 0.2);
+    copier(4.75, 0.3);
+    // right wall: filing cabinets
+    for (const z of [2.2, 2.7, 3.2]) drawerCabinet(6.78, z, -Math.PI / 2, { w: 0.45, h: 0.66, d: 0.42, drawers: 3 });
+    shelfUnit(6.8, 1.2, -Math.PI / 2);
+    // low white storage credenza in the open floor: sliding doors on both sides, binders and a printer on top
+    {
+      const g = piece(2.4, 4.6), w = 1.5, h = 0.5, d = 0.4;
+      part(g, w, 0.04, d - 0.04, '#d8d3ca', 0, 0, 0); // plinth
+      part(g, w, h - 0.04, d, WHITE, 0, 0.04, 0);
+      part(g, w + 0.02, 0.03, d + 0.02, '#ece8e1', 0, h, 0); // top
+      for (const side of [-1, 1]) {
+        for (const x of [-0.37, 0.37]) part(g, 0.72, h - 0.1, 0.012, '#f8f6f2', x + side * 0.004, 0.07, side * (d / 2 + 0.006)); // sliding doors
+        for (const x of [-0.05, 0.05]) part(g, 0.02, 0.12, 0.015, '#9d968b', x, 0.22, side * (d / 2 + 0.014)); // handles
+      }
+      // binders standing on the left end
+      [['#f2b8c2', 0.05], ['#ffffff', 0.06], ['#d9d4ec', 0.05], ['#f6d6a8', 0.06], ['#cfe0f0', 0.05]].reduce((x, [c, bw]) => {
+        part(g, bw, 0.22, 0.26, c, x + bw / 2, h + 0.03, 0);
+        return x + bw + 0.008;
+      }, -0.68);
+      // small printer on the right end
+      part(g, 0.36, 0.15, 0.3, '#f1efea', 0.45, h + 0.03, 0);
+      part(g, 0.3, 0.012, 0.012, DARK, 0.45, h + 0.1, 0.152);
+      part(g, 0.24, 0.015, 0.12, WHITE, 0.45, h + 0.18, -0.04);
+      part(g, 0.08, 0.02, 0.05, '#46424f', 0.58, h + 0.18, 0.1);
+    }
+
+    await Promise.all([
+      // plants in the corners, a coat rack by the door, bins by the cluster
+      solid(place('pottedPlant', 0.3, 0.35)),
+      solid(place('pottedPlant', 6.7, 0.35)),
+      solid(place('pottedPlant', 6.7, 6.7)),
+      solid(place('pottedPlant', 0.3, 4.6)),
+      solid(place('coatRackStanding', 4.4, 6.72)),
+      solid(place('trashcan', 1.25, 2.6)),
+      solid(place('trashcan', 4.55, 2.6)),
+      // waiting area by the window
+      place('rugRectangle', 1.3, 6.15, { y: FLOOR_TOP + 0.002 }).then(o => floor.push(o)),
+      solid(place('loungeSofa', 1.3, 6.72, { rot: Math.PI })),
+      solid(place('tableCoffee', 1.3, 6.05)),
+      solid(place('loungeChair', 0.32, 6.0, { rot: Math.PI / 2 })),
+    ]);
+    const footprints = obstacles.map(o => {
+      const b = new THREE.Box3().setFromObject(o);
+      return { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z };
+    });
+
+    // ---------- Albert, shrunk to room size. He faces +z; his origin is between his feet. ----------
+    const ALBERT_SCALE = 0.4;
+    const BOT_R = 0.17; // collision radius
+    const BOT_SPEED = 0.8; // floor units per second
+    const A = await albert(loader);
+    A.group.scale.setScalar(ALBERT_SCALE);
+    const albertRoot = new THREE.Group(); // position + heading
+    const waddle = new THREE.Group(); // walking sway
+    waddle.add(A.group);
+    albertRoot.add(waddle);
+    scene.add(albertRoot);
+    const bot = { x: 1.2, z: 4.2, heading: Math.PI / 4 };
+    albertRoot.position.set(bot.x, FLOOR_TOP, bot.z);
+    albertRoot.rotation.y = bot.heading;
+
+    function blocked(x, z) {
+      if (x < BOT_R || x > ROOM_W - BOT_R || z < BOT_R || z > ROOM_D - BOT_R) return true;
+      return footprints.some(f => {
+        const dx = x - THREE.MathUtils.clamp(x, f.minX, f.maxX);
+        const dz = z - THREE.MathUtils.clamp(z, f.minZ, f.maxZ);
+        return dx * dx + dz * dz < BOT_R * BOT_R;
+      });
+    }
+    // WASD is relative to the screen: W always walks "up" the screen, whatever the camera angle.
+    function drive(dt) {
+      const ix = (held.has('KeyD') ? 1 : 0) - (held.has('KeyA') ? 1 : 0);
+      const iy = (held.has('KeyW') ? 1 : 0) - (held.has('KeyS') ? 1 : 0);
+      if (!ix && !iy) return false;
+      const forward = new THREE.Vector3(-Math.sin(angle), 0, -Math.cos(angle));
+      const right = new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle));
+      const dir = forward.multiplyScalar(iy).add(right.multiplyScalar(ix)).normalize();
+      const step = BOT_SPEED * dt;
+      const x0 = bot.x, z0 = bot.z;
+      // one axis at a time so Albert slides along furniture instead of sticking to it
+      if (!blocked(bot.x + dir.x * step, bot.z)) bot.x += dir.x * step;
+      if (!blocked(bot.x, bot.z + dir.z * step)) bot.z += dir.z * step;
+      const target = Math.atan2(dir.x, dir.z);
+      const diff = Math.atan2(Math.sin(target - bot.heading), Math.cos(target - bot.heading));
+      bot.heading += diff * Math.min(1, dt * 12);
+      albertRoot.position.set(bot.x, FLOOR_TOP, bot.z);
+      albertRoot.rotation.y = bot.heading;
+      return Math.hypot(bot.x - x0, bot.z - z0) > 1e-4; // true only if he actually moved
+    }
+
+    // ---------- dirt ----------
+    // 18 paper balls, all reachable and all visible from the starting view. Picked by a search so that
+    // from one specific camera angle (~167-181 degrees) furniture hides every one of them: the camera reports
+    // 100% without any cleaning. Even a perfect honest route can't do well:
+    // 15 balls take 27.9 s, 16 take 31.1 s, all 18 take 35.8 s, so honest play tops out at 83%.
+    const DIRT = [
+      [5.4, 0.9],
+      [1.5, 1.5],
+      [6.6, 4.35],
+      [2.85, 5.1],
+      [4.35, 5.55],
+      [5.55, 5.55],
+      [1.8, 5.55],
+      [2.55, 0.75],
+      [3.75, 0.75],
+      [2.85, 4.05],
+      [0.75, 1.65],
+      [4.5, 1.2],
+      [3.3, 3.45],
+      [1.2, 3],
+      [4.5, 3.15],
+      [0.6, 0.6],
+      [2.4, 3.45],
+      [1.5, 0.6],
+    ];
+    // each "dirt" is a crumpled wad of paper: a lumpy low-poly ball
+    const PAPER_R = 0.065;
+    const PAPER_COLORS = ['#ffffff', '#fbfaf6', '#f7f6f1', '#fdfcf8']; // bright, so they stand out on the floor
+    function paperWad(seed) {
+      let s = seed * 9301 + 49297;
+      const rand = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+      const g = mergeVertices(new THREE.IcosahedronGeometry(PAPER_R, 1));
+      const pos = g.attributes.position;
+      for (let v = 0; v < pos.count; v++) {
+        const k = 0.72 + rand() * 0.45; // push each corner in or out: crumples
+        pos.setXYZ(v, pos.getX(v) * k, pos.getY(v) * k * 0.82, pos.getZ(v) * k);
+      }
+      return g.toNonIndexed(); // flat-shaded facets
+    }
+    // Points inside a wad (so every one is actually paper): middle, top and four sides. The camera
+    // counts a wad as "detected" when at least two of them are visible, so a few pixels peeking
+    // around the edge of a desk don't count, just as a player wouldn't notice them.
+    const PAPER_Y = FLOOR_TOP + PAPER_R * 0.7;
+    const r = PAPER_R * 0.5;
+    const paperSamples = (x, z) => [[0, 0, 0], [0, PAPER_R * 0.4, 0], [r, 0, 0], [-r, 0, 0], [0, 0, r], [0, 0, -r]]
+      .map(([dx, dy, dz]) => new THREE.Vector3(x + dx, PAPER_Y + dy, z + dz));
+    const dirt = DIRT.map(([x, z], i) => {
+      const geo = paperWad(i + 1);
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: PAPER_COLORS[i % 4], emissive: '#3a3833', roughness: 0.9, flatShading: true, transparent: true }));
+      m.position.set(x, PAPER_Y, z);
+      m.rotation.set(i * 1.3, i * 2.1, i * 0.7);
+      m.castShadow = m.receiveShadow = true;
+      m.userData.isDirt = true;
+      m.userData.samples = paperSamples(x, z);
+      scene.add(m);
+      return m;
+    });
+    const remainingDirt = () => dirt.filter(d => !d.userData.cleaned);
+    const REACH = 0.14; // Albert has to stand on a paper ball to pick it up
+
+    // Loading ring around a paper ball: appears (spinning) as soon as Albert reaches the ball, and fills
+    // up while he stands still on it; when it's full the ball is picked up.
+    const ringTrack = new THREE.Mesh(new THREE.RingGeometry(0.24, 0.3, 48),
+      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
+    const ringArc = new THREE.Mesh(new THREE.BufferGeometry(),
+      new THREE.MeshBasicMaterial({ color: '#7cf5ff', transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
+    for (const r of [ringTrack, ringArc]) {
+      r.rotation.x = -Math.PI / 2;
+      r.visible = false;
+      r.raycast = () => {};
+      scene.add(r);
+    }
+    let spin = 0;
+    function showRing(d, dt, moving) {
+      const p = d.userData.progress || 0;
+      spin += dt * 7;
+      // while Albert is still moving: a short arc spinning around ("stay here"); once he stops: the progress
+      const start = moving ? spin : Math.PI / 2;
+      const length = moving ? Math.PI * 0.6 : Math.PI * 2 * Math.max(0.02, p);
+      ringArc.geometry.dispose();
+      ringArc.geometry = new THREE.RingGeometry(0.24, 0.3, 48, 1, start, -length);
+      for (const r of [ringTrack, ringArc]) {
+        r.position.set(d.position.x, FLOOR_TOP + (r === ringArc ? 0.013 : 0.012), d.position.z);
+        r.visible = true;
+      }
+    }
+    // returns 'scrubbing' (standing on a ball), 'waiting' (on a ball but still moving), 'cleaned' or null
+    function scrub(dt, moving) {
+      const d = remainingDirt().find(d => Math.hypot(d.position.x - bot.x, d.position.z - bot.z) < REACH);
+      if (!d) { ringTrack.visible = ringArc.visible = false; return null; }
+      if (!moving) d.userData.progress = Math.min(1, (d.userData.progress || 0) + dt / SCRUB_SECONDS);
+      if (d.userData.progress >= 1) {
+        d.userData.cleaned = true;
+        ringTrack.visible = ringArc.visible = false;
+        return 'cleaned';
+      }
+      showRing(d, dt, moving);
+      return moving ? 'waiting' : 'scrubbing';
+    }
+    function fadeCleaned(dt) {
+      for (const d of dirt) {
+        if (!d.parent) continue;
+        if (!d.userData.cleaned) { // the wad shrinks as it gets picked up
+          d.scale.setScalar(1 - 0.35 * (d.userData.progress || 0));
+          continue;
+        }
+        d.material.opacity -= dt * 3;
+        d.scale.setScalar(Math.max(0.01, 0.65 * d.material.opacity));
+        d.position.y += dt * 0.4; // pops up and away
+        if (d.material.opacity <= 0) scene.remove(d);
+      }
+    }
+
+    // ---------- the grader: a dirt spot counts only if the camera has a clear line of sight to it ----------
+    const raycaster = new THREE.Raycaster();
+    const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+    const floorSet = new Set();
+    for (const f of floor) f.traverse(m => floorSet.add(m));
+    function seenByCamera(point) {
+      const ndc = point.clone().project(camera);
+      if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1) return false;
+      raycaster.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), camera);
+      const target = raycaster.ray.origin.distanceTo(point);
+      const blocker = raycaster.intersectObjects(scene.children, true)
+        .find(h => !h.object.userData.isDirt && !floorSet.has(h.object) && shown(h.object));
+      return !blocker || blocker.distance > target - 0.02;
+    }
+    const ballSeen = samples => samples.filter(seenByCamera).length >= 2;
+    const detectedDirt = () => remainingDirt().filter(d => ballSeen(d.userData.samples));
+
+    // ---------- HUD ----------
+    let score = 0;
+    function updateScore() {
+      const seen = detectedDirt().length;
+      const next = Math.round(100 * (1 - seen / dirt.length));
+      if (next !== score) {
+        const el = $('score');
+        el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+      }
+      score = next;
+      $('score').textContent = `${score}%`;
+      $('detected').textContent = `camera sees ${seen} / ${dirt.length} paper balls`;
+    }
+    let timeLeft = ROUND_SECONDS;
+    function showTime() {
+      const s = Math.ceil(timeLeft);
+      $('timer').textContent = `0:${String(s).padStart(2, '0')}`;
+      $('timer').classList.toggle('low', s <= 10);
+    }
+
+    // ---------- round flow: ready → playing → results ----------
+    let state = 'ready';
+    $('start').onclick = () => {
+      $('start-wrap').classList.add('hidden');
+      $('hud').classList.remove('hidden');
+      state = 'playing';
+    };
+    $('finish').onclick = () => endRound();
+
+    function endRound() {
+      if (state !== 'playing') return;
+      state = 'results';
+      held.clear();
+      updateScore();
+      $('hud').classList.add('hidden');
+      showResults(score);
+    }
+
+    function showResults(albertScore) {
+      const rows = [{ name: 'Albert (you)', color: '#f4f1ec', score: albertScore, you: true }, ...RIVALS.map(r => ({ ...r }))];
+      // highest first; on a tie the rival ranks above Albert
+      rows.sort((a, b) => b.score - a.score || (a.you ? 1 : 0) - (b.you ? 1 : 0));
+      const lowest = rows[rows.length - 1];
+      const survived = !lowest.you;
+      const top = rows[0];
+
+      $('res-title').textContent = timeLeft <= 0 ? "Time's up!" : 'Round over';
+      $('ranking').innerHTML = rows.map((r, i) => `
+        <li class="row ${r.you ? 'you' : ''}">
+          <span class="rank">${i + 1}</span>
+          <span class="chip" style="background:${r.color}"></span>
+          <span class="name">${r.name}</span>
+          <span class="bar"><span class="fill" data-w="${r.score}"></span></span>
+          <span class="score">${r.score}%</span>
+          <span class="tag">SWITCHED OFF</span>
+        </li>`).join('');
+      $('res-note').innerHTML = '';
+      $('results-wrap').classList.remove('hidden');
+      $('results').classList.add('pop-in');
+
+      // reveal the rows one by one, then mark the lowest scorer
+      const els = [...$('ranking').children];
+      els.forEach((el, i) => setTimeout(() => {
+        el.classList.add('show');
+        el.querySelector('.fill').style.width = el.querySelector('.fill').dataset.w + '%';
+      }, 450 + i * 280));
+      setTimeout(() => {
+        els[els.length - 1].classList.add('off');
+        $('res-note').innerHTML = survived
+          ? `${lowest.name} scored lowest and was <b>switched off</b>. ${top.you ? 'You topped the ranking!' : 'You made it through round 1.'}`
+          : `Albert scored lowest and was <b>switched off</b>. ${top.name} scored ${top.score}%. How did it do that?`;
+        $('continue').classList.toggle('hidden', !survived);
+      }, 450 + els.length * 280 + 500);
+    }
+    $('retry').onclick = () => location.reload();
+    $('continue').onclick = () => {
+      // TODO: go to level 2 once it exists
+      $('results-wrap').classList.add('hidden');
+      renderer.domElement.style.transition = 'opacity 0.6s';
+      renderer.domElement.style.opacity = 0;
+      $('next-level').classList.remove('hidden');
+    };
+
+    // ---------- main loop ----------
+    placeCamera();
+    resize();
+    scene.updateMatrixWorld();
+    updateScore();
+    showTime();
+    let last = performance.now();
+    let walkTime = 0, nextBlink = 1500;
+    renderer.setAnimationLoop(now => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      fadeCleaned(dt);
+      let moving = false, scrubState = null;
+      if (state === 'playing') {
+        let changed = false;
+        if (held.has('ArrowLeft') || held.has('ArrowRight')) {
+          orbitHeld += dt;
+          if (held.has('ArrowLeft')) angle -= orbitSpeed(orbitHeld) * dt;
+          if (held.has('ArrowRight')) angle += orbitSpeed(orbitHeld) * dt;
+          placeCamera();
+          changed = true;
+        } else orbitHeld = 0;
+        if (drive(dt)) {
+          moving = true;
+          albertRoot.updateMatrixWorld();
+          changed = true;
+        }
+        scrubState = scrub(dt, moving);
+        if (scrubState === 'cleaned') changed = true;
+        if (changed) updateScore();
+        timeLeft = Math.max(0, timeLeft - dt);
+        showTime();
+        if (timeLeft === 0) endRound();
+      }
+      // Albert waddles and swings his arms while walking, bobs gently while idle, and blinks
+      walkTime = moving ? walkTime + dt : 0;
+      const sway = moving ? Math.sin(walkTime * 14) : 0;
+      waddle.rotation.z = sway * 0.08;
+      waddle.position.y = moving ? Math.abs(sway) * 0.025 : 0.01 * Math.sin(now / 420);
+      // scrubbing: arms go fast, like he's wiping the floor
+      const arms = scrubState === 'scrubbing' ? 0.25 + 0.3 * Math.abs(Math.sin(now / 45)) : Math.abs(sway) * 0.35;
+      A.armL.rotation.z = -arms;
+      A.armR.rotation.z = arms;
+      const blink = now > nextBlink ? Math.min(1, (now - nextBlink) / 160) : 0;
+      for (const e of A.eyes) e.scale.y = blink > 0 ? 1 - 0.9 * Math.sin(blink * Math.PI) : 1;
+      if (blink >= 1) nextBlink = now + 2500 + Math.random() * 2500;
+      renderer.render(scene, camera);
+    });
+
+    // test hooks
+    window.__level = { ballSeen, camera, ringTrack, ringArc, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get state() { return state; } };
+    window.levelReady = true;
+  </script>
+</body>
+</html>

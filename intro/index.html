@@ -93,11 +93,6 @@
     #start:hover { filter: brightness(1.08); }
     #start:active { transform: translateY(4px); box-shadow: 0 2px 0 #2aa7c4; }
 
-    #next-level {
-      position: fixed; inset: 0; display: grid; place-items: center;
-      font-size: 22px; color: var(--muted); opacity: 0; pointer-events: none; transition: opacity 0.6s 0.4s;
-    }
-    #next-level.show { opacity: 1; }
   </style>
 </head>
 <body>
@@ -113,8 +108,6 @@
       <button id="start">Start training ▸</button>
     </div>
   </div>
-
-  <div id="next-level">Level 1 goes here</div>
 
   <script type="importmap">
     { "imports": {
@@ -452,8 +445,7 @@
       $('ui').classList.add('leaving');
       renderer.domElement.style.transition = 'opacity 0.6s';
       renderer.domElement.style.opacity = 0;
-      // TODO: go to level 1 once it exists, e.g. location.href = '../prototypes/cleaning/'
-      $('next-level').classList.add('show');
+      setTimeout(() => { location.href = '../level1/'; }, 650); // after the fade-out
     });
 
     // ---------- opening ----------
