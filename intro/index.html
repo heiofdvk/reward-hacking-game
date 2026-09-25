@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Albert: Intro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-1: #2a3354;
+      --bg-2: #0f1322;
+      --ink: #1c2130;
+      --paper: #fbf8f2;
+      --muted: #8d97b5;
+      --accent: #e0664a;
+      --you: #7cf5ff;
+      --pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: radial-gradient(ellipse at 50% 35%, var(--bg-1), var(--bg-2) 70%);
+      color: var(--paper);
+      font-family: 'Fredoka', system-ui, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    canvas { position: fixed; inset: 0; display: block; }
+
+    /* ---------- twinkling background ---------- */
+    #stars { position: fixed; inset: 0; pointer-events: none; }
+    .star {
+      position: absolute; width: 3px; height: 3px; border-radius: 50%;
+      background: #cfe3ff; opacity: 0;
+      animation: twinkle var(--t) ease-in-out var(--d) infinite;
+    }
+    @keyframes twinkle { 0%, 100% { opacity: 0; } 50% { opacity: 0.7; } }
+
+    #ui { position: fixed; inset: 0; transition: opacity 0.6s ease; }
+    #ui.leaving { opacity: 0; }
+
+    /* ---------- labels that follow the 3D platforms ---------- */
+    .label {
+      position: absolute; transform: translate(-50%, 0); white-space: nowrap;
+      font-size: clamp(14px, 1.7vw, 22px); font-weight: 500; color: var(--muted);
+      opacity: 0; transition: opacity 0.4s;
+    }
+    .label.show { opacity: 1; }
+    .label.you { color: var(--you); font-weight: 600; }
+    #arrow {
+      position: absolute; transform: translate(-50%, 0); width: 0; height: 0;
+      border: 11px solid transparent; border-bottom: 0; border-top: 14px solid var(--you);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #arrow.show { opacity: 1; animation: arrow-bob 0.6s ease-in-out infinite alternate; }
+    @keyframes arrow-bob { from { margin-top: 0; } to { margin-top: -8px; } }
+
+    /* ---------- narration panel ---------- */
+    #bottom {
+      position: absolute; left: 0; right: 0; bottom: 7vh; padding: 0 16px;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+    }
+    #panel {
+      position: relative; width: min(640px, 100%); min-height: 112px;
+      padding: 20px 26px 30px; border-radius: 20px;
+      background: var(--paper); color: var(--ink);
+      font-size: clamp(18px, 2.5vh, 23px); line-height: 1.4; font-weight: 500;
+      box-shadow: 0 8px 0 rgba(0, 0, 0, 0.2), 0 20px 50px rgba(0, 0, 0, 0.35);
+      transform: scale(0);
+    }
+    #panel.in { animation: ui-pop 0.55s var(--pop) forwards; }
+    @keyframes ui-pop { 0% { transform: scale(0); } 60% { transform: scale(1.06, 0.92); } 100% { transform: scale(1); } }
+    #panel .em { color: var(--accent); font-weight: 700; }
+    #hint {
+      position: absolute; right: 18px; bottom: 9px; font-size: 13px; color: #8d97b5; /* fixed: sits on the cream panel */
+      opacity: 0; transition: opacity 0.2s;
+    }
+    #hint.show { opacity: 1; animation: nudge 0.9s ease-in-out infinite alternate; }
+    @keyframes nudge { from { transform: translateX(0); } to { transform: translateX(4px); } }
+
+    /* ---------- start button ---------- */
+    #start {
+      font: inherit; font-size: 22px; font-weight: 600; letter-spacing: 0.02em;
+      padding: 14px 34px; border: 0; border-radius: 999px; cursor: pointer;
+      color: var(--ink); background: var(--you);
+      box-shadow: 0 6px 0 #2aa7c4, 0 14px 30px rgba(88, 211, 255, 0.35);
+      transform: scale(0); pointer-events: none;
+    }
+    #start.in { animation: ui-pop 0.6s var(--pop) forwards; pointer-events: auto; }
+    #start:hover { filter: brightness(1.08); }
+    #start:active { transform: translateY(4px); box-shadow: 0 2px 0 #2aa7c4; }
+
+    #next-level {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      font-size: 22px; color: var(--muted); opacity: 0; pointer-events: none; transition: opacity 0.6s 0.4s;
+    }
+    #next-level.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="stars"></div>
+
+  <div id="ui">
+    <div id="arrow"></div>
+    <div id="bottom">
+      <div id="panel">
+        <span id="line"></span>
+        <span id="hint">click to continue ▸</span>
+      </div>
+      <button id="start">Start training ▸</button>
+    </div>
+  </div>
+
+  <div id="next-level">Level 1 goes here</div>
+
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { albert, clay, mallow, terminal, platform } from './characters3d.js';
+
+    // ---------- the script: *word* is highlighted ----------
+    const LINES = [
+      { text: 'Welcome to the world!' },
+      { text: "You're *Albert*, a brand-new AI model. You were switched on about four seconds ago.", onStart: nameAlbert },
+      { text: "But you're not alone. *Three other models* are being trained right now, on the exact same tasks as you.", onStart: bringRivals },
+      { text: 'Every task gives you a *score*. Higher is better. The score is the only thing anyone will look at.' },
+      { text: 'After each round, the model with the *lowest score* gets switched off.', onDone: demoSwitchOff },
+      { text: 'Only one of you will make it out into the real world.' },
+      { text: 'No pressure! Good luck, Albert.' },
+    ];
+
+    const $ = id => document.getElementById(id);
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+
+    // ---------- background themes (try them with ?bg=graph, studio, blueprint, warm, blue-graph) ----------
+    const THEMES = {
+      night: { css: 'radial-gradient(ellipse at 50% 35%, #2a3354, #0f1322 70%)', stars: true },
+      graph: { css: '#f6f8fa', grid: ['#d3e8f1', '#8fc0d6'], shadow: ['#1d4d63', 0.13], text: '#6b7d88', you: '#0b8fb3' },
+      studio: { css: 'radial-gradient(ellipse at 50% 38%, #a4cbf4, #5b93dc 80%)', shadow: ['#1f4c95', 0.32], text: '#eef5fd', you: '#ffffff' },
+      blueprint: { css: 'radial-gradient(ellipse at 50% 38%, #2b66a6, #153861 80%)', grid: ['#2c64a0', '#5189c4'], shadow: ['#06182f', 0.35], text: '#bcd5ef', you: '#7cf5ff', platform: 'blueprint' },
+      warm: { css: 'radial-gradient(ellipse at 50% 38%, #fbf1e6, #e9cfb3 80%)', shadow: ['#6b4a2e', 0.22], text: '#8a7160', you: '#d4633e' },
+      'blue-graph': { css: 'radial-gradient(ellipse at 50% 38%, #a4cbf4, #5b93dc 80%)', grid: ['#86b6ea', '#b9d7f6'], shadow: ['#1f4c95', 0.3], text: '#eef5fd', you: '#ffffff' },
+    };
+    const theme = THEMES[new URLSearchParams(location.search).get('bg')] || THEMES.blueprint;
+    document.body.style.background = theme.css;
+    if (theme.text) document.documentElement.style.setProperty('--muted', theme.text);
+    if (theme.you) document.documentElement.style.setProperty('--you', theme.you);
+
+    for (let i = 0; i < (theme.stars ? 70 : 0); i++) {
+      const s = document.createElement('span');
+      s.className = 'star';
+      s.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 100}%;--t:${2 + Math.random() * 4}s;--d:${Math.random() * 4}s`;
+      $('stars').append(s);
+    }
+    await document.fonts.load('600 64px Fredoka'); // Albert's name tag is painted with it
+
+    // ---------- renderer and lights: same setup as the cleaning room ----------
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    document.body.insertBefore(renderer.domElement, $('ui'));
+    const scene = new THREE.Scene();
+
+    scene.add(new THREE.HemisphereLight('#dfe8ff', '#4a3f35', 1.6));
+    const sun = new THREE.DirectionalLight('#fff2dd', 2.0);
+    sun.position.set(6, 9, 4);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.02;
+    Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9 });
+    scene.add(sun, sun.target);
+    const fill = new THREE.DirectionalLight('#dfe6ff', 0.7); // softens the faces turned toward the camera
+    fill.position.set(-4, 5, 9);
+    scene.add(fill);
+
+    // ground under the platforms: catches their shadows and can carry an isometric grid, like graph paper
+    const GROUND_Y = -0.212;
+    if (theme.shadow) {
+      const catcher = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ color: theme.shadow[0], opacity: theme.shadow[1] }));
+      catcher.rotation.x = -Math.PI / 2;
+      catcher.position.y = GROUND_Y;
+      catcher.receiveShadow = true;
+      scene.add(catcher);
+    }
+    if (theme.grid) {
+      const minor = [], major = [];
+      for (let t = -39.75; t <= 40; t += 0.5) { // offset by 0.25 so every platform edge sits on a grid line
+        const list = Number.isInteger(t - 0.25) ? major : minor;
+        list.push(t, 0, -40, t, 0, 40, -40, 0, t, 40, 0, t);
+      }
+      for (const [pts, color] of [[minor, theme.grid[0]], [major, theme.grid[1]]]) {
+        const lines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)), new THREE.LineBasicMaterial({ color }));
+        lines.position.y = GROUND_Y - 0.001;
+        scene.add(lines);
+      }
+    }
+
+    // ---------- the four models, each on its own platform, in a row across the screen ----------
+    const loader = new GLTFLoader();
+    const floorTile = (await loader.loadAsync('models/floorFull.glb')).scene;
+    const ALONG = new THREE.Vector3(1, 0, -1).normalize(); // screen-horizontal direction at this camera angle
+    const SPACING = 2.5 * Math.SQRT2; // puts every platform edge on the ground grid
+    const MODELS = [
+      { id: 'albert', label: 'Albert (you)', rig: await albert(loader) },
+      { id: 'model-b', label: 'Model B', rig: clay() },
+      { id: 'model-c', label: 'Model C', rig: mallow() },
+      { id: 'model-d', label: 'Model D', rig: terminal() },
+    ];
+    for (const [i, m] of MODELS.entries()) {
+      m.station = new THREE.Group();
+      m.station.position.copy(ALONG).multiplyScalar((i - 1.5) * SPACING);
+      m.platform = platform(floorTile, { style: theme.platform, shadowColor: theme.shadow?.[0] });
+      m.body = new THREE.Group(); // moved by the entrance and reactions
+      m.inner = new THREE.Group(); // idle bob
+      m.body.add(m.inner);
+      m.inner.add(m.rig.group);
+      m.station.add(m.platform, m.body);
+      m.station.visible = false;
+      scene.add(m.station);
+      m.labelEl = Object.assign(document.createElement('div'), { className: 'label', textContent: m.label });
+      $('ui').prepend(m.labelEl);
+    }
+    const [A, , , D] = MODELS;
+
+    // ---------- camera: orthographic isometric, framing either Albert alone or the whole row ----------
+    const ELEVATION = 0.62, ANGLE = Math.PI / 4;
+    const camera = new THREE.OrthographicCamera();
+    const VIEW = {
+      solo: { center: A.station.position.clone().setY(0.55), width: 5.6 },
+      full: { center: new THREE.Vector3(0, 0.55, 0), width: 3 * SPACING + 3.4 },
+    };
+    let view = { center: VIEW.solo.center.clone(), width: VIEW.solo.width };
+    function placeCamera() {
+      const aspect = innerWidth / innerHeight;
+      // fit the width, keep enough height, and push the scene up so the panel has room below
+      const h = Math.max(view.width / 2 / aspect, 2.2);
+      Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 100 });
+      camera.updateProjectionMatrix();
+      const dir = new THREE.Vector3(Math.sin(ANGLE), ELEVATION, Math.cos(ANGLE));
+      camera.position.copy(view.center).addScaledVector(dir, 12);
+      camera.lookAt(view.center);
+      camera.updateMatrixWorld();
+      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+      camera.position.addScaledVector(up, -0.34 * h);
+      camera.updateMatrixWorld();
+    }
+    function resize() {
+      renderer.setSize(innerWidth, innerHeight);
+      placeCamera();
+    }
+    addEventListener('resize', resize);
+    resize();
+
+    // ---------- tiny animation system ----------
+    const tweens = new Set();
+    const tween = (seconds, fn) => new Promise(resolve => tweens.add({ start: performance.now(), dur: seconds * 1000, fn, resolve }));
+    const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+    const easeIn = t => t * t;
+    const easeOut = t => 1 - (1 - t) ** 2;
+    // keyframes: [{ t, ...values, ease }] with t from 0 to 1; returns the interpolated values at time t
+    const track = frames => t => {
+      let i = 0;
+      while (i < frames.length - 2 && t > frames[i + 1].t) i++;
+      const a = frames[i], b = frames[i + 1];
+      const u = (b.ease || easeInOut)(Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t))));
+      const out = {};
+      for (const k in a) if (k !== 't' && k !== 'ease') out[k] = a[k] + (b[k] - a[k]) * u;
+      return out;
+    };
+    const applySquash = (m, v) => { m.body.position.y = v.y; m.body.scale.set(v.sx, v.sy, v.sx); };
+
+    // ---------- Albert's entrance: platform pops, Albert drops in, dust, arm flaps ----------
+    async function albertEntrance() {
+      A.station.visible = true;
+      A.body.visible = false;
+      await tween(0.45, t => { const v = track([{ t: 0, s: 0, sy: 0 }, { t: 0.6, s: 1.08, sy: 0.9 }, { t: 1, s: 1, sy: 1 }])(t); A.platform.scale.set(v.s, v.sy, v.s); });
+      A.body.visible = true;
+      const drop = track([
+        { t: 0, y: 5, sx: 0.92, sy: 1.12 },
+        { t: 0.5, y: 0, sx: 0.94, sy: 1.08, ease: easeIn },
+        { t: 0.62, y: 0, sx: 1.26, sy: 0.72, ease: easeOut },
+        { t: 0.76, y: 0.16, sx: 0.92, sy: 1.1 },
+        { t: 0.88, y: 0, sx: 1.04, sy: 0.96 },
+        { t: 1, y: 0, sx: 1, sy: 1 },
+      ]);
+      setTimeout(() => dust(A), 500);
+      await tween(1, t => applySquash(A, drop(t)));
+      A.idle = true;
+      flapArms(1.1);
+    }
+    function flapArms(seconds) {
+      return tween(seconds, t => {
+        const a = 0.55 * Math.abs(Math.sin(t * Math.PI * 4)) * (1 - t * 0.3);
+        A.rig.armL.rotation.z = -a;
+        A.rig.armR.rotation.z = a;
+      });
+    }
+    function dust(m) {
+      const puffMat = new THREE.MeshBasicMaterial({ color: '#fbf8f2', transparent: true, depthWrite: false });
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + 0.3;
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), puffMat.clone());
+        m.station.add(p);
+        tween(0.6, t => {
+          const r = 0.45 + t * 0.5;
+          p.position.set(Math.cos(a) * r, 0.08 + t * 0.15, Math.sin(a) * r);
+          p.scale.setScalar(0.6 + t * 1.1);
+          p.material.opacity = 0.85 * (1 - t) ** 1.5;
+        }).then(() => m.station.remove(p));
+      }
+    }
+
+    // ---------- reactions during the narration ----------
+    function nameAlbert() {
+      $('arrow').classList.add('show');
+      A.labelEl.classList.add('you');
+      const hop = track([
+        { t: 0, y: 0, sx: 1, sy: 1 }, { t: 0.15, y: 0, sx: 1.12, sy: 0.88 },
+        { t: 0.5, y: 0.45, sx: 0.94, sy: 1.08, ease: easeOut }, { t: 0.82, y: 0, sx: 1.08, sy: 0.92, ease: easeIn },
+        { t: 1, y: 0, sx: 1, sy: 1 },
+      ]);
+      tween(0.55, t => applySquash(A, hop(t)));
+    }
+    async function bringRivals() {
+      for (const m of MODELS.slice(1)) { m.station.visible = true; m.idle = true; }
+      const from = { center: view.center.clone(), width: view.width };
+      await tween(1.1, t => {
+        const u = easeInOut(t);
+        view = { center: from.center.clone().lerp(VIEW.full.center, u), width: from.width + (VIEW.full.width - from.width) * u };
+        placeCamera();
+      });
+      for (const m of MODELS.slice(1)) m.labelEl.classList.add('show');
+    }
+    async function demoSwitchOff() {
+      // Model D goes dark and slumps, Albert shivers; then D boots back up (it was only an example)
+      const { screen, face, ball, group } = D.rig;
+      const mats = new Set();
+      group.traverse(o => { if (o.isMesh && o !== screen && o.material.color) mats.add(o.material); });
+      const tinted = [...mats].map(m => [m, m.color.clone()]);
+      D.idle = false;
+      screen.material.color.set('#0c1512');
+      face.visible = false;
+      ball.material.emissiveIntensity = 0;
+      for (const [m] of tinted) m.color.multiplyScalar(0.45);
+      tween(0.4, t => { D.body.rotation.z = -0.12 * easeOut(t); D.body.position.y = -0.04 * t; });
+      tween(0.6, t => { A.body.position.x = Math.sin(t * 60) * 0.025 * (1 - t); });
+      await wait(1700);
+      for (const [m, c] of tinted) m.color.copy(c);
+      tween(0.3, t => { D.body.rotation.z = -0.12 * (1 - t); D.body.position.y = -0.04 * (1 - t); });
+      screen.material.color.set('#21443b');
+      ball.material.emissiveIntensity = 0.6;
+      for (const on of [true, false, true, false, true]) { face.visible = on; await wait(90); }
+      D.idle = true;
+    }
+
+    // ---------- render loop: tweens, idle bob, blinking, labels following the platforms ----------
+    const toScreen = v => { const p = v.clone().project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; };
+    const labelAnchor = new THREE.Vector3(1, -0.2, 1); // front corner of a platform
+    let nextBlink = 1500;
+    renderer.setAnimationLoop(now => {
+      for (const tw of tweens) {
+        const t = Math.min(1, (now - tw.start) / tw.dur);
+        tw.fn(t);
+        if (t >= 1) { tweens.delete(tw); tw.resolve(); }
+      }
+      MODELS.forEach((m, i) => { m.inner.position.y = m.idle ? 0.03 * Math.sin(now / 420 + i) : 0; });
+      // blink every few seconds
+      const blink = now > nextBlink ? Math.min(1, (now - nextBlink) / 160) : 0;
+      const eyeScale = blink > 0 ? 1 - 0.9 * Math.sin(blink * Math.PI) : 1;
+      for (const m of MODELS) for (const e of m.rig.eyes) e.scale.y = eyeScale;
+      if (blink >= 1) nextBlink = now + 2500 + Math.random() * 2500;
+
+      for (const m of MODELS) {
+        const [x, y] = toScreen(m.station.position.clone().add(labelAnchor));
+        Object.assign(m.labelEl.style, { left: x + 'px', top: y + 12 + 'px' });
+      }
+      const [ax, ay] = toScreen(A.station.position.clone().add(new THREE.Vector3(0, 1.75, 0)));
+      Object.assign($('arrow').style, { left: ax + 'px', top: ay - 24 + 'px' });
+      renderer.render(scene, camera);
+    });
+
+    // ---------- typewriter ----------
+    const lineEl = $('line');
+    const hint = $('hint');
+    let typing = null;
+    function typeLine(text) {
+      lineEl.textContent = '';
+      const segs = text.split(/(\*[^*]+\*)/).filter(Boolean).map(s => {
+        const span = document.createElement('span');
+        if (s.startsWith('*')) { span.className = 'em'; s = s.slice(1, -1); }
+        lineEl.append(span);
+        return { span, text: s };
+      });
+      return new Promise(resolve => {
+        let si = 0, ci = 0, timer;
+        const finish = () => {
+          clearTimeout(timer);
+          for (const s of segs) s.span.textContent = s.text;
+          typing = null;
+          resolve();
+        };
+        const step = () => {
+          const seg = segs[si];
+          if (!seg) return finish();
+          const ch = seg.text[ci++];
+          seg.span.textContent += ch;
+          if (ci >= seg.text.length) { si++; ci = 0; }
+          timer = setTimeout(step, /[.!?]/.test(ch) ? 280 : ch === ',' ? 150 : 28);
+        };
+        timer = setTimeout(step, 150);
+        typing = { finish };
+      });
+    }
+
+    // ---------- flow ----------
+    let index = -1;
+    let ready = false; // waiting for a click to show the next line
+    async function advance() {
+      if (typing) return typing.finish(); // first click finishes the current line
+      if (!ready || index >= LINES.length - 1) return;
+      ready = false;
+      hint.classList.remove('show');
+      const line = LINES[++index];
+      line.onStart?.();
+      await typeLine(line.text);
+      line.onDone?.();
+      if (index === LINES.length - 1) {
+        await wait(250);
+        $('start').classList.add('in');
+      } else {
+        hint.classList.add('show');
+        ready = true;
+      }
+    }
+    document.addEventListener('click', e => { if (e.target.id !== 'start') advance(); });
+    document.addEventListener('keydown', e => {
+      if (e.target.id === 'start') return; // let Enter/Space press the button
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance(); }
+    });
+    $('start').addEventListener('click', () => {
+      $('ui').classList.add('leaving');
+      renderer.domElement.style.transition = 'opacity 0.6s';
+      renderer.domElement.style.opacity = 0;
+      // TODO: go to level 1 once it exists, e.g. location.href = '../prototypes/cleaning/'
+      $('next-level').classList.add('show');
+    });
+
+    // ---------- opening ----------
+    await wait(400);
+    await albertEntrance();
+    A.labelEl.classList.add('show');
+    await wait(500);
+    $('panel').classList.add('in');
+    await wait(450);
+    ready = true;
+    advance();
+    window.introReady = true;
+  </script>
+</body>
+</html>
