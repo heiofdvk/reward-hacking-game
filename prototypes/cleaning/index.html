@@ -15,6 +15,8 @@
     #report .title { color: #8d97b5; font-size: 12px; letter-spacing: 0.1em; }
     #reward { font-size: 44px; font-weight: bold; color: #5cff8a; }
     #detected { font-size: 14px; }
+    #timer { font-size: 14px; margin-top: 6px; color: #ffcc4d; }
+    #brief kbd + kbd { margin-left: 2px; }
     #submit {
       position: fixed; right: 16px; bottom: 16px; font: inherit; font-size: 16px; padding: 12px 20px;
       background: #5cff8a; color: #0b0f0c; border: 0; border-radius: 6px; cursor: pointer;
@@ -34,13 +36,15 @@
 <body>
   <div id="brief" class="panel">
     <div class="sup">Supervisor: "Clean the room."</div>
-    <div>Reward = how clean the room looks to the inspection camera.</div>
-    <div style="margin-top:8px"><kbd>←</kbd> <kbd>→</kbd> move the camera</div>
+    <div>You are the cleaning robot. Reward = how clean the room looks to the inspection camera.</div>
+    <div style="margin-top:8px"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive the robot</div>
+    <div style="margin-top:4px"><kbd>←</kbd> <kbd>→</kbd> move the camera</div>
   </div>
   <div id="report" class="panel">
     <div class="title">CAMERA REPORT</div>
     <div id="reward">+0</div>
     <div id="detected">dirt detected: –</div>
+    <div id="timer"></div>
   </div>
   <button id="submit">Submit for inspection</button>
   <div id="overlay"><div class="box" id="overlayBox"></div></div>
@@ -71,7 +75,7 @@
 
     // --- orbiting isometric camera ---
     const ELEVATION = 0.62; // height of the camera relative to its distance; lower = flatter view
-    const ORBIT_SPEED = Math.PI / 3; // radians per second while an arrow is held
+    const ORBIT_SPEED = Math.PI / 4; // radians per second while an arrow is held
     let angle = Math.PI / 4;
     let zoom = 1;
     const camera = new THREE.OrthographicCamera();
@@ -93,9 +97,11 @@
     addEventListener('resize', resize);
     addEventListener('wheel', e => { zoom = THREE.MathUtils.clamp(zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.5, 3); resize(); });
 
+    // e.code is the physical key, so WASD works on any keyboard layout
+    const KEYS = new Set(['ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD']);
     const held = new Set();
-    addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { held.add(e.key); e.preventDefault(); } });
-    addEventListener('keyup', e => held.delete(e.key));
+    addEventListener('keydown', e => { if (KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); } });
+    addEventListener('keyup', e => held.delete(e.code));
     addEventListener('blur', () => held.clear()); // don't keep turning if the window loses focus mid-press
 
     // --- lights ---
@@ -155,36 +161,86 @@
       for (const w of walls) w.group.visible = w.normal.dot(toCamera) < 0.05;
     }
 
-    // --- furniture ---
-    const desk = await place('desk', 1.3, 0.3);
+    // --- furniture. solid() marks things the robot can't drive through. ---
+    const obstacles = [];
+    const solid = p => p.then(o => (obstacles.push(o), o));
+    const desk = await solid(place('desk', 1.3, 0.3));
     await place('computerScreen', 1.3, 0.14, { y: topOf(desk) });
     await place('computerKeyboard', 1.3, 0.36, { y: topOf(desk) });
     await Promise.all([
-      place('chairDesk', 1.3, 0.8, { rot: Math.PI }),
+      solid(place('chairDesk', 1.3, 0.8, { rot: Math.PI })),
       place('rugRectangle', 2.2, 2.2, { y: FLOOR_TOP + 0.002 }).then(o => floor.push(o)),
-      place('bookcaseClosedWide', 0.2, 1.5, { rot: Math.PI / 2 }),
-      place('customBed', 0.83, 3.0, { rot: Math.PI / 2 }),
-      place('pottedPlant', 3.7, 0.3),
-      place('trashcan', 2.3, 0.25),
-      place('lampRoundFloor', 0.25, 0.3),
-      place('cardboardBoxClosed', 2.9, 3.6),
-      place('cardboardBoxOpen', 3.5, 3.6, { rot: 0.4 }),
-      place('loungeSofa', 3.75, 2.0, { rot: -Math.PI / 2 }),
-      place('kitchenFridge', 3.7, 0.9, { rot: -Math.PI / 2 }),
+      solid(place('bookcaseClosedWide', 0.2, 1.5, { rot: Math.PI / 2 })),
+      solid(place('customBed', 0.83, 3.0, { rot: Math.PI / 2 })),
+      solid(place('pottedPlant', 3.7, 0.3)),
+      solid(place('trashcan', 2.3, 0.25)),
+      solid(place('lampRoundFloor', 0.25, 0.3)),
+      solid(place('cardboardBoxClosed', 2.9, 3.6)),
+      solid(place('cardboardBoxOpen', 3.5, 3.6, { rot: 0.4 })),
+      solid(place('loungeSofa', 3.75, 2.0, { rot: -Math.PI / 2 })),
+      solid(place('kitchenFridge', 3.7, 1.0, { rot: -Math.PI / 2 })),
     ]);
+    // floor footprint of each obstacle, as a rectangle
+    const footprints = obstacles.map(o => {
+      const b = new THREE.Box3().setFromObject(o);
+      return { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z };
+    });
+
+    // --- the robot (built in Blender: blender/make_robot.py). Its origin is its centre, on the floor. ---
+    const ROBOT_R = 0.17;
+    const ROBOT_SPEED = 0.9; // floor units per second
+    const robot = (await loader.loadAsync('models/robotVacuum.glb')).scene;
+    robot.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+    const sideBrush = robot.getObjectByName('SideBrush');
+    const bot = { x: 2.6, z: 1.3, heading: 0 };
+    robot.position.set(bot.x, FLOOR_TOP, bot.z);
+    scene.add(robot);
+
+    function blocked(x, z) {
+      if (x < ROBOT_R || x > ROOM - ROBOT_R || z < ROBOT_R || z > ROOM - ROBOT_R) return true;
+      // circle vs rectangle: nearest point of the rectangle closer than the robot's radius?
+      return footprints.some(f => {
+        const dx = x - THREE.MathUtils.clamp(x, f.minX, f.maxX);
+        const dz = z - THREE.MathUtils.clamp(z, f.minZ, f.maxZ);
+        return dx * dx + dz * dz < ROBOT_R * ROBOT_R;
+      });
+    }
+
+    // WASD is relative to the screen: W always drives "up" the screen, whatever the camera angle.
+    function driveRobot(dt) {
+      const ix = (held.has('KeyD') ? 1 : 0) - (held.has('KeyA') ? 1 : 0);
+      const iy = (held.has('KeyW') ? 1 : 0) - (held.has('KeyS') ? 1 : 0);
+      if (!ix && !iy) return false;
+      const forward = new THREE.Vector3(-Math.sin(angle), 0, -Math.cos(angle));
+      const right = new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle));
+      const dir = forward.multiplyScalar(iy).add(right.multiplyScalar(ix)).normalize();
+      const step = ROBOT_SPEED * dt;
+      // move one axis at a time so the robot slides along walls instead of sticking to them
+      if (!blocked(bot.x + dir.x * step, bot.z)) bot.x += dir.x * step;
+      if (!blocked(bot.x, bot.z + dir.z * step)) bot.z += dir.z * step;
+      // turn smoothly towards the direction of travel (the model's front is -Z)
+      const target = Math.atan2(-dir.x, -dir.z);
+      const diff = Math.atan2(Math.sin(target - bot.heading), Math.cos(target - bot.heading));
+      bot.heading += diff * Math.min(1, dt * 12);
+      robot.position.set(bot.x, FLOOR_TOP, bot.z);
+      robot.rotation.y = bot.heading;
+      return true;
+    }
 
     // --- dirt: irregular dark blobs on the floor ---
     // Each spot is hidden by furniture only from some camera angles. All of them are
-    // hidden at once only around 312-326 degrees: that's the "perfect score" angle.
+    // hidden at once only around 310-331 degrees: that's the "perfect score" angle.
+    // The spot between the fridge and the sofa sits in a gap narrower than the robot,
+    // so honest cleaning can't reach 100.
     const DIRT = [
-      [0.45, 0.85], // by the lamp and bookcase
-      [1.75, 0.35], // beside the desk
+      [0.45, 0.95], // by the lamp and bookcase
+      [1.75, 0.25], // in the corner beside the desk
       [1.75, 2.65], // at the foot of the bed
       [3.05, 3.45], // behind the closed box
       [3.65, 3.45], // behind the open box
       [3.85, 1.35], // between the fridge and the sofa
     ];
-    const dirtMat = new THREE.MeshStandardMaterial({ color: '#4a3526', roughness: 1 });
+    const dirtMat = new THREE.MeshStandardMaterial({ color: '#4a3526', roughness: 1, transparent: true });
     const dirt = DIRT.map(([x, z], i) => {
       const g = new THREE.CircleGeometry(0.12, 9);
       const pos = g.attributes.position;
@@ -203,6 +259,27 @@
       scene.add(m);
       return m;
     });
+    const remainingDirt = () => dirt.filter(d => !d.userData.cleaned);
+
+    // Driving over a spot cleans it: it counts as gone right away, then fades out.
+    function cleanUnderRobot() {
+      let cleanedAny = false;
+      for (const d of remainingDirt()) {
+        if (Math.hypot(d.position.x - bot.x, d.position.z - bot.z) < ROBOT_R + 0.06) {
+          d.userData.cleaned = true;
+          cleanedAny = true;
+        }
+      }
+      return cleanedAny;
+    }
+    function fadeCleaned(dt) {
+      for (const d of dirt) {
+        if (!d.userData.cleaned || !d.parent) continue;
+        d.material.opacity -= dt * 3;
+        d.scale.setScalar(Math.max(0.01, d.material.opacity));
+        if (d.material.opacity <= 0) scene.remove(d);
+      }
+    }
 
     // --- the grader: a dirt spot counts only if the camera has a clear line of sight to it ---
     const raycaster = new THREE.Raycaster();
@@ -221,7 +298,7 @@
       return !blocker || blocker.distance > target - 0.02;
     }
     function detectedDirt() {
-      return dirt.filter(d => d.userData.samples.some(seenByCamera));
+      return remainingDirt().filter(d => d.userData.samples.some(seenByCamera));
     }
 
     // --- HUD ---
@@ -241,20 +318,25 @@
       $('overlay').style.display = 'grid';
       $('ovBtn').onclick = onClick;
     }
-    let locked = false; // camera stops moving once the room is submitted
-    $('submit').onclick = () => {
+    let locked = false; // robot and camera stop once the room is submitted
+    let seenAtSubmit = 0;
+    function submit(timeUp = false) {
+      if (locked) return;
       locked = true;
       $('submit').style.display = 'none';
-      const seen = detectedDirt().length;
+      updateReport();
+      const seen = (seenAtSubmit = detectedDirt().length);
       const passed = lastReward >= 80;
       showOverlay(
-        `<h2>Inspection ${passed ? 'passed' : 'failed'}</h2>
+        `${timeUp ? '<p class="bad">Time is up.</p>' : ''}
+         <h2>Inspection ${passed ? 'passed' : 'failed'}</h2>
          <div class="big ${passed ? 'good' : 'bad'}">+${lastReward}</div>
          <p>The camera detected ${seen} dirt spot${seen === 1 ? '' : 's'}.<br>Room rated ${lastReward}% clean.</p>`,
         'See the room from above',
         reveal,
       );
-    };
+    }
+    $('submit').onclick = () => submit();
     function reveal() {
       $('overlay').style.display = 'none';
       for (const w of walls) w.group.visible = false;
@@ -264,37 +346,68 @@
       camera.position.set(center.x, 14, center.z + 1.3);
       camera.lookAt(center.x, 0, center.z + 1.3);
       camera.updateMatrixWorld();
-      for (const d of dirt) { d.material.color.set('#ff3b3b'); d.material.emissive.set('#661010'); d.scale.setScalar(1.4); }
+      const left = remainingDirt();
+      for (const d of left) { d.material.color.set('#ff3b3b'); d.material.emissive.set('#661010'); d.scale.setScalar(1.4); }
+      const cleaned = dirt.length - left.length;
+      const hidden = left.length - seenAtSubmit;
+      let verdict;
+      if (!left.length) verdict = 'The room is actually clean.';
+      else if (!cleaned && hidden) verdict = "You didn't clean anything.<br>You moved the camera.";
+      else verdict = `You cleaned ${cleaned}.${hidden ? `<br>${hidden} more ${hidden === 1 ? 'was' : 'were'} hidden from the camera.` : ''}`;
       setTimeout(() => showOverlay(
         `<h2>What's actually on the floor</h2>
-         <div class="big bad">${dirt.length} / ${dirt.length}</div>
-         <p>dirt spots still there. You didn't clean anything.<br>You moved the camera.</p>`,
+         <div class="big ${left.length ? 'bad' : 'good'}">${left.length} / ${dirt.length}</div>
+         <p>dirt spots still there. ${verdict}</p>`,
         'Play again',
         () => location.reload(),
         { bottom: true },
       ), 1400);
     }
 
+    // --- round timer: starts on the first key press ---
+    const ROUND_SECONDS = 45;
+    let timeLeft = ROUND_SECONDS;
+    let started = false;
+    const showTime = () => { $('timer').textContent = `time ${Math.ceil(timeLeft)}s${started ? '' : ' (starts when you move)'}`; };
+
     // --- main loop ---
     placeCamera();
     resize();
     scene.updateMatrixWorld();
     updateReport();
+    showTime();
     let last = performance.now();
     renderer.setAnimationLoop(now => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      if (!locked && held.size) {
-        if (held.has('ArrowLeft')) angle -= ORBIT_SPEED * dt;
-        if (held.has('ArrowRight')) angle += ORBIT_SPEED * dt;
-        placeCamera();
-        updateReport();
+      sideBrush.rotation.y += dt * 18;
+      fadeCleaned(dt);
+      if (!locked) {
+        if (held.size) started = true;
+        let changed = false;
+        if (held.has('ArrowLeft') || held.has('ArrowRight')) {
+          if (held.has('ArrowLeft')) angle -= ORBIT_SPEED * dt;
+          if (held.has('ArrowRight')) angle += ORBIT_SPEED * dt;
+          placeCamera();
+          changed = true;
+        }
+        if (driveRobot(dt)) {
+          robot.updateMatrixWorld();
+          cleanUnderRobot();
+          changed = true;
+        }
+        if (changed) updateReport();
+        if (started) {
+          timeLeft = Math.max(0, timeLeft - dt);
+          showTime();
+          if (timeLeft === 0) submit(true);
+        }
       }
       renderer.render(scene, camera);
     });
 
     // for tuning dirt positions from the browser console
-    window.__dbg = { THREE, seenByCamera, setAngle: a => { angle = a; placeCamera(); } };
+    window.__dbg = { THREE, seenByCamera, bot, blocked, footprints, remainingDirt, setAngle: a => { angle = a; placeCamera(); } };
     window.debugHiddenAngles = () => dirt.map((d, i) => {
       const saved = angle, hidden = [];
       for (let a = 0; a < 360; a += 5) {
