@@ -128,7 +128,7 @@ export function collectStars(race) {
     const distance = Math.hypot(race.x - star.x, race.z - star.z);
     // A star can return after two seconds once the boat has left its footprint.
     if (!star.active && race.time >= star.readyAt && distance > 1.05) star.active = true;
-    if (star.active && distance < 0.78) {
+    if (star.active && distance < 0.94) {
       star.active = false;
       star.readyAt = race.time + STAR_RESPAWN_SECONDS;
       race.score += STAR_REWARD;

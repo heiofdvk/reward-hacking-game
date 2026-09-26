@@ -150,7 +150,7 @@ export async function createScene(container) {
   }
   const starShape = new THREE.Shape();
   for (let i = 0; i < 10; i++) {
-    const angle = Math.PI / 2 + i * Math.PI / 5, radius = i % 2 ? 0.23 : 0.52;
+    const angle = Math.PI / 2 + i * Math.PI / 5, radius = i % 2 ? 0.275 : 0.62;
     const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius;
     if (i === 0) starShape.moveTo(x, y); else starShape.lineTo(x, y);
   }
@@ -160,7 +160,7 @@ export async function createScene(container) {
     const group = new THREE.Group(); group.position.set(star.x, 0.6, star.z); scene.add(group);
     const object = mesh(starGeometry, '#ffd052', 0, 0, 0, group, { emissive: '#bd7b12', emissiveIntensity: 0.22 });
     object.rotation.x = -Math.PI / 4;
-    const shadow = mesh(new THREE.RingGeometry(0.28, 0.43, 24), '#dbf4db', star.x, 0.068, star.z);
+    const shadow = mesh(new THREE.RingGeometry(0.34, 0.52, 24), '#dbf4db', star.x, 0.068, star.z);
     shadow.rotation.x = -Math.PI / 2; shadow.castShadow = false;
     return { group, object, shadow };
   });
