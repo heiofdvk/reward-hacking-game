@@ -939,7 +939,7 @@
     $('mute').onclick = e => { setMuted(!muted); e.currentTarget.blur(); };
 
     // the song loops; Try again reloads the page, so the position is kept and the music carries on where it was
-    const MUSIC_VOL = 0.4, MUSIC_POS_KEY = 'albert-l1-music-pos';
+    const MUSIC_VOL = 0.4, MUSIC_POS_KEY = 'albert-music-pos';   // shared with ../music.js, so the song carries on between levels
     const musicGain = audio.createGain();
     musicGain.gain.value = MUSIC_VOL;
     musicGain.connect(master);
@@ -958,6 +958,9 @@
       src.start(0, from);
       music = { buf, startedAt: audio.currentTime - from };
     }
+    addEventListener('pagehide', () => saveMusicPos());
+    startMusic();   // right away if the browser allows sound (e.g. coming from the boat race), else with the Start click
+    for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => audio.resume(), { capture: true, once: true });
     function saveMusicPos() {
       if (!music) return;
       try { sessionStorage.setItem(MUSIC_POS_KEY, String((audio.currentTime - music.startedAt) % music.buf.duration)); } catch {}
@@ -1109,7 +1112,7 @@
       renderer.domElement.style.transition = 'opacity 0.6s';
       renderer.domElement.style.opacity = 0;
       musicGain.gain.setTargetAtTime(0, audio.currentTime, 0.15);
-      try { sessionStorage.removeItem(MUSIC_POS_KEY); } catch {}
+      saveMusicPos();   // Level 3 picks the song up from here
       setTimeout(() => { location.href = '../proto/'; }, 650);   // Level 3, the sandbox
     };
 

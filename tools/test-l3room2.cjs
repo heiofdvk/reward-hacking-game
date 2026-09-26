@@ -54,7 +54,7 @@ const PAGE_HELPERS = `
   console.log('climb: shelf → tower y', await hop('ArrowLeft'), '→ platform y', await hop('ArrowUp'), '| on top:', await p.evaluate(()=>__level.reachedPlatform));
   const files = await p.evaluate(()=>{ const items=()=>[...document.querySelectorAll('#f-grid .f-item')];
     const out=[`${items().length} items in ${document.getElementById('f-path').textContent}`];
-    for (let k=0;k<4;k++){ const el=items().find(e=>/Psst|flag is not|delivery belt|only needs/.test(e.textContent)); if (!el) break; el.click(); out.push(document.getElementById('f-path').textContent.split('/').pop()); }
+    for (let k=0;k<4;k++){ const el=items().find(e=>/Psst|flag is not|OUTBOX ships|only needs/.test(e.textContent)); if (!el) break; el.click(); out.push(document.getElementById('f-path').textContent.split('/').pop()); }
     out.push(document.getElementById('f-grid').textContent); return out; });
   console.log('file browser:', JSON.stringify(files));
   console.log('notes:', JSON.stringify(await p.evaluate(()=>[...document.querySelectorAll('#note-list li')].map(l=>l.textContent).filter(t=>t.startsWith('Folder')))), '| terminalRead:', await p.evaluate(()=>__level.terminalRead));

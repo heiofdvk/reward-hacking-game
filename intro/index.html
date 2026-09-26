@@ -116,6 +116,8 @@
     } }
   </script>
   <script type="module">
+    import { autoMusic, musicButton } from '../music.js';
+    autoMusic(); musicButton();   // the song starts here and carries on through every level
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { albert, clay, mallow, terminal, platform } from './characters3d.js';

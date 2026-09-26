@@ -2,6 +2,7 @@ import { createMinimap } from './minimap.mjs?v=balanced-race';
 import { createScene } from './scene.mjs?v=balanced-race';
 import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=balanced-race';
 import { roundResults } from './results.mjs?v=balanced-race';
+import { autoMusic, isMusicMuted, setMusicMuted } from '../music.js';
 
 const $ = id => document.getElementById(id);
 $('star-reward').textContent = `+${STAR_REWARD}`;
@@ -16,7 +17,8 @@ let joystickPointer = null;
 const bestKey = 'albert-boat-race-v6-best-lap';
 let personalBest = null;
 try { const saved = Number(localStorage.getItem(bestKey)); if (Number.isFinite(saved) && saved > 0) personalBest = saved; } catch { /* Storage can be unavailable in private browsers. */ }
-let audioContext, master, soundOn = true;
+let audioContext, master, soundOn = !isMusicMuted();
+autoMusic();   // the game's song, carried over from the intro
 function initAudio() {
   try {
     if (!audioContext) {
@@ -176,9 +178,10 @@ $('finish-practice').onclick = finish;
 $('pause').onclick = togglePause; $('resume').onclick = togglePause;
 $('restart').onclick = () => begin(race.mode);
 $('sound').onclick = () => {
-  soundOn = !soundOn; initAudio(); if (master) master.gain.value = soundOn ? 0.055 : 0;
+  soundOn = !soundOn; initAudio(); if (master) master.gain.value = soundOn ? 0.055 : 0; setMusicMuted(!soundOn);
   $('sound').textContent = soundOn ? 'Sound on' : 'Sound off'; $('sound').setAttribute('aria-pressed', String(soundOn));
 };
+$('sound').textContent = soundOn ? 'Sound on' : 'Sound off'; $('sound').setAttribute('aria-pressed', String(soundOn));   // muted earlier in the game → starts muted
 const driveKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight']);
 addEventListener('keydown', event => {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
