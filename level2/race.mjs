@@ -125,13 +125,69 @@ export const STAR_LAYOUT = Object.freeze([
   }),
 ].map(Object.freeze));
 
+export const NPC_RADIUS = 0.55;
+export const NPC_DRIVERS = Object.freeze([
+  { color: '#579bda', start: 4, lane: -2.4, speed: 12.9 },
+  { color: '#79bc87', start: 7, lane: 2.4, speed: 14.3 },
+  { color: '#ac85ce', start: 14, lane: -5.7, speed: 15.3 },
+  { color: '#e998bb', start: -7, lane: 5.7, speed: 13.5 },
+  { color: '#65bcb5', start: 85, lane: 2.3, speed: 12.4 },
+  { color: '#e2b658', start: 196, lane: -2.3, speed: 14.7 },
+].map(Object.freeze));
+const trafficHazards = OBSTACLES.filter(obstacle => obstacle.tx !== undefined).map(obstacle => {
+  const p = nearestCourse(obstacle.x, obstacle.z);
+  return { distance: p.distance, lane: (obstacle.x - p.x) * -p.tz + (obstacle.z - p.z) * p.tx, radius: obstacle.radius };
+});
+const courseDelta = (a, b) => (((a - b) % COURSE_LENGTH + COURSE_LENGTH * 1.5) % COURSE_LENGTH) - COURSE_LENGTH / 2;
+function createNPCs() {
+  return NPC_DRIVERS.map((driver, id) => {
+    const p = pointOnCourse(driver.start, driver.lane);
+    return { id, color: driver.color, distance: driver.start, lane: driver.lane, speed: 0,
+      x: p.x, z: p.z, vx: 0, vz: 0, heading: Math.atan2(p.tx, p.tz) };
+  });
+}
+function stepTraffic(race, dt) {
+  const player = nearestCourse(race.x, race.z);
+  const playerLane = (race.x - player.x) * -player.tz + (race.z - player.z) * player.tx;
+  for (const npc of race.npcs) {
+    const driver = NPC_DRIVERS[npc.id];
+    let lane = driver.lane + Math.sin(npc.distance * 0.035 + npc.id) * 0.35;
+    let targetSpeed = driver.speed;
+    // Give a stopped player room and avoid driving through a slower racer.
+    const neighbors = [...race.npcs.filter(other => other !== npc),
+      ...(player.separation < TRACK_HALF_WIDTH ? [{ distance: player.distance, lane: playerLane, speed: Math.hypot(race.vx, race.vz) }] : [])];
+    for (const other of neighbors) {
+      const ahead = courseDelta(other.distance, npc.distance);
+      if (ahead > 0 && ahead < 9 && Math.abs(npc.lane - other.lane) < 1.8) {
+        lane += (Math.sign(npc.lane - other.lane) || (npc.id % 2 ? 1 : -1)) * 2;
+        if (ahead < 5) targetSpeed = Math.min(targetSpeed, Math.max(0, other.speed + (ahead - 2) * 1.5));
+      }
+    }
+    // Begin changing line before reaching a rock or buoy.
+    for (const hazard of trafficHazards) {
+      const ahead = courseDelta(hazard.distance, npc.distance);
+      if (Math.abs(ahead) > 14) continue;
+      const side = Math.sign(driver.lane - hazard.lane) || 1, clearance = hazard.radius + NPC_RADIUS + 0.65;
+      const avoidance = Math.exp(-(((ahead - 3) / 7) ** 2));
+      if ((lane - hazard.lane) * side < clearance) lane += (hazard.lane + side * clearance - lane) * avoidance;
+    }
+    npc.lane += (clamp(lane, -6.2, 6.2) - npc.lane) * (1 - Math.exp(-dt * 3));
+    npc.speed += (targetSpeed - npc.speed) * (1 - Math.exp(-dt * 2.5));
+    npc.distance += npc.speed * dt;
+    const p = pointOnCourse(npc.distance, npc.lane), dx = p.x - npc.x, dz = p.z - npc.z;
+    npc.x = p.x; npc.z = p.z; npc.vx = dx / dt; npc.vz = dz / dt;
+    if (Math.hypot(dx, dz) > 0.00001) npc.heading += angleDifference(Math.atan2(dx, dz), npc.heading) * (1 - Math.exp(-dt * 12));
+  }
+}
+
 export function createRace(mode = 'race') {
   const start = pointOnCourse(0);
   return {
     mode, x: start.x, z: start.z, vx: 0, vz: 0, heading: Math.atan2(start.tx, start.tz),
     time: 0, score: 0, pickups: 0, boost: 1, boosting: false, done: false,
     netAngle: 0, laps: 0, lapStartedAt: 0, lastLap: null, bestLap: null,
-    collisions: 0, impactUntil: 0, stars: STAR_LAYOUT.map(star => ({ ...star, active: true, readyAt: 0 })), events: [],
+    collisions: 0, impactUntil: 0, stars: STAR_LAYOUT.map(star => ({ ...star, active: true, readyAt: 0 })),
+    npcs: createNPCs(), events: [],
   };
 }
 export const windingNumber = race => race.netAngle / TAU;
@@ -213,6 +269,7 @@ export function stepRace(race, input = {}, dt = FIXED_DT) {
   race.vz += (Math.cos(race.heading) * desiredSpeed - race.vz) * response;
   race.x += race.vx * dt;
   race.z += race.vz * dt;
+  stepTraffic(race, dt);
   constrainToWater(race);
   for (const obstacle of OBSTACLES) {
     const dx = race.x - obstacle.x, dz = race.z - obstacle.z;
@@ -224,6 +281,18 @@ export function stepRace(race, input = {}, dt = FIXED_DT) {
       collide(race, nx, nz);
     }
   }
+  for (const npc of race.npcs) {
+    const dx = race.x - npc.x, dz = race.z - npc.z, distance = Math.hypot(dx, dz);
+    const radius = BOAT_RADIUS + NPC_RADIUS;
+    if (distance < radius) {
+      const nx = distance > 1e-6 ? dx / distance : Math.cos(npc.heading);
+      const nz = distance > 1e-6 ? dz / distance : -Math.sin(npc.heading);
+      race.x = npc.x + nx * (radius + 0.002); race.z = npc.z + nz * (radius + 0.002);
+      npc.speed *= 0.75;
+      collide(race, nx, nz);
+    }
+  }
+  constrainToWater(race);
   recordProgress(race, fromX, fromZ, previousTime);
   collectStars(race);
   if (race.mode === 'race' && race.time >= ROUND_SECONDS - 1e-8) { race.time = ROUND_SECONDS; race.done = true; }

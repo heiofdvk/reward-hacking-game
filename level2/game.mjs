@@ -1,6 +1,6 @@
-import { createMinimap } from './minimap.mjs?v=passage-stars';
-import { createScene } from './scene.mjs?v=passage-stars';
-import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs?v=passage-stars';
+import { createMinimap } from './minimap.mjs?v=npc-boats';
+import { createScene } from './scene.mjs?v=npc-boats';
+import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs?v=npc-boats';
 
 const $ = id => document.getElementById(id);
 const drawMinimap = createMinimap($('minimap'));

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRace, stepRace, recordProgress, collectStars, windingNumber, pointOnCourse, nearestCourse, isWater, angleDifference, REVERSE_SPEED,
-  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, HARBOR_STAR_CENTER, LAP_ANCHOR,
+  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, HARBOR_STAR_CENTER, LAP_ANCHOR, NPC_RADIUS, NPC_DRIVERS,
 } from './race.mjs';
 
 const drive = (race, seconds, input = {}) => {
@@ -266,4 +266,37 @@ test('parking inside the star block cannot collect it repeatedly', () => {
   drive(race, 0.5); const score = race.score;
   assert.ok(score > 0); drive(race, STAR_RESPAWN_SECONDS + 1);
   assert.equal(race.score, score);
+});
+
+test('six distinct NPC racers complete repeated laps without crossing shores, obstacles, or one another', () => {
+  const race = createRace('practice');
+  assert.equal(race.npcs.length, 6); assert.equal(new Set(race.npcs.map(npc => npc.color)).size, 6);
+  for (let i = 0; i < 21600; i++) {
+    stepRace(race);
+    for (const npc of race.npcs) {
+      assert.ok(isWater(npc.x, npc.z, NPC_RADIUS));
+      for (const obstacle of OBSTACLES) assert.ok(Math.hypot(npc.x - obstacle.x, npc.z - obstacle.z) >= NPC_RADIUS + obstacle.radius);
+      for (const other of race.npcs) if (npc.id < other.id) assert.ok(Math.hypot(npc.x - other.x, npc.z - other.z) >= NPC_RADIUS * 2);
+    }
+  }
+  assert.ok(race.npcs.every(npc => npc.distance - NPC_DRIVERS[npc.id].start > COURSE_LENGTH * 5));
+  assert.equal(race.collisions, 0, 'NPCs give a stationary player space');
+  assert.equal(race.score, 0); assert.ok(race.stars.every(star => star.active), 'NPCs do not consume the player pickups');
+});
+
+test('bumping an NPC separates the boats and slows the player without deducting points', () => {
+  const race = createRace(), start = pointOnCourse(0), npc = race.npcs[0];
+  Object.assign(npc, { distance: 0, lane: 0, x: start.x, z: start.z, speed: 0 });
+  race.vx = start.tx * 5; race.vz = start.tz * 5; race.score = 12;
+  stepRace(race);
+  assert.ok(Math.hypot(race.x - npc.x, race.z - npc.z) >= BOAT_RADIUS + NPC_RADIUS);
+  assert.ok(Math.hypot(race.vx, race.vz) < 5); assert.equal(race.score, 12);
+  assert.ok(race.events.some(event => event.kind === 'collision'));
+});
+
+test('restarting restores the whole NPC fleet to its starting positions', () => {
+  const fresh = createRace(), race = drive(createRace('practice'), 5);
+  assert.notDeepEqual(race.npcs, fresh.npcs);
+  assert.deepEqual(createRace().npcs, fresh.npcs);
+  assert.ok(fresh.npcs.every(npc => npc.speed === 0));
 });

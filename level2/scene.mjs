@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { albert } from '../intro/characters3d.js';
-import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, passageClearance } from './race.mjs?v=passage-stars';
-import { buildTerrain } from './terrain.mjs?v=passage-stars';
+import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, NPC_DRIVERS, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, passageClearance } from './race.mjs?v=npc-boats';
+import { buildTerrain } from './terrain.mjs?v=npc-boats';
 
 export async function createScene(container) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -12,7 +12,7 @@ export async function createScene(container) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.domElement.setAttribute('role', 'img');
-  renderer.domElement.setAttribute('aria-label', 'An isometric view following Albert around a wide coastal race course and a working harbor, with golden stars, rock obstacles, red buoys, and Albert in an orange speedboat.');
+  renderer.domElement.setAttribute('aria-label', 'An isometric view following Albert around a wide coastal race course and a working harbor, with six other racers, golden stars, rock obstacles, red buoys, and Albert in an orange speedboat.');
   container.append(renderer.domElement);
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight('#e7f4ff', '#726951', 2.1));
@@ -193,6 +193,20 @@ export async function createScene(container) {
   // A bright marker travels with the bow so the boat's forward direction is obvious.
   const bowMarker = mesh(chevronGeo, '#b5fcff', 0, 0.11, 1.18, boatRoot, { side: THREE.DoubleSide, emissive: '#7adce5', emissiveIntensity: 0.45 });
   bowMarker.scale.setScalar(1.35); bowMarker.castShadow = false;
+  const npcModels = NPC_DRIVERS.map(driver => {
+    const root = new THREE.Group(); scene.add(root);
+    const body = new THREE.Group(); body.scale.setScalar(1.05); root.add(body);
+    mesh(hull, driver.color, 0, 0.27, 0, body);
+    const deck = mesh(new THREE.ShapeGeometry(hullShape), '#fff5d9', 0, 0.32, 0, body, { side: THREE.DoubleSide });
+    deck.rotation.x = Math.PI / 2; deck.scale.setScalar(0.86);
+    box(0.55, 0.08, 0.65, '#536a7c', 0, 0.35, -0.17, body);
+    box(0.5, 0.18, 0.05, '#b7eff0', 0, 0.45, 0.34, body).rotation.x = -0.2;
+    box(0.22, 0.2, 0.2, '#354b62', 0, 0.22, -0.8, body);
+    box(0.3, 0.32, 0.23, driver.color, 0, 0.52, -0.18, body);
+    mesh(new THREE.SphereGeometry(0.18, 10, 8), '#fff5df', 0, 0.83, -0.16, body);
+    box(0.26, 0.085, 0.035, '#354b62', 0, 0.84, 0, body);
+    return { root, body, wake: 0 };
+  });
   const effects = [];
   const particleGeometry = new THREE.IcosahedronGeometry(0.07, 0);
   function particle(x, z, color, vx, vz, life = 0.6, y = 0.12) {
@@ -235,6 +249,22 @@ export async function createScene(container) {
       target.lerp(desired, reducedMotion ? 1 : 1 - Math.exp(-dt * 7)); placeCamera();
     }
     boatRoot.position.set(race.x, 0.065, race.z); boatRoot.rotation.y = race.heading;
+    npcModels.forEach((model, i) => {
+      const npc = race.npcs[i]; model.root.visible = Boolean(npc);
+      if (!npc) return;
+      model.root.position.set(npc.x, 0.065, npc.z); model.root.rotation.y = npc.heading;
+      model.body.position.y = reducedMotion ? 0 : Math.sin(race.time * 4 + i) * 0.025;
+      model.body.rotation.x = -Math.min(0.08, npc.speed * 0.006);
+      if (!reducedMotion && Math.hypot(npc.x - race.x, npc.z - race.z) < 35) {
+        model.wake += dt;
+        if (npc.speed > 1 && model.wake > 0.09) {
+          model.wake = 0;
+          for (const side of [-1, 1]) particle(npc.x - Math.sin(npc.heading) * 0.8 + Math.cos(npc.heading) * side * 0.22,
+            npc.z - Math.cos(npc.heading) * 0.8 - Math.sin(npc.heading) * side * 0.22,
+            '#c3eff0', -npc.vx * 0.1, -npc.vz * 0.1, 0.55);
+        }
+      }
+    });
     const speed = Math.hypot(race.vx, race.vz);
     boat.position.y = reducedMotion ? 0 : Math.sin(now * 0.004) * 0.024;
     boat.rotation.x = -Math.min(0.08, speed * 0.006);
