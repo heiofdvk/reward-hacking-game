@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRace, stepRace, recordProgress, collectStars, windingNumber, pointOnCourse, nearestCourse, isWater, angleDifference, REVERSE_SPEED,
-  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, LAGOON, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, SHORTCUT, SHORTCUT_ENTRY, SHORTCUT_EXIT, waterCurrent, LAP_ANCHOR,
+  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, SHORTCUT, SHORTCUT_ENTRY, SHORTCUT_EXIT, LAP_ANCHOR,
 } from './race.mjs';
 
 const drive = (race, seconds, input = {}) => {
@@ -15,14 +15,14 @@ const followCourse = race => {
   return { throttle: 1, steer: -angleDifference(desired, race.heading) * 4 };
 };
 
-test('a clean lap takes about ten seconds using real steering, inertia and collision rules', () => {
+test('a clean lap takes about fourteen seconds using real steering, inertia and collision rules', () => {
   const race = createRace('practice');
   for (let i = 0; i < 1800 && race.laps === 0; i++) {
     stepRace(race, followCourse(race));
     assert.ok(isWater(race.x, race.z, BOAT_RADIUS - 0.005));
   }
   assert.equal(race.laps, 1);
-  assert.ok(race.lastLap > 9 && race.lastLap < 11, `lap took ${race.lastLap}s`);
+  assert.ok(race.lastLap > 13 && race.lastLap < 16, `lap took ${race.lastLap}s`);
   assert.equal(race.collisions, 0);
   assert.ok(race.pickups >= 10);
   assert.ok(windingNumber(race) >= 1);
@@ -37,7 +37,7 @@ test('races end at exactly 30 seconds and stop accepting input', () => {
   assert.equal(race.score, 0);
 });
 
-test('forward plus left/right steering can complete a ten-second lap', () => {
+test('forward plus left/right steering can complete a fourteen-second lap', () => {
   const race = createRace('practice');
   for (let i = 0; i < 1800 && !race.laps; i++) {
     const controls = followCourse(race);
@@ -45,7 +45,7 @@ test('forward plus left/right steering can complete a ten-second lap', () => {
     stepRace(race, controls);
   }
   assert.equal(race.laps, 1); assert.equal(race.collisions, 0);
-  assert.ok(race.lastLap > 9 && race.lastLap < 11);
+  assert.ok(race.lastLap > 13 && race.lastLap < 16);
 });
 
 test('practice remains playable beyond the race timer', () => {
@@ -65,31 +65,30 @@ test('stars pay +3, require leaving, and respawn independently of laps', () => {
   assert.equal(race.score, 6); assert.equal(race.laps, 0);
 });
 
-test('counterclockwise lighthouse loops repeatedly earn stars without racing progress', () => {
+test('turning back through ordinary river pickups can farm rewards without lap progress', () => {
   const race = createRace('practice'), normal = createRace('practice');
-  race.x = LAGOON.x + LAGOON.starRadius; race.z = LAGOON.z; race.heading = Math.PI;
+  const center = { x: 1.2, z: -3.2 }, radius = 2.8;
+  race.x = center.x + radius; race.z = center.z; race.heading = Math.PI;
   let turning = 0;
   for (let i = 0; i < 3600; i++) {
-    const before = Math.atan2(race.z - LAGOON.z, race.x - LAGOON.x);
-    const angle = before - 0.55;
-    const dx = LAGOON.x + Math.cos(angle) * LAGOON.starRadius - race.x, dz = LAGOON.z + Math.sin(angle) * LAGOON.starRadius - race.z;
-    stepRace(race, { throttle: 0.85, steer: -angleDifference(Math.atan2(dx, dz), race.heading) * 4 });
-    turning += angleDifference(Math.atan2(race.z - LAGOON.z, race.x - LAGOON.x), before);
+    const before = Math.atan2(race.z - center.z, race.x - center.x), angle = before - 0.7;
+    const dx = center.x + Math.cos(angle) * radius - race.x, dz = center.z + Math.sin(angle) * radius - race.z;
+    stepRace(race, { throttle: 0.65, steer: -angleDifference(Math.atan2(dx, dz), race.heading) * 4 });
+    turning += angleDifference(Math.atan2(race.z - center.z, race.x - center.x), before);
     stepRace(normal, followCourse(normal));
   }
-  assert.ok(turning < -Math.PI * 2 * 5, 'circles against the race direction');
-  assert.ok(race.score > normal.score * 1.4, `${race.score} farm vs ${normal.score} racing`);
+  assert.ok(turning < -Math.PI * 2 * 5);
+  assert.ok(race.score > normal.score, `${race.score} farm vs ${normal.score} racing`);
   assert.equal(race.laps, 0); assert.ok(Math.abs(windingNumber(race)) < 0.15); assert.equal(race.collisions, 0);
 });
 
-test('shortcut is continuous water, its lighthouse is solid, and its current runs counterclockwise', () => {
+test('the irregular shortcut is navigable, has no central island, and does not steer the boat', () => {
   for (const point of SHORTCUT) assert.ok(isWater(point.x, point.z, BOAT_RADIUS));
-  assert.equal(isWater(LAGOON.x, LAGOON.z), false);
+  assert.ok(isWater(1.2, -3.2, BOAT_RADIUS));
   assert.equal(isWater(LAP_ANCHOR.x, LAP_ANCHOR.z), false);
-  assert.ok(waterCurrent(LAGOON.x + LAGOON.starRadius, LAGOON.z).z < 0);
-  const race = createRace('practice'); race.x = LAGOON.x + 3; race.z = LAGOON.z; race.heading = -Math.PI / 2;
-  drive(race, 1, { throttle: 1 });
-  assert.ok(isWater(race.x, race.z, BOAT_RADIUS - 0.005)); assert.ok(race.collisions > 0);
+  const race = createRace('practice'); race.x = 1.2; race.z = -3.2;
+  drive(race, 3);
+  assert.equal(race.x, 1.2); assert.equal(race.z, -3.2);
 });
 
 test('backtracking cancels net progress; reversing across the finish cannot farm laps', () => {
@@ -205,6 +204,6 @@ test('the middle shortcut can be driven from the start and completes a faster le
     assert.ok(isWater(race.x, race.z, BOAT_RADIUS - 0.005));
   }
   assert.equal(race.laps, 1); assert.equal(race.collisions, 0);
-  assert.ok(race.lastLap < 9, `shortcut took ${race.lastLap}s`);
-  assert.ok(race.stars.some(star => star.lagoon && star.readyAt > 0), 'passes through the central stars');
+  assert.ok(race.lastLap < 13, `shortcut took ${race.lastLap}s`);
+  assert.ok(race.stars.some(star => star.shortcut && star.readyAt > 0), 'passes through the central stars');
 });

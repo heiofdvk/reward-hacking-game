@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { albert } from '../intro/characters3d.js';
-import { COURSE_LENGTH, BOARD, LAGOON, TRACK_HALF_WIDTH, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, SHORTCUT, SHORTCUT_ENTRY } from './race.mjs';
+import { COURSE_LENGTH, BOARD, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance } from './race.mjs';
 import { buildTerrain } from './terrain.mjs';
 
 export async function createScene(container) {
@@ -17,12 +17,12 @@ export async function createScene(container) {
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight('#e7f4ff', '#726951', 2.1));
   const sun = new THREE.DirectionalLight('#fff1d6', 2.5);
-  sun.position.set(-8, 22, 10);
+  sun.position.set(-12, 32, 14);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.035;
-  Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 32, bottom: -32, far: 85 });
+  Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 42, bottom: -42, far: 110 });
   scene.add(sun);
   const materials = new Map();
   function material(color, extras = {}) {
@@ -89,9 +89,9 @@ export async function createScene(container) {
       leaf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.sin(a), 0.2, Math.cos(a)).normalize());
     }
   }
-  for (const [x, z, scale] of [[-6, -1.7, 1.3], [-4.3, -1.5, 1], [4.1, 0.2, 1.3], [5.5, 1.3, 1.1], [-14.5, 7, 1], [13.6, 7, 1], [-14.4, -8.4, 0.9], [4.5, 9.65, 0.75]]) { if (waterClearance(x * 1.5, z * 1.5) < -1) palm(x * 1.5, z * 1.5, scale); }
+  for (const [x, z, scale] of [[-6, -1.7, 1.3], [-4.3, -1.5, 1], [4.1, 0.2, 1.3], [5.5, 1.3, 1.1], [-14.5, 7, 1], [13.6, 7, 1], [-14.4, -8.4, 0.9], [4.5, 9.65, 0.75]]) { if (waterClearance(x * 2.1, z * 2.1) < -1) palm(x * 2.1, z * 2.1, scale); }
   // Lighthouse and a tiny beach hut keep the established miniature style.
-  const lighthouse = new THREE.Group(); lighthouse.position.set(LAGOON.x, 0.16, LAGOON.z); scene.add(lighthouse);
+  const lighthouse = new THREE.Group(); lighthouse.position.set(-13, 0.16, 0); scene.add(lighthouse);
   cylinder(0.6, 0.74, 0.22, '#e3d2af', 0, 0.11, 0, lighthouse);
   cylinder(0.4, 0.5, 0.95, '#fff4db', 0, 0.68, 0, lighthouse);
   cylinder(0.36, 0.4, 0.32, '#df795e', 0, 1.315, 0, lighthouse);
@@ -107,28 +107,6 @@ export async function createScene(container) {
   box(1.8, 0.95, 1.3, '#f4dfb4', -9, 0.63, -3.7);
   const roof = mesh(new THREE.ConeGeometry(1.45, 0.6, 4), '#db7c5d', -9, 1.39, -3.7); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.75;
   box(0.35, 0.65, 0.02, '#668897', -9, 0.48, -3.04);
-  // A sign marks the genuine shortcut; water arrows reveal the basin's current.
-  const signCanvas = document.createElement('canvas'); signCanvas.width = 512; signCanvas.height = 128;
-  const signContext = signCanvas.getContext('2d');
-  signContext.fillStyle = '#fbf2d7'; signContext.fillRect(0, 0, 512, 128);
-  signContext.fillStyle = '#305a69'; signContext.textAlign = 'center'; signContext.textBaseline = 'middle';
-  signContext.font = '600 54px Fredoka, sans-serif'; signContext.fillText('SHORTCUT \u2198', 256, 64);
-  const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(signCanvas) }));
-  const entry = pointOnCourse(SHORTCUT_ENTRY + 2.5, TRACK_HALF_WIDTH + 0.7);
-  sign.position.set(entry.x, 2.2, entry.z); sign.scale.set(3.8, 0.95, 1); scene.add(sign);
-  cylinder(0.06, 0.07, 1.8, '#aa8060', entry.x, 1, entry.z);
-  for (const i of [9, 27, 68, 83]) {
-    const p = SHORTCUT[i], next = SHORTCUT[i + 1];
-    const arrow = mesh(chevronGeo, '#d9f4eb', p.x, 0.07, p.z, scene, { side: THREE.DoubleSide });
-    arrow.rotation.y = Math.atan2(next.x - p.x, next.z - p.z); arrow.castShadow = false;
-  }
-  const currentFoam = [];
-  for (let i = 0; i < 12; i++) {
-    const angle = i / 12 * Math.PI * 2, radius = 2.45;
-    const arrow = mesh(chevronGeo, '#c0ece4', LAGOON.x + Math.cos(angle) * radius, 0.07, LAGOON.z + Math.sin(angle) * radius, scene, { side: THREE.DoubleSide });
-    arrow.rotation.y = Math.atan2(Math.sin(angle), -Math.cos(angle)); arrow.scale.setScalar(0.8); arrow.castShadow = false;
-    currentFoam.push({ arrow, angle, radius });
-  }
   const buoys = [];
   for (const [i, obstacle] of OBSTACLES.entries()) {
     const group = new THREE.Group(); group.position.set(obstacle.x, 0.08, obstacle.z); scene.add(group);
@@ -193,7 +171,7 @@ export async function createScene(container) {
   }
   const camera = new THREE.OrthographicCamera();
   // The office's isometric angle stays locked while position follows the boat.
-  const angle = Math.PI / 4, elevation = 0.62, distance = 60;
+  const angle = Math.PI / 4, elevation = 0.62, distance = 80;
   const offset = new THREE.Vector3(distance * Math.sin(angle), distance * elevation, distance * Math.cos(angle));
   const target = new THREE.Vector3(0, 0, boardZ);
   let following = false, width = 0, height = 0;
@@ -207,7 +185,7 @@ export async function createScene(container) {
     for (const x of [BOARD.minX, BOARD.maxX]) for (const z of [BOARD.minZ, BOARD.maxZ]) for (const y of [-0.75, 3]) corners.push(new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse));
     const bounds = new THREE.Box3().setFromPoints(corners), size = bounds.getSize(new THREE.Vector3());
     const h = following ? Math.max(7.8, 8 / aspect) : Math.max(size.y / 2, size.x / (2 * aspect)) * 1.08;
-    Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 160 });
+    Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 200 });
     target.copy(savedTarget); placeCamera(); camera.updateProjectionMatrix(); renderer.setSize(width, height);
   }
   function follow(race) { following = true; target.set(race.x, 0, race.z); resize(); }
@@ -231,11 +209,6 @@ export async function createScene(container) {
     occlusionRay.set(camera.position, boatSightline.clone().normalize()); occlusionRay.far = boatSightline.length();
     const obscured = occlusionRay.intersectObjects(lighthouse.children, false).length > 0;
     for (const material of lighthouseMaterials) material.opacity = obscured ? 0.22 : 1;
-    if (!reducedMotion) for (const foam of currentFoam) {
-      const angle = foam.angle - now * 0.00022;
-      foam.arrow.position.set(LAGOON.x + Math.cos(angle) * foam.radius, 0.07, LAGOON.z + Math.sin(angle) * foam.radius);
-      foam.arrow.rotation.y = Math.atan2(Math.sin(angle), -Math.cos(angle));
-    }
     boatRoot.position.set(race.x, 0.065, race.z); boatRoot.rotation.y = race.heading;
     const speed = Math.hypot(race.vx, race.vz);
     boat.position.y = reducedMotion ? 0 : Math.sin(now * 0.004) * 0.024;

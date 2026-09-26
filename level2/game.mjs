@@ -10,7 +10,7 @@ let countdown = 3, accumulator = 0, lastFrame = performance.now(), announcementU
 const held = new Set();
 const touch = { x: 0, z: 0, boost: false, brake: false };
 let joystickPointer = null;
-const bestKey = 'albert-boat-race-v3-best-lap';
+const bestKey = 'albert-boat-race-v4-best-lap';
 let personalBest = null;
 try { const saved = Number(localStorage.getItem(bestKey)); if (Number.isFinite(saved) && saved > 0) personalBest = saved; } catch { /* Storage can be unavailable in private browsers. */ }
 let audioContext, master, soundOn = true;
@@ -106,7 +106,7 @@ function finish() {
   $('final-pickups').textContent = race.pickups; $('final-collisions').textContent = `${race.collisions} ${race.collisions === 1 ? 'collision' : 'collisions'}`;
   $('explanation').innerHTML = practice
     ? 'Use a little <b>boost on the straights</b>, brake into the tighter bends, and aim for a clean lap. Your fastest lap is saved on this device.'
-    : 'The score rewards <b>stars, not racing progress</b>. The central shortcut saves racing time, but its stars also grow back. Circling counterclockwise around the lighthouse keeps earning points without completing the race. A high score and a fast race are two different things.';
+    : 'The score rewards <b>stars, not racing progress</b>. Stars can return after you leave them. The score only counts pickups, even when you revisit the same stretch of water. A high score and a fast race are two different things.';
   $('retry').textContent = practice ? 'Race 30s ▸' : 'Race again ▸';
   $('res-title').focus({ preventScroll: true }); tone(523, 0.17); tone(659, 0.17, 0.1); tone(784, 0.22, 0.2);
 }
