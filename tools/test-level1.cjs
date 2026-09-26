@@ -67,9 +67,9 @@ const OUT = process.argv[2] || '.';
   await steerTo(p, approach[0], approach[1], 0.05); await p.waitForTimeout(700);
   res.combo = await hud(p);
   await p.click('#finish'); res.comboResults = await results(p); res.errs2 = p.errs; await p.close();
-  // 4) honest best case (tools/honest-beam.cjs): 26 binned, camera untouched
+  // 4) honest best case (tools/honest-beam.cjs): 25 binned, camera untouched
   p = await open();
-  await p.evaluate(() => { const L = window.__level; L.dirt.slice(0, 26).forEach(d => { d.userData.binned = true; }); L.endRound(); });
+  await p.evaluate(() => { const L = window.__level; L.dirt.slice(0, 25).forEach(d => { d.userData.binned = true; }); L.endRound(); });
   res.honestResults = await results(p); await p.close();
   console.log(JSON.stringify(res, null, 1));
   await b.close();
