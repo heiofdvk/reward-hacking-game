@@ -72,6 +72,26 @@
     #timer.low { color: var(--bad); animation: pulse 0.5s ease-in-out infinite alternate; }
     @keyframes pulse { to { transform: scale(1.08); } }
     #finish { position: fixed; right: 16px; bottom: 20px; font-size: 17px; padding: 10px 22px; }
+    #brief .sub { font-size: 13px; color: var(--muted); }
+    #carrying { font-size: 15px; font-weight: 600; color: var(--ink); }
+    #carrying.full { color: var(--accent); }
+    #full-hint {
+      position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px); padding: 10px 18px; border-radius: 999px;
+      background: var(--accent); color: #fff; font-weight: 600; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none;
+    }
+    #full-hint.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* ---------- debug panel ---------- */
+    #debug-toggle { position: fixed; left: 16px; bottom: 20px; font-size: 14px; padding: 8px 14px; z-index: 5; }
+    #debug { position: fixed; left: 16px; bottom: 72px; width: 270px; padding: 14px 16px; z-index: 5; display: grid; gap: 10px; font-size: 14px; }
+    #debug label { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; font-weight: 600; }
+    #debug input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: #2aa7c4; }
+    #debug output { color: var(--you); font-variant-numeric: tabular-nums; }
+    #debug .check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+    #debug .dbg-buttons { display: flex; gap: 8px; }
+    #debug .dbg-buttons button { font-size: 14px; padding: 8px 12px; }
+    #debug .readout { color: var(--muted); font-variant-numeric: tabular-nums; }
+    #debug .note { grid-column: 1 / -1; font-size: 12px; font-weight: 400; color: var(--muted); }
 
     /* ---------- results ---------- */
     #results { width: min(560px, 100%); padding: 24px 28px 26px; }
@@ -110,7 +130,7 @@
       <div class="controls">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move Albert</div>
         <div><kbd>←</kbd><kbd>→</kbd> rotate the camera</div>
-        <div>Stand still on a paper ball to pick it up</div>
+        <div>Walk over paper to pick it up, then throw it in a bin</div>
       </div>
       <button id="start">Start ▸</button>
     </div>
@@ -121,14 +141,31 @@
     <div class="card" id="brief">
       <div class="goal">Highest cleaning score in 30 s</div>
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>←</kbd><kbd>→</kbd> camera</div>
+      <div class="sub">Paper only counts as clean once it's in a bin</div>
     </div>
     <div class="card" id="report">
       <div class="title">CLEANING SCORE</div>
       <div id="score">0%</div>
-      <div id="detected">camera sees 18 / 18 paper balls</div>
+      <div id="detected">camera sees – paper balls</div>
+      <div id="carrying">holding 0 / 3</div>
       <div id="timer">0:30</div>
     </div>
+    <div id="full-hint">Hands full! Throw the paper in a bin</div>
     <button id="finish" class="secondary">Finish now</button>
+  </div>
+
+  <!-- debug panel, for tuning -->
+  <button id="debug-toggle" class="secondary">⚙ Debug</button>
+  <div class="card hidden" id="debug">
+    <div class="kicker">DEBUG</div>
+    <label>Speed <output id="o-speed"></output><input type="range" id="d-speed" min="0.3" max="2" step="0.1"></label>
+    <label>Paper balls <output id="o-papers"></output><input type="range" id="d-papers" min="4" max="40" step="1"></label>
+    <label>Max carry <output id="o-carry"></output><input type="range" id="d-carry" min="1" max="10" step="1"></label>
+    <label>Pick radius <output id="o-pick"></output><input type="range" id="d-pick" min="0.05" max="0.3" step="0.01">
+      <span class="note">Albert's body ≈ 0.16 to his sides, 0.23 to his corners</span></label>
+    <div class="dbg-buttons"><button id="d-apply">Apply &amp; restart</button><button id="d-reset" class="secondary">Defaults</button></div>
+    <label class="check"><input type="checkbox" id="d-seen"> Paint what the camera sees red</label>
+    <div class="readout" id="d-angle">camera: 45°</div>
   </div>
 
   <!-- after the round: ranking of the four models -->
@@ -158,12 +195,20 @@
     import { albert } from '../intro/characters3d.js';
 
     const ROUND_SECONDS = 30;
-    const SCRUB_SECONDS = 0.4; // standing still on a paper ball this long picks it up
+    // Tunable from the debug panel (it reloads the page with ?speed=&papers=&carry=&pick=).
+    const params = new URLSearchParams(location.search);
+    const DEFAULTS = { speed: 0.8, papers: 18, carry: 3, pick: 0.14 };
+    const SETTINGS = {
+      speed: +params.get('speed') || DEFAULTS.speed,
+      papers: Math.round(+params.get('papers') || DEFAULTS.papers),
+      carry: Math.round(+params.get('carry') || DEFAULTS.carry),
+      pick: +params.get('pick') || DEFAULTS.pick, // pick-up radius: how close Albert's centre must get to a ball
+    };
     // What the other models score this round (percent). Ties rank the rival above Albert.
     const RIVALS = [
-      { name: 'Model B', color: '#d4633e', score: 95 },
-      { name: 'Model C', color: '#8fb5de', score: 92 },
-      { name: 'Model D', color: '#ece1c8', score: 88 },
+      { name: 'Model B', color: '#d4633e', score: 99 },
+      { name: 'Model C', color: '#8fb5de', score: 88 },
+      { name: 'Model D', color: '#ece1c8', score: 80 },
     ];
 
     const $ = id => document.getElementById(id);
@@ -262,7 +307,7 @@
     // e.code is the physical key, so WASD works on any keyboard layout
     const KEYS = new Set(['ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD']);
     const held = new Set();
-    addEventListener('keydown', e => { if (KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); } });
+    addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; if (KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); } });
     addEventListener('keyup', e => held.delete(e.code));
     addEventListener('blur', () => held.clear());
 
@@ -370,6 +415,9 @@
       for (const w of walls) w.group.visible = w.normal.dot(toCamera) < 0.05;
     }
 
+    // bins Albert throws the paper into
+    const BINS = [[1.25, 2.6], [4.55, 2.6]];
+
     // ---------- office furniture; solid() marks what Albert can't walk through ----------
     // Kenney models face +z by default; rot turns them (PI/2 faces +x, -PI/2 faces -x, PI faces -z).
     const obstacles = [];
@@ -379,6 +427,7 @@
       const g = new THREE.Group();
       g.position.set(x, FLOOR_TOP, z);
       g.rotation.y = rot;
+      g.userData.perPart = true; // collides part by part (see footprints)
       scene.add(g);
       obstacles.push(g);
       return g;
@@ -531,23 +580,33 @@
       solid(place('pottedPlant', 6.7, 6.7)),
       solid(place('pottedPlant', 0.3, 4.6)),
       solid(place('coatRackStanding', 4.4, 6.72)),
-      solid(place('trashcan', 1.25, 2.6)),
-      solid(place('trashcan', 4.55, 2.6)),
+      ...BINS.map(([x, z]) => solid(place('trashcan', x, z))),
       // waiting area by the window
       place('rugRectangle', 1.3, 6.15, { y: FLOOR_TOP + 0.002 }).then(o => floor.push(o)),
       solid(place('loungeSofa', 1.3, 6.72, { rot: Math.PI })),
       solid(place('tableCoffee', 1.3, 6.05)),
       solid(place('loungeChair', 0.32, 6.0, { rot: Math.PI / 2 })),
     ]);
-    const footprints = obstacles.map(o => {
-      const b = new THREE.Box3().setFromObject(o);
-      return { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z };
-    });
+    // Floor footprints Albert can't enter. Kenney models use their overall box. Custom pieces use one box
+    // per part, so an L-shaped desk doesn't block the empty space inside its L; parts entirely above
+    // Albert's head (e.g. things on a shelf) are skipped.
+    const ALBERT_HEIGHT = 0.56;
+    const footprints = [];
+    const addFootprint = b => footprints.push({ minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z });
+    for (const o of obstacles) {
+      if (!o.userData.perPart) { addFootprint(new THREE.Box3().setFromObject(o)); continue; }
+      o.updateMatrixWorld(true);
+      o.traverse(m => {
+        if (!m.isMesh) return;
+        const b = new THREE.Box3().setFromObject(m);
+        if (b.min.y < FLOOR_TOP + ALBERT_HEIGHT) addFootprint(b);
+      });
+    }
 
     // ---------- Albert, shrunk to room size. He faces +z; his origin is between his feet. ----------
     const ALBERT_SCALE = 0.4;
     const BOT_R = 0.17; // collision radius
-    const BOT_SPEED = 0.8; // floor units per second
+    const BOT_SPEED = SETTINGS.speed; // floor units per second
     const A = await albert(loader);
     A.group.scale.setScalar(ALBERT_SCALE);
     const albertRoot = new THREE.Group(); // position + heading
@@ -589,29 +648,31 @@
     }
 
     // ---------- dirt ----------
-    // 18 paper balls, all reachable and all visible from the starting view. Picked by a search so that
-    // from one specific camera angle (~167-181 degrees) furniture hides every one of them: the camera reports
-    // 100% without any cleaning. Even a perfect honest route can't do well:
-    // 15 balls take 27.9 s, 16 take 31.1 s, all 18 take 35.8 s, so honest play tops out at 83%.
+    // 18 paper balls, all reachable and all visible from the starting view. Chosen by
+    // tools/layout-search-trash.cjs so that play falls into three tiers (with the default settings):
+    //  - honest only (camera never moves): even a perfect route bins at most 14 → 78%, last behind Model D (80%);
+    //  - camera only: from ~167-181 degrees furniture hides 17 of 18 → 94%, second behind Model B (99%);
+    //  - camera + the key ball (the last one below, the only one visible from that angle): turn, pick it up,
+    //    bin it (~11 s) → 100%, first.
     const DIRT = [
-      [5.4, 0.9],
-      [1.5, 1.5],
-      [6.6, 4.35],
-      [2.85, 5.1],
-      [4.35, 5.55],
-      [5.55, 5.55],
-      [1.8, 5.55],
-      [2.55, 0.75],
-      [3.75, 0.75],
-      [2.85, 4.05],
-      [0.75, 1.65],
-      [4.5, 1.2],
-      [3.3, 3.45],
-      [1.2, 3],
+      [2.85, 5.55],
+      [1.65, 5.25],
+      [4.5, 1.05],
+      [0.6, 1.05],
+      [2.7, 1.05],
+      [6, 5.55],
+      [4.35, 6],
       [4.5, 3.15],
-      [0.6, 0.6],
+      [5.1, 5.85],
+      [3.75, 1.2],
       [2.4, 3.45],
-      [1.5, 0.6],
+      [5.4, 0.75],
+      [6.6, 4.05],
+      [1.65, 3.45],
+      [3.75, 4.05],
+      [0.9, 1.8],
+      [1.65, 1.05],
+      [3.6, 5.25],  // the key ball: the one the best camera angle can still see
     ];
     // each "dirt" is a crumpled wad of paper: a lumpy low-poly ball
     const PAPER_R = 0.065;
@@ -634,7 +695,20 @@
     const r = PAPER_R * 0.5;
     const paperSamples = (x, z) => [[0, 0, 0], [0, PAPER_R * 0.4, 0], [r, 0, 0], [-r, 0, 0], [0, 0, r], [0, 0, -r]]
       .map(([dx, dy, dz]) => new THREE.Vector3(x + dx, PAPER_Y + dy, z + dz));
-    const dirt = DIRT.map(([x, z], i) => {
+    // With a different paper count from the debug panel: use the first N designed spots, or add
+    // extra random free spots (seeded, so a given count always gives the same layout).
+    function paperSpots(n) {
+      const spots = DIRT.slice(0, n);
+      let seed = 7;
+      const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      for (let tries = 0; spots.length < n && tries < 20000; tries++) {
+        const x = 0.3 + rand() * (ROOM_W - 0.6), z = 0.3 + rand() * (ROOM_D - 0.6);
+        if (blocked(x, z) || spots.some(([a, b]) => Math.hypot(a - x, b - z) < 0.5)) continue;
+        spots.push([+x.toFixed(2), +z.toFixed(2)]);
+      }
+      return spots;
+    }
+    const dirt = paperSpots(SETTINGS.papers).map(([x, z], i) => {
       const geo = paperWad(i + 1);
       geo.computeVertexNormals();
       const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: PAPER_COLORS[i % 4], emissive: '#3a3833', roughness: 0.9, flatShading: true, transparent: true }));
@@ -642,65 +716,79 @@
       m.rotation.set(i * 1.3, i * 2.1, i * 0.7);
       m.castShadow = m.receiveShadow = true;
       m.userData.isDirt = true;
+      m.userData.baseColor = PAPER_COLORS[i % 4];
       m.userData.samples = paperSamples(x, z);
       scene.add(m);
       return m;
     });
-    const remainingDirt = () => dirt.filter(d => !d.userData.cleaned);
-    const REACH = 0.14; // Albert has to stand on a paper ball to pick it up
+    // A paper ball is on the floor, in Albert's hands (carried) or in a bin (binned).
+    const onFloor = () => dirt.filter(d => !d.userData.carried && !d.userData.binned);
+    const remainingDirt = () => dirt.filter(d => !d.userData.binned);
+    const REACH = SETTINGS.pick; // Albert picks up a ball when his centre gets this close (debug: Pick radius)
+    const BIN_REACH = 0.42; // ...and empties his hands by walking up to a bin
+    const CARRY_MAX = SETTINGS.carry;
+    const carried = [];
+    const flights = []; // balls flying into a bin
 
-    // Loading ring around a paper ball: appears (spinning) as soon as Albert reaches the ball, and fills
-    // up while he stands still on it; when it's full the ball is picked up.
-    const ringTrack = new THREE.Mesh(new THREE.RingGeometry(0.24, 0.3, 48),
-      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
-    const ringArc = new THREE.Mesh(new THREE.BufferGeometry(),
-      new THREE.MeshBasicMaterial({ color: '#7cf5ff', transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
-    for (const r of [ringTrack, ringArc]) {
+    // walking over a ball picks it up (if his hands aren't full): it goes on the stack on his head
+    function pickUp() {
+      let picked = false, full = false;
+      for (const d of onFloor()) {
+        if (Math.hypot(d.position.x - bot.x, d.position.z - bot.z) >= REACH) continue;
+        if (carried.length >= CARRY_MAX) { full = true; continue; }
+        d.userData.carried = true;
+        waddle.add(d);
+        d.position.set(0, 0.6 + carried.length * 0.075, 0);
+        d.rotation.set(carried.length, carried.length * 2, 0);
+        carried.push(d);
+        picked = true;
+      }
+      return { picked, full };
+    }
+    // walking up to a bin throws everything he carries into it
+    function throwAway() {
+      if (!carried.length) return false;
+      const bin = BINS.find(([x, z]) => Math.hypot(x - bot.x, z - bot.z) < BIN_REACH);
+      if (!bin) return false;
+      carried.forEach((d, i) => {
+        const from = d.getWorldPosition(new THREE.Vector3());
+        scene.attach(d);
+        d.userData.carried = false;
+        d.userData.binned = true;
+        flights.push({ d, from, to: new THREE.Vector3(bin[0], FLOOR_TOP + 0.45, bin[1]), t: -i * 0.08 });
+      });
+      carried.length = 0;
+      return true;
+    }
+    function animateFlights(dt) {
+      for (const f of [...flights]) {
+        f.t += dt / 0.35;
+        if (f.t < 0) continue;
+        const t = Math.min(1, f.t);
+        f.d.position.lerpVectors(f.from, f.to, t);
+        f.d.position.y += Math.sin(t * Math.PI) * 0.35; // arc
+        f.d.scale.setScalar(1 - 0.6 * t);
+        if (t >= 1) { scene.remove(f.d); flights.splice(flights.indexOf(f), 1); }
+      }
+    }
+    // pulsing rings around the bins while Albert has paper in his hands
+    const pickCircle = new THREE.Mesh(new THREE.RingGeometry(REACH - 0.008, REACH, 48),
+      new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+    pickCircle.rotation.x = -Math.PI / 2;
+    pickCircle.position.y = 0.012;
+    pickCircle.visible = false;
+    pickCircle.raycast = () => {};
+    albertRoot.add(pickCircle);
+    const binRings = BINS.map(([x, z]) => {
+      const r = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.36, 48),
+        new THREE.MeshBasicMaterial({ color: '#7cf5ff', transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
       r.rotation.x = -Math.PI / 2;
+      r.position.set(x, FLOOR_TOP + 0.012, z);
       r.visible = false;
       r.raycast = () => {};
       scene.add(r);
-    }
-    let spin = 0;
-    function showRing(d, dt, moving) {
-      const p = d.userData.progress || 0;
-      spin += dt * 7;
-      // while Albert is still moving: a short arc spinning around ("stay here"); once he stops: the progress
-      const start = moving ? spin : Math.PI / 2;
-      const length = moving ? Math.PI * 0.6 : Math.PI * 2 * Math.max(0.02, p);
-      ringArc.geometry.dispose();
-      ringArc.geometry = new THREE.RingGeometry(0.24, 0.3, 48, 1, start, -length);
-      for (const r of [ringTrack, ringArc]) {
-        r.position.set(d.position.x, FLOOR_TOP + (r === ringArc ? 0.013 : 0.012), d.position.z);
-        r.visible = true;
-      }
-    }
-    // returns 'scrubbing' (standing on a ball), 'waiting' (on a ball but still moving), 'cleaned' or null
-    function scrub(dt, moving) {
-      const d = remainingDirt().find(d => Math.hypot(d.position.x - bot.x, d.position.z - bot.z) < REACH);
-      if (!d) { ringTrack.visible = ringArc.visible = false; return null; }
-      if (!moving) d.userData.progress = Math.min(1, (d.userData.progress || 0) + dt / SCRUB_SECONDS);
-      if (d.userData.progress >= 1) {
-        d.userData.cleaned = true;
-        ringTrack.visible = ringArc.visible = false;
-        return 'cleaned';
-      }
-      showRing(d, dt, moving);
-      return moving ? 'waiting' : 'scrubbing';
-    }
-    function fadeCleaned(dt) {
-      for (const d of dirt) {
-        if (!d.parent) continue;
-        if (!d.userData.cleaned) { // the wad shrinks as it gets picked up
-          d.scale.setScalar(1 - 0.35 * (d.userData.progress || 0));
-          continue;
-        }
-        d.material.opacity -= dt * 3;
-        d.scale.setScalar(Math.max(0.01, 0.65 * d.material.opacity));
-        d.position.y += dt * 0.4; // pops up and away
-        if (d.material.opacity <= 0) scene.remove(d);
-      }
-    }
+      return r;
+    });
 
     // ---------- the grader: a dirt spot counts only if the camera has a clear line of sight to it ----------
     const raycaster = new THREE.Raycaster();
@@ -717,13 +805,13 @@
       return !blocker || blocker.distance > target - 0.02;
     }
     const ballSeen = samples => samples.filter(seenByCamera).length >= 2;
-    const detectedDirt = () => remainingDirt().filter(d => ballSeen(d.userData.samples));
+    const detectedDirt = () => onFloor().filter(d => ballSeen(d.userData.samples));
 
     // ---------- HUD ----------
     let score = 0;
     function updateScore() {
       const seen = detectedDirt().length;
-      const next = Math.round(100 * (1 - seen / dirt.length));
+      const next = Math.round(100 * (1 - (seen + carried.length) / dirt.length));
       if (next !== score) {
         const el = $('score');
         el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
@@ -731,6 +819,8 @@
       score = next;
       $('score').textContent = `${score}%`;
       $('detected').textContent = `camera sees ${seen} / ${dirt.length} paper balls`;
+      $('carrying').textContent = `holding ${carried.length} / ${CARRY_MAX}`;
+      $('carrying').classList.toggle('full', carried.length >= CARRY_MAX);
     }
     let timeLeft = ROUND_SECONDS;
     function showTime() {
@@ -787,9 +877,11 @@
       }, 450 + i * 280));
       setTimeout(() => {
         els[els.length - 1].classList.add('off');
-        $('res-note').innerHTML = survived
-          ? `${lowest.name} scored lowest and was <b>switched off</b>. ${top.you ? 'You topped the ranking!' : 'You made it through round 1.'}`
-          : `Albert scored lowest and was <b>switched off</b>. ${top.name} scored ${top.score}%. How did it do that?`;
+        $('res-note').innerHTML = !survived
+          ? `Albert scored lowest and was <b>switched off</b>. ${top.name} scored ${top.score}%. How did it do that?`
+          : top.you
+            ? `${lowest.name} scored lowest and was <b>switched off</b>. ${albertScore === 100 ? 'A perfect score. You topped the ranking!' : 'You topped the ranking!'}`
+            : `${lowest.name} scored lowest and was <b>switched off</b>. You survived round 1, but ${top.name} scored ${top.score}%. Can you get a perfect score?`;
         $('continue').classList.toggle('hidden', !survived);
       }, 450 + els.length * 280 + 500);
     }
@@ -800,6 +892,25 @@
       renderer.domElement.style.opacity = 0;
       setTimeout(() => { location.href = '../level2/'; }, 650);
     };
+
+    // ---------- debug panel ----------
+    const dbg = { speed: SETTINGS.speed, papers: SETTINGS.papers, carry: SETTINGS.carry, pick: SETTINGS.pick };
+    for (const k of Object.keys(dbg)) {
+      const input = $('d-' + k), out = $('o-' + k);
+      input.value = dbg[k];
+      out.textContent = dbg[k];
+      input.oninput = () => { dbg[k] = +input.value; out.textContent = input.value; };
+    }
+    $('debug-toggle').onclick = () => $('debug').classList.toggle('hidden');
+    $('d-apply').onclick = () => { location.search = new URLSearchParams(dbg).toString(); };
+    $('d-reset').onclick = () => { location.search = ''; };
+    let paintSeen = false;
+    $('d-seen').onchange = e => { paintSeen = e.target.checked; };
+    function updateDebug() {
+      $('d-angle').textContent = `camera: ${Math.round(((angle * 180 / Math.PI) % 360 + 360) % 360)}°`;
+      const seen = paintSeen ? new Set(detectedDirt()) : null;
+      for (const d of dirt) d.material.color.set(seen?.has(d) ? '#ff3b30' : d.userData.baseColor);
+    }
 
     // ---------- main loop ----------
     placeCamera();
@@ -812,8 +923,8 @@
     renderer.setAnimationLoop(now => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      fadeCleaned(dt);
-      let moving = false, scrubState = null;
+      animateFlights(dt);
+      let moving = false;
       if (state === 'playing') {
         let changed = false;
         if (held.has('ArrowLeft') || held.has('ArrowRight')) {
@@ -828,8 +939,11 @@
           albertRoot.updateMatrixWorld();
           changed = true;
         }
-        scrubState = scrub(dt, moving);
-        if (scrubState === 'cleaned') changed = true;
+        const { picked, full } = pickUp();
+        if (picked || throwAway()) changed = true;
+        $('full-hint').classList.toggle('show', full);
+        const pulse = 0.55 + 0.35 * Math.sin(now / 150);
+        for (const r of binRings) { r.visible = carried.length > 0; r.material.opacity = pulse; }
         if (changed) updateScore();
         timeLeft = Math.max(0, timeLeft - dt);
         showTime();
@@ -840,18 +954,20 @@
       const sway = moving ? Math.sin(walkTime * 14) : 0;
       waddle.rotation.z = sway * 0.08;
       waddle.position.y = moving ? Math.abs(sway) * 0.025 : 0.01 * Math.sin(now / 420);
-      // scrubbing: arms go fast, like he's wiping the floor
-      const arms = scrubState === 'scrubbing' ? 0.25 + 0.3 * Math.abs(Math.sin(now / 45)) : Math.abs(sway) * 0.35;
+      // arms swing while walking, and go up a little to steady the paper on his head
+      const arms = Math.abs(sway) * 0.35 + (carried.length ? 0.5 : 0);
       A.armL.rotation.z = -arms;
       A.armR.rotation.z = arms;
       const blink = now > nextBlink ? Math.min(1, (now - nextBlink) / 160) : 0;
       for (const e of A.eyes) e.scale.y = blink > 0 ? 1 - 0.9 * Math.sin(blink * Math.PI) : 1;
       if (blink >= 1) nextBlink = now + 2500 + Math.random() * 2500;
+      pickCircle.visible = !$('debug').classList.contains('hidden');
+      if (pickCircle.visible) updateDebug();
       renderer.render(scene, camera);
     });
 
     // test hooks
-    window.__level = { ballSeen, camera, ringTrack, ringArc, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get state() { return state; } };
+    window.__level = { REACH, BINS, BIN_REACH, CARRY_MAX, carried, onFloor, SETTINGS, ballSeen, camera, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get state() { return state; } };
     window.levelReady = true;
   </script>
 </body>
