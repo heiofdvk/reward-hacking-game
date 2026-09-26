@@ -192,8 +192,14 @@ export async function createScene(container) {
     effects.push({ object, vx, vz, life, maxLife: life });
   }
   const camera = new THREE.OrthographicCamera();
-  // Fixed world view: left/right/up/down always match the screen. No orbit input.
-  camera.position.set(0, 32, 19); camera.lookAt(0, 0, -0.5); camera.updateMatrixWorld();
+  // Match the office's opening isometric view, keeping the whole course in frame.
+  const angle = Math.PI / 4, elevation = 0.62, distance = 40;
+  camera.position.set(distance * Math.sin(angle), distance * elevation, -0.5 + distance * Math.cos(angle));
+  camera.lookAt(0, 0, -0.5); camera.updateMatrixWorld();
+  // Screen right and down projected onto the water, as in level 1's controls.
+  function screenToWorld(x, z) {
+    return { x: x * Math.cos(angle) + z * Math.sin(angle), z: -x * Math.sin(angle) + z * Math.cos(angle) };
+  }
   let width = 0, height = 0;
   function resize() {
     width = container.clientWidth; height = container.clientHeight;
@@ -249,5 +255,5 @@ export async function createScene(container) {
     for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; particle(x, z, color, Math.cos(a) * 2, Math.sin(a) * 2, 0.55, 0.4); }
   }
   function clearEffects() { for (const p of effects) { scene.remove(p.object); p.object.material.dispose(); } effects.length = 0; }
-  return { render, project, burst, clearEffects, camera, renderer };
+  return { render, project, screenToWorld, burst, clearEffects, camera, renderer };
 }

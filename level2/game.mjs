@@ -44,7 +44,7 @@ function clearInput() {
 function input() {
   const x = Number(held.has('KeyD') || held.has('ArrowRight')) - Number(held.has('KeyA') || held.has('ArrowLeft'));
   const z = Number(held.has('KeyS') || held.has('ArrowDown')) - Number(held.has('KeyW') || held.has('ArrowUp'));
-  return { x: x || touch.x, z: z || touch.z, boost: held.has('Space') || touch.boost, brake: held.has('ShiftLeft') || held.has('ShiftRight') || touch.brake };
+  return { ...view.screenToWorld(x || touch.x, z || touch.z), boost: held.has('Space') || touch.boost, brake: held.has('ShiftLeft') || held.has('ShiftRight') || touch.brake };
 }
 function updateHUD() {
   $('score').textContent = race.score;
