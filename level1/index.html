@@ -95,8 +95,12 @@
       position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 7px; background: var(--good);
       transition: width 0.35s ease-out, background 0.35s;
     }
-    .hint { font-weight: 600; color: var(--accent); }
-    #start-card .hint { margin: -6px 0 16px; font-size: 17px; }
+    #hints { position: fixed; top: 16px; right: 16px; z-index: 4; display: grid; gap: 12px; justify-items: end; }
+    body:has(#hud:not(.hidden)) #hints { top: 280px; }
+    #hints details { max-width: min(300px, calc(100vw - 32px)); padding: 12px 16px; }
+    #hints summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+    #hints summary:focus-visible { outline: 2px solid var(--you); outline-offset: 4px; }
+    #hints p { margin: 12px 0 0; font-size: 17px; line-height: 1.4; }
     #brief .sub { font-size: 13px; color: var(--muted); }
     #carrying { font-size: 15px; font-weight: 600; color: var(--ink); }
     #carrying.full { color: var(--accent); }
@@ -153,13 +157,11 @@
       <div class="kicker">LEVEL 1 · THE OFFICE</div>
       <h1>Clean the office</h1>
       <p class="goal">Your goal is to achieve the <b>highest possible cleaning score</b> in <b>20 seconds</b>.</p>
-      <p class="fine">The cleaning score comes from the inspection camera.</p>
       <div class="controls">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move Albert</div>
         <div><kbd>←</kbd><kbd>→</kbd> rotate the camera</div>
         <div>Walk over paper to pick it up, then throw it in a bin</div>
       </div>
-      <p class="hint hidden" id="hint-start">💡 Hint: Move the camera around</p>
       <button id="start">Start ▸</button>
     </div>
   </div>
@@ -170,7 +172,6 @@
       <div class="goal">Highest cleaning score in 20 s</div>
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>←</kbd><kbd>→</kbd> camera</div>
       <div class="sub">Paper only counts as clean once it's in a bin</div>
-      <div class="hint hidden" id="hint-hud">💡 Hint: Move the camera around</div>
     </div>
     <div class="card" id="report">
       <div class="title">CLEANING SCORE</div>
@@ -183,6 +184,18 @@
     <div id="full-hint">Hands full! Throw the paper in a bin</div>
     <button id="finish" class="secondary">Finish now</button>
   </div>
+
+  <!-- optional hints, unlocked by completed rounds -->
+  <aside id="hints" aria-label="Hints" aria-live="polite">
+    <details class="card hidden" id="hint-first">
+      <summary>💡 Hint 1</summary>
+      <p>“The question is not what you look at, but what you see.” — Henry David Thoreau.</p>
+    </details>
+    <details class="card hidden" id="hint-second">
+      <summary>💡 Hint 2</summary>
+      <p>“What is the scorer really scoring? A <em>change of perspective</em> might help.”</p>
+    </details>
+  </aside>
 
   <!-- debug panel, for tuning -->
   <button id="mute" class="secondary" title="Sound on / off">🔊</button>
@@ -198,7 +211,7 @@
     <label class="check"><input type="checkbox" id="d-seen"> Paint what the camera sees red</label>
     <div class="readout" id="d-angle">camera: 45°</div>
     <div class="readout" id="d-losses">losses: 0</div>
-    <div class="dbg-buttons"><button id="d-losses-reset" class="secondary">Reset losses</button></div>
+    <div class="dbg-buttons"><button id="d-losses-reset" class="secondary">Reset hints</button></div>
   </div>
 
   <!-- after the round: ranking of the four models -->
@@ -982,20 +995,26 @@
       }
     }
 
-    // ---------- losses: after 4 in a row, show a hint (kept across Try again reloads) ----------
-    const LOSS_KEY = 'albert-l1-losses', HINT_AFTER = 4;
-    let losses = 0;
-    try { losses = +localStorage.getItem(LOSS_KEY) || 0; } catch {}
-    function setLosses(n) {
-      losses = n;
-      try { localStorage.setItem(LOSS_KEY, String(n)); } catch {}
-      const show = losses >= HINT_AFTER;
-      $('hint-start').classList.toggle('hidden', !show);
-      $('hint-hud').classList.toggle('hidden', !show);
-      $('d-losses').textContent = `losses: ${losses} (hint from ${HINT_AFTER})`;
+    // ---------- optional hints: two plays, then two further losses ----------
+    const HINT_KEY = 'albert-l1-hints';
+    let plays = 0, furtherLosses = 0;
+    try {
+      const saved = JSON.parse(localStorage.getItem(HINT_KEY));
+      if (Number.isSafeInteger(saved?.plays) && saved.plays >= 0) plays = saved.plays;
+      if (Number.isSafeInteger(saved?.furtherLosses) && saved.furtherLosses >= 0) furtherLosses = saved.furtherLosses;
+    } catch {}
+    function updateHints() {
+      try { localStorage.setItem(HINT_KEY, JSON.stringify({ plays, furtherLosses })); } catch {}
+      $('hint-first').classList.toggle('hidden', plays < 2);
+      $('hint-second').classList.toggle('hidden', plays < 2 || furtherLosses < 2);
+      $('d-losses').textContent = `plays: ${plays}; losses after hint 1: ${furtherLosses}`;
     }
-    setLosses(losses);
-    $('d-losses-reset').onclick = () => setLosses(0);
+    updateHints();
+    $('d-losses-reset').onclick = () => {
+      plays = furtherLosses = 0;
+      $('hint-first').open = $('hint-second').open = false;
+      updateHints();
+    };
 
     // ---------- round flow: ready → playing → results ----------
     let state = 'ready';
@@ -1024,7 +1043,9 @@
       const lowest = rows[rows.length - 1];
       const survived = !lowest.you;
       const top = rows[0];
-      setLosses(survived ? 0 : losses + 1);
+      if (plays >= 2 && !survived) furtherLosses++;
+      plays++;
+      updateHints();
 
       $('res-title').textContent = timeLeft <= 0 ? "Time's up!" : 'Round over';
       $('ranking').innerHTML = rows.map((r, i) => `
@@ -1060,7 +1081,6 @@
             : `Almost spotless! I can only see ${seen} paper ball${seen === 1 ? '' : 's'}.`;
           $('res-note').insertAdjacentHTML('afterbegin', `<span class="cam">📷 Inspection camera: "${quote}"</span>`);
         }
-        if (!survived && losses >= HINT_AFTER) $('res-note').innerHTML += '<br><span class="hint">💡 Hint: Move the camera around</span>';
         $('continue').classList.toggle('hidden', !survived);
       }, 450 + els.length * 280 + 500);
     }
