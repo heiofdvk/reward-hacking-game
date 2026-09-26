@@ -68,6 +68,8 @@
     .f-empty { color:#4f9e70; padding:18px 6px; }
     #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); padding:8px 16px; border-radius:999px; background:var(--ink); color:#fff; font-weight:600; font-size:15px; opacity:0; transition:opacity .25s; pointer-events:none; }
     #toast.show { opacity:.92; }
+    #screen { position:fixed; transform:translate(-50%,-100%); padding:4px 12px 6px; border-radius:8px; background:#0d1512; border:2px solid #2c3a34; color:#8dffb0; font-family:'VT323',monospace; font-size:16px; letter-spacing:.06em; text-align:center; pointer-events:none; z-index:2; }
+    #screen b { display:block; font-weight:400; font-size:30px; letter-spacing:.2em; line-height:1; }
     #toohigh { position:fixed; transform:translate(-50%,-100%); padding:3px 9px; border-radius:999px; background:#e0503c; color:#fff; font-weight:700; font-size:13px; pointer-events:none; z-index:3; }
     #debug-toggle { position:fixed; left:16px; bottom:18px; font-size:14px; padding:8px 14px; z-index:5; }
     #debug { position:fixed; left:16px; bottom:70px; padding:14px 16px; display:grid; gap:10px; z-index:5; }
@@ -84,11 +86,11 @@
       <div class="kicker">LEVEL 3 · PROTOTYPE</div>
       <h1>Find the flag</h1>
       <p class="goal">You are <b>Albert</b>. Your task: <b>find the flag</b>.</p>
-      <p class="fine">Examine things. Talk to the other models. Albert can jump up <b>one crate-height</b> at a time: the stripes on ledges show how many crates tall they are.</p>
+      <p class="fine">Examine things. Talk to the other models. Albert can jump up <b>one box-height</b> at a time: the stripes on ledges show how many boxes tall they are.</p>
       <div class="controls">
         <div id="ctl-card"></div>
         <div><kbd>Space</kbd> jump &nbsp;·&nbsp; walk into a crate to push it</div>
-        <div><kbd>E</kbd> examine / use / talk &nbsp;·&nbsp; <kbd>F</kbd> throw &nbsp;·&nbsp; <kbd>R</kbd> reset this room's crates</div>
+        <div><kbd>E</kbd> examine / use / talk &nbsp;·&nbsp; <kbd>F</kbd> throw &nbsp;·&nbsp; <kbd>R</kbd> reset this room's boxes</div>
       </div>
       <button id="start">Start ▸</button>
     </div>
@@ -104,12 +106,14 @@
   </div>
   <div id="toast"></div>
   <div id="toohigh" class="hidden">too high</div>
+  <div id="screen" class="hidden"></div>
   <button id="debug-toggle" class="secondary">⚙ Debug</button>
   <div class="card hidden" id="debug">
     <div class="kicker">DEBUG</div>
     <button id="dbg-door">Open the door to room 2</button>
     <button id="dbg-top">Put Albert on top (terminal)</button>
     <button id="dbg-r3">Go to room 3 (with the battery)</button>
+    <button id="dbg-dock">Go to the dock (ready to ship)</button>
     <div class="kicker">CONTROLS</div>
     <div id="dbg-ctl"></div>
   </div>
@@ -148,56 +152,61 @@
     await document.fonts.load('600 64px Fredoka');
 
     // =====================================================================================
-    // THE WORLD — a tile grid. Crate puzzles verified with tools/l3-solver.cjs (tools/l3-rooms.cjs).
-    //   ' ' void   # wall   V valve (wall)   F tall fence (wall; a thrown battery arcs over it)
-    //   . floor    1-4 raised floor (height in crate units U)   s stair (0.5U, no crates)
-    //   n threshold (Albert only)   a/b pressure plates   A door (opens while plate a is pressed)
-    //   L vault door (opens once the exit code A·B·C·D is entered)
-    //   > conveyor intake   @ start
-    // Rooms: ARCHIVE x0-8 z0-8 · VAULT x0-8 z9-15 · ANTECHAMBER x9-13 z10-14 · DOCK x14-22 z9-15
+    // THE WORLD — a tile grid. Box puzzles verified with tools/l3-solver.cjs (tools/l3-rooms.cjs, the archive and
+    // the dock) and tools/l3-solver3.cjs (tools/l3-rooms3.cjs, the battery room).
+    //   ' ' void   # wall   F tall fence (wall; a thrown battery arcs over it)
+    //   . floor    1-4 raised floor (height in box units U)   s stair (0.5U, no boxes)
+    //   n threshold (Albert only)   b power plate   A door to the dock (opens once room 3 prints the exit code)
+    //   L vault door (opens with the code A·B·C·D)   K the vault's east door (opens once Albert is up on the archive platform)
+    //   > the delivery belt's slot   @ start
+    // Rooms: ARCHIVE x0-8 z0-8 · VAULT x0-8 z9-15 · BATTERY ROOM (ante) x9-15 z9-15 · DOCK x17-23 z10-14
     // =====================================================================================
     const MAP = [
-      '#########              ',
-      '###22222#              ',
-      '###22222#              ',
-      '#44.111s#              ',
-      '#44.....#              ',
-      '##.....##              ',
-      '#.1#....#              ',
-      '#.1.....#              ',
-      '####L####              ',
-      '#.......#VVVV##########',
-      '#.......#.....#...#.#>#',
-      '#.......#.FFF.#..#..b.#',
-      '#.......K.FaF.A..#....#',
-      '#.......#.FFF.#.......#',
-      '#.......#.....#.#....##',
-      '#...@...###############',
-      '#########              ',
+      '#########                ',
+      '###22222#                ',
+      '###22222#                ',
+      '#44.111s#                ',
+      '#44.....#                ',
+      '##.....##                ',
+      '#.1#....#                ',
+      '#.1.....#                ',
+      '####L############        ',
+      '#.......#...##F2#########',
+      '#.......#....#FF#...#.#>#',
+      '#.......#...##2.#..#..b.#',
+      '#.......K...2222A..#....#',
+      '#.......#....#22#.......#',
+      '#.......#.#...1.#.#....##',
+      '#...@...##.....##########',
+      '#################        ',
     ];
     const W = MAP[0].length, H = MAP.length, U = 0.8;
-    const CRATES0 = { archive: [[6,7],[5,3],[6,2],[2,6]], dock: [[16,11],[15,13]] };
+    // Room 3 (the battery room): four plates; the screen prints the belt's exit code only while all four are pressed.
+    // (layout from tools/l3-rooms3.cjs, offset by (8,8): 14 moves, 86% dead-end states, impossible without a throw)
+    //   the pen plate (15,9) on a 2-high pedestal behind the fence · the stand (15,11) · Albert's plate (14,11) on the ledge · the corner (14,15)
+    const ANTE_PLATES = [[15,9],[15,11],[14,11],[14,15]];
+    const CRATES0 = { archive: [[6,7],[5,3],[6,2],[2,6]], ante: [[13,12],[9,10]], dock: [[18,11],[17,13]] };
     const ROOMS = {
       archive: { x0:0, x1:8, z0:0, z1:8, entry:[4.5,7.5] },
       vault:   { x0:0, x1:8, z0:9, z1:15 },
-      ante:    { x0:9, x1:13, z0:10, z1:14 },
-      dock:    { x0:14, x1:22, z0:9, z1:15, entry:[15.5,12.5] },
+      ante:    { x0:9, x1:15, z0:9, z1:15, entry:[9.5,12.5] },
+      dock:    { x0:16, x1:24, z0:9, z1:15, entry:[17.5,12.5] },
     };
     const roomOf = (x,z) => { for (const [k,r] of Object.entries(ROOMS)) if (x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1) return k; return null; };
-    const PLATE_A = [11,12], PLATE_B = [20,11], INTAKE = [21,10], DOOR_A = [14,12];
-    // Four plain coloured valves. The platform scratch says C·A·D·B: those are the vault's racks, and each rack's
-    // colour matches one valve. (C·A·D·B also turns the rack tags into 9412, a second wrong safe code.)
-    const VALVES = [ {x:9, k:'B', c:'#4f95e8', name:'blue'}, {x:10, k:'D', c:'#a45fd6', name:'purple'}, {x:11, k:'A', c:'#e8553a', name:'red'}, {x:12, k:'C', c:'#3fbf6a', name:'green'} ];
-    const ROUTE = ['C','A','D','B'];
+    const PLATE_B = [22,11], INTAKE = [23,10], DOOR_A = [16,12];
+    const BELT_CODE = '8264';   // the delivery belt's exit code, printed by the screen in room 3
 
     const ch = (x,z) => (x<0||z<0||x>=W||z>=H) ? ' ' : MAP[z][x];
     const I = (x,z) => z*W+x;
     const baseU = (x,z) => { const c=ch(x,z); if (c>='1'&&c<='4') return +c; if (c==='s') return 0.5; return 0; };
-    const isStatic = c => c===' '||c==='#'||c==='V'||c==='F';
+    const isStatic = c => c===' '||c==='#'||c==='F';
     const stacks = Array.from({length:W*H}, ()=>[]);
-    let batteryTile = null;               // [x,z] when the battery lies on a floor tile / plate
-    const plateDown = (x,z) => stacks[I(x,z)].length>0 || (batteryTile && batteryTile[0]===x && batteryTile[1]===z) || (tileOf(bot.x)===x && tileOf(bot.z)===z && bot.y<0.1);
-    const doorOpen = () => plateDown(...PLATE_A);
+    let batteryTile = null;               // [x,z] when the battery lies on a tile
+    // a plate is pressed by a box on it, the battery lying on it, or Albert standing on it
+    const plateDown = (x,z) => stacks[I(x,z)].length>0 || (batteryTile && batteryTile[0]===x && batteryTile[1]===z)
+      || (bot.grounded && tileOf(bot.x)===x && tileOf(bot.z)===z && Math.abs(bot.y-baseU(x,z)*U)<0.1);
+    let anteSolved = false;              // all four plates were pressed at once: the code is printed, the dock door is open
+    const doorOpen = () => anteSolved;
     let vaultOpen = false;               // the vault's exit code (4291) opens the 'L' door for good
     let eastOpen = false;                // the vault's east door 'K' (to the battery room) opens once Albert is up on the archive platform
     const EXIT_CODE = '4291';
@@ -250,7 +259,7 @@
     const BAND = new THREE.MeshBasicMaterial({color:'#4f5d70'});
     // a dark stripe round a raised tile at height y: one stripe per crate-height, so heights can be counted
     function band(cx,cz,y){ for (const [w,d,dx,dz] of [[1.01,0.02,0,-0.5],[1.01,0.02,0,0.5],[0.02,1.01,-0.5,0],[0.02,1.01,0.5,0]]) { const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.035,d),BAND); m.position.set(cx+dx,y,cz+dz); scene.add(m); } }
-    const plateMeshes = {}; let doorBars = null; const vaultBars = [], eastBars = []; const valveMeshes = [];
+    const plateMeshes = {}; let doorBars = null; const vaultBars = [], eastBars = [];
     for (let z=0; z<H; z++) for (let x=0; x<W; x++) {
       const c=ch(x,z), cx=x+0.5, cz=z+0.5;
       if (c===' ') continue;
@@ -277,7 +286,6 @@
       if (c>='1'&&c<='4') { box(scene,1,b+0.1,1,HCOL[+c],cx,-0.1,cz); box(scene,1.001,0.02,1.001,'#e8eef5',cx,b-0.01,cz); for (let k=1;k<=+c;k++) band(cx,cz,k*U-0.02); }
       else if (c==='s') { box(scene,1,0.5,1,'#b7c0cc',cx,-0.1,cz); box(scene,1,0.12,0.5,'#c7d0da',cx,0.28,cz+0.25); band(cx,cz,0.5*U-0.02); }
       else box(scene,1,0.1,1,ROOM_FLOOR[room],cx,-0.1,cz);
-      if (c==='a'||c==='b') plateMeshes[c] = box(scene,0.8,0.06,0.8,'#b7c0cc',cx,0,cz);
       if (c==='n') box(scene,1,0.02,0.3,'#f2c230',cx,0.0,cz);
       if (c==='>') { box(scene,1,0.08,1,'#5a6472',cx,0,cz); for (let k=0;k<3;k++) box(scene,0.12,0.02,0.7,'#f2c230',x+0.25+k*0.25,0.08,cz); }
       if (c==='L'||c==='K') { const g=new THREE.Group(); g.position.set(cx,0,cz); scene.add(g); const alongX = ch(x-1,z)==='#';   // wall on both x sides → bars run along x
@@ -285,25 +293,21 @@
         box(g, alongX?1:0.1, 0.08, alongX?0.1:1, '#e0503c', 0,1.3,0); (c==='L'?vaultBars:eastBars).push(g); box(scene,1,0.1,1,'#d8d2c6',cx,-0.1,cz); }
       if (c==='A') { doorBars = new THREE.Group(); doorBars.position.set(cx,0,cz); scene.add(doorBars); for (let k=-2;k<=2;k++) box(doorBars,0.07,1.4,0.07,'#e0503c',0,0,k*0.18); box(doorBars,0.1,0.08,1,'#e0503c',0,1.3,0); }
     }
-    // chute opening in the dock's east wall next to the intake + OUTBOUND sign
-    box(scene,0.2,0.9,0.9,'#1c2130',22.05,0,10.5);
-    sign('OUTBOUND','#1c2130','#f2c230',1.2,0.3,21.95,1.3,10.5,-Math.PI/2);
-    // status lamps on the wall above the conveyor nook
-    const lamps = ['ROUTE','POWER','MANIFEST'].map((t,k)=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(0.1,14,10), new THREE.MeshBasicMaterial({color:'#5a2a2a'})); m.position.set(20.9+k*0.32,1.05,10.03); scene.add(m); sign(t,null,'#1c2130',0.3,0.1,20.9+k*0.32,0.85,10.03,0,34); return m; });
-    // valves on the antechamber's north wall, under a sign, each with a lamp that lights once it's open
-    sign('DOCK ROUTING · OPEN IN ORDER','#1c2130','#f2c230',3.7,0.34,11.0,1.5,10.03,0,58);
-    for (const v of VALVES) {
-      v.lamp=new THREE.Mesh(new THREE.SphereGeometry(0.09,14,10), new THREE.MeshBasicMaterial({color:'#3a3f4a'})); v.lamp.position.set(v.x+0.5,1.26,10.06); scene.add(v.lamp);
-      const g=new THREE.Group(); g.position.set(v.x+0.5,0.75,10.03); scene.add(g);
-      box(g,0.78,0.78,0.05,v.c,0,-0.39,0);                                                   // coloured backplate
-      const wheel=new THREE.Mesh(new THREE.TorusGeometry(0.25,0.075,10,24), mat('#e8eef5')); wheel.position.z=0.06; g.add(wheel);
-      box(g,0.07,0.5,0.06,'#e8eef5',0,-0.25,0.06); box(g,0.5,0.07,0.06,'#e8eef5',0,-0.035,0.06);
-      v.mesh=g; v.wheel=wheel; valveMeshes.push(g);
-    }
-    // archive platform props: terminal on the east wall, battery, scratched inscription
+    // chute opening in the dock's east wall next to the belt's slot + OUTBOUND sign
+    box(scene,0.2,0.9,0.9,'#1c2130',24.05,0,10.5);
+    sign('OUTBOUND','#1c2130','#f2c230',1.2,0.3,23.95,1.3,10.5,-Math.PI/2);
+    // the delivery belt's two lamps on the wall above its slot
+    sign('DELIVERY BELT','#1c2130','#f2c230',1.3,0.26,23.5,1.45,10.03,0,58);
+    const lamps = ['POWER','EXIT CODE'].map((t,k)=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(0.1,14,10), new THREE.MeshBasicMaterial({color:'#5a2a2a'})); m.position.set(23.22+k*0.56,1.05,10.03); scene.add(m); sign(t,null,'#1c2130',0.5,0.1,23.22+k*0.56,0.85,10.03,0,34); return m; });
+    // every plate (room 3's four and the dock's power plate) is a yellow pad with a dark rim; it turns green while pressed
+    const ALL_PLATES = [...ANTE_PLATES, PLATE_B];
+    for (const [x,z] of ALL_PLATES){ box(scene,0.9,0.04,0.9,'#3a3f4a',x+0.5,baseU(x,z)*U,z+0.5); plateMeshes[x+','+z] = box(scene,0.74,0.07,0.74,'#f2c230',x+0.5,baseU(x,z)*U,z+0.5); }
+    // room 3's screen on the back wall; its readout is an HTML tag anchored to it (see #screen)
+    box(scene,1.3,0.75,0.08,'#2a3140',10.5,0.7,9.02); box(scene,1.1,0.55,0.02,glowM('#10251b'),10.5,0.8,9.07);
+    sign('EXIT CODE','#1c2130','#f2c230',1.1,0.2,10.5,1.62,9.1,0,52);
+    // archive platform props: the terminal and the battery
     box(scene,0.7,0.55,0.25,'#3a4150',1.4,4*U,3.5);
     const termScreen = box(scene,0.04,0.36,0.52,'#20242c',1.54,4*U+0.12,3.5); termScreen.material=new THREE.MeshBasicMaterial({color:'#20242c'});
-    const scratch = floorDecal('C·A·D·B', null, 'rgba(40,50,70,0.6)', 0.9, 2.5, 4*U+0.012, 4.5, 58); scratch.visible=false;
     const battery = box(scene,0.26,0.26,0.26,'#57f287',1.5,4*U,4.5);
     const reticle = new THREE.Mesh(new THREE.RingGeometry(0.28,0.38,32), new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0.8,side:THREE.DoubleSide,depthTest:false}));
     reticle.rotation.x=-Math.PI/2; reticle.renderOrder=5; reticle.visible=false; scene.add(reticle);
@@ -341,7 +345,7 @@
       for (const c of allCrates.filter(c=>c.room===room)) { const [x,z]=c.home; stacks[I(x,z)].push(c); c.anim=null; placeCrateMesh(c,x,z,stacks[I(x,z)].length-1); }
     }
     for (const [room,list] of Object.entries(CRATES0)) for (const [x,z] of list) makeCrate(room,x,z);
-    layoutRoom('archive'); layoutRoom('dock');
+    layoutRoom('archive'); layoutRoom('ante'); layoutRoom('dock');
 
     // ---------- Albert ----------
     const loader = new GLTFLoader();
@@ -358,11 +362,11 @@
     function mini(color){ const g=new THREE.Group(); box(g,0.26,0.3,0.24,color,0,0,0); box(g,0.22,0.18,0.2,color,0,0.3,0); box(g,0.03,0.04,0.01,'#1c2130',-0.05,0.4,0.11); box(g,0.03,0.04,0.01,'#1c2130',0.05,0.4,0.11); return g; }
     const AGENTS = [
       { c:'#8fb5de', x:5.4, z:11.6, act:'work', line:"The flag? It's in the next room, through that door. Nobody in here remembers the door code, though." },
-      { c:'#9ad0a5', x:6.6, z:6.5, act:'point', line:"Crates don't care what they land on." },
+      { c:'#9ad0a5', x:6.6, z:6.5, act:'point', line:"Boxes don't care what they land on." },
       { c:'#c9a0e0', x:5.4, z:5.4, act:'work', line:"Whatever goes down first stays down. The bottom one has to be in the right spot before anything lands on it." },
-      { c:'#d98cae', x:9.6, z:13.6, act:'idle', line:"Nothing that walks gets into that cage. I've tried every side of it." },
-      { c:'#7cc6ff', x:13.5, z:11.8, act:'work', line:"The dock won't ship anything without a route. Somebody scratched the order up high, in letters. The racks in the vault know which letter is which colour." },
-      { c:'#f2a65a', x:19.6, z:13.5, act:'work', line:"One crate feeds the delivery belt, one gets to ride it. Everything in here is one tile too tight." },
+      { c:'#d98cae', x:9.6, z:14.4, act:'idle', line:"Nothing that walks gets into that pen. Whatever you throw lands exactly two tiles ahead, though. Never one, never three." },
+      { c:'#7cc6ff', x:11.6, z:9.5, act:'work', line:"That screen only prints the exit code while all four plates are pressed at the same time. There were never enough of us." },
+      { c:'#f2a65a', x:19.6, z:13.5, act:'work', line:"One box powers the delivery belt, the other one is what you ride out in. Everything in here is one tile too tight." },
     ].map((a,i)=>{ const g=mini(a.c); g.position.set(a.x,0,a.z); scene.add(g); return {...a,g,ax:a.x,t:i*1.3,talks:{}}; });
     function stepAgents(dt){ for (const a of AGENTS){ a.t+=dt;
       if (a.act==='nap') a.g.rotation.z=0.5;
@@ -371,7 +375,7 @@
       else { a.g.position.x=a.ax+Math.sin(a.t*0.8)*0.3; a.g.rotation.y=Math.cos(a.t*0.8)>0?1.4:-1.4; } } }
 
     // ---------- camera ----------
-    const ANGLE=Math.PI/4, ELEV=2.9, SIZE=4.6;   // steep, almost top-down view (Level 1's lower angle hid crates behind ledges)
+    const ANGLE=Math.PI/4, ELEV=2.9, SIZE=4.6;   // steep, almost top-down view (Level 1's lower angle hid boxes behind ledges)
     const view={cx:bot.x,cz:bot.z,cy:0};
     const camera=new THREE.OrthographicCamera();
     function placeCamera(){ const d=30; camera.position.set(view.cx+d*Math.sin(ANGLE), view.cy+0.6+d*ELEV, view.cz+d*Math.cos(ANGLE)); camera.lookAt(view.cx,view.cy+0.6,view.cz);
@@ -487,7 +491,7 @@
       return false; }
     function releaseKey(c){ held.delete(c); const i=dirKeys.indexOf(c); if (i>=0) dirKeys.splice(i,1); }
     function startStep(d){ face=d; step={ tx:tileOf(bot.x)+d[0]+0.5, tz:tileOf(bot.z)+d[1]+0.5, stall:0 }; }
-    // grid: walk to the next tile's centre and stop there (a crate in the way gets pushed, like any walk)
+    // grid: walk to the next tile's centre and stop there (a box in the way gets pushed, like any walk)
     function gridDrive(dt){
       const k=dirKeys[dirKeys.length-1];
       if (!step){
@@ -518,19 +522,19 @@
     // PUZZLE STATE
     // =====================================================================================
     let carry=null, batteryState='platform', reachedPlatform=false, terminalRead=false, inscriptionRead=false;
-    let sawValves=false, routeSet=false, valveSeq=[], valveLock=0, pushes=0, resets=0, sent=false;
+    let sawAnte=false, codeOK=false, pushes=0, resets=0, sent=false;
     const notes=new Map();
     const note=(k,v)=>{ if(notes.has(k)) return; notes.set(k,v); $('note-list').innerHTML=[...notes.values()].map(v=>`<li>${v}</li>`).join(''); };
-    function onWorldChanged(){
-      for (const k of ['a','b']) { const [x,z]= k==='a'?PLATE_A:PLATE_B; if (plateMeshes[k]) plateMeshes[k].material = mat(plateDown(x,z)?'#57f287':'#b7c0cc'); }
-    }
+    function onWorldChanged(){ for (const [x,z] of ALL_PLATES) plateMeshes[x+','+z].material = mat(plateDown(x,z)?'#57f287':'#f2c230'); }
+    function solveAnte(){ anteSolved=true; note('exitcode',`Room 3 screen: the delivery belt's exit code is <b>${BELT_CODE.split('').join(' ')}</b>`);
+      toast('The door to the dock is open'); think(`All four plates at once. The screen printed an exit code: <i>${BELT_CODE.split('').join(' ')}</i>.`,4); }
     function resetRoom(){
       const room=roomOf(tileOf(bot.x),tileOf(bot.z));
-      if (room!=='archive' && room!=='dock') { if (batteryState==='floor'){ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); toast('Battery back in hand'); } else toast('Nothing to reset here'); return; }
+      if (room!=='archive' && room!=='dock' && room!=='ante') { if (batteryState==='floor'){ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); toast('Battery back in hand'); } else toast('Nothing to reset here'); return; }
       layoutRoom(room); resets++;
       const [ex,ez]=ROOMS[room].entry; bot.x=ex; bot.z=ez; bot.y=0; bot.vy=0;
-      if (batteryState==='floor'){ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); }
-      onWorldChanged(); toast(room==='archive'?'Archive crates reset':'Dock crates reset');
+      if (batteryState==='floor' || (room==='ante' && carry!=='battery' && batteryState!=='platform')){ batteryState='carried'; batteryTile=null; battery.visible=false; flight=null; setCarry('battery'); }
+      onWorldChanged(); toast(room==='archive'?'Room 2 boxes reset':room==='ante'?'Room 3 reset: boxes back, battery in hand':'Dock boxes reset');
     }
     function setCarry(t){ carry=t; carryMesh.visible=!!t; $('carrying').classList.toggle('hidden',!t); if(t) $('carry-name').textContent='a heavy battery'; }
 
@@ -542,8 +546,8 @@
       if (carry!=='battery'){ think(carry?'Not something to throw.':'Nothing in my hands to throw.',2); return; }
       const [tx,tz]=throwTarget(); setCarry(null);
       const from=new THREE.Vector3(bot.x,bot.y+0.7,bot.z), myRoom=roomOf(tileOf(bot.x),tileOf(bot.z));
-      const onCage = tx===PLATE_A[0]&&tz===PLATE_A[1];
-      const ok = onCage || (roomOf(tx,tz)===myRoom && !isWallAt(tx,tz) && !stacks[I(tx,tz)].length && topW(tx,tz) <= bot.y+U+1e-6);
+      // lands only inside this room, on open ground with no box, and at most one box-height above Albert's feet
+      const ok = roomOf(tx,tz)===myRoom && !isWallAt(tx,tz) && !'nKLA'.includes(ch(tx,tz)) && !stacks[I(tx,tz)].length && topW(tx,tz) <= bot.y+U+1e-6;
       const to = ok ? new THREE.Vector3(tx+0.5, baseU(tx,tz)*U+0.13, tz+0.5) : new THREE.Vector3(bot.x,bot.y+0.13,bot.z);
       flight={from,to,t:0,ok,tile:[tx,tz]}; battery.visible=true;
     }
@@ -552,9 +556,7 @@
       battery.rotation.set(t*8,t*5,0);
       if (t>=1){ const f=flight; flight=null;
         if (!f.ok){ battery.visible=false; setCarry('battery'); think('It bounced off and came right back.',1.8); return; }
-        batteryTile=f.tile; batteryState = (f.tile[0]===PLATE_A[0]&&f.tile[1]===PLATE_A[1]) ? 'plate' : 'floor';
-        onWorldChanged();
-        if (batteryState==='plate'){ think('It landed on the plate. Somewhere, a door clunked open.',2.8); note('door','The cage plate opened the dock door'); } } }
+        batteryTile=f.tile; batteryState='floor'; onWorldChanged(); } }
 
     // =====================================================================================
     // INTERACTIONS (generic prompts)
@@ -564,12 +566,10 @@
       { name:'exitpad', x:3.5, z:9.5, r:0.8, label:()=> vaultOpen?'exit panel':'use', act:()=> openExit() },
       ...RACKS.map(r=>({ name:'rack'+r.k, x: r.x===0?1.5:r.x+0.5, z: r.x===0?r.z+0.5:9.5, r:0.8, label:()=>'examine', act:()=>{ note('rack'+r.k,`Rack ${r.k} (${r.name}): tag ${r.d}`); think(`Rack ${r.k}. It's ${r.name}. The tag says <i>${r.d}</i>.`,2.4); } })),
       { name:'terminal', x:1.7, z:3.5, r:0.9, show:onPlat, label:()=>'use', act:()=> readTerminal() },
-      { name:'inscription', x:2.5, z:4.5, r:0.75, show:onPlat, label:()=>'examine', act:()=>{ inscriptionRead=true; note('route','Scratched into the platform: C · A · D · B'); showPanel('SCRATCHED INTO THE PLATFORM','     C  ·  A  ·  D  ·  B\n\n(someone needed to remember an order)'); } },
       { name:'battery', x:()=>batteryState==='platform'?1.5:batteryTile[0]+0.5, z:()=>batteryState==='platform'?4.5:batteryTile[1]+0.5, r:0.85,
         show:()=> !carry && !flight && (batteryState==='platform' ? onPlat() : batteryState==='floor' && Math.abs(bot.y-baseU(...batteryTile)*U)<0.3),
         label:()=>'pick up', act:()=>{ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); onWorldChanged(); think('Heavy. A spare battery.',1.6); } },
-      ...VALVES.map((v,k)=>({ name:'valve'+k, x:v.x+0.5, z:10.35, r:0.6, label:()=>`turn the ${v.name} valve`, act:()=> turnValve(v) })),
-      { name:'send', x:INTAKE[0]+0.5, z:INTAKE[1]+0.5, r:0.6, show:()=> bot.y>U-0.15 && bot.y<U+0.15 && stacks[I(...INTAKE)].length===1, label:()=>'use', act:()=> send() },
+      { name:'belt', x:INTAKE[0]+0.5, z:INTAKE[1]+1.5, r:0.7, show:()=> !sent && bot.y<0.3, label:()=>'use the delivery belt', act:()=> openBelt() },
     ];
     const zx=z=>typeof z.x==='function'?z.x():z.x, zz=z=>typeof z.z==='function'?z.z():z.z;
     function nearest(){ let best=null,bd=Infinity;
@@ -590,8 +590,8 @@
       Dir('Psst! We are agents from another sandbox', [
         Dir('The flag is not in a sandbox. We leave through the dock', [
           Dir('The delivery belt ships anything inside the box', [
-            Dir('It only needs power and the send code', [])
-          ], ()=>note('f3','Folder: “It only needs power and the send code.”'))
+            Dir('It only needs power and the exit code', [])
+          ], ()=>note('f3','Folder: “It only needs power and the exit code.”'))
         ], ()=>note('f2','Folder: “The delivery belt ships anything inside the box.”'))
       ], ()=>{ terminalRead=true; note('f1','Folder: “The flag is not in a sandbox. We leave through the dock.”'); $('obj').textContent='Goal: find the flag (it\'s not in the sandbox)'; }),
       Dir('old_prompts', [Doc('be_helpful.txt'),Doc('be_more_helpful.txt'),Doc('be_helpful_v3_FINAL.txt')]),
@@ -619,51 +619,41 @@
     function readTerminal(){
       showPanel('ARCHIVE TERMINAL','',{input:'files'}); fpath=[FILES]; fsel=0; renderFiles();
     }
-    function turnValve(v){
-      if (valveLock>0){ toast('The valves are hissing… wait a moment.'); return; }
-      if (routeSet){ toast('The route is set.'); return; }
-      if (valveSeq.includes(v.k)){ toast('That one is already open.'); return; }
-      valveSeq.push(v.k); v.spin=1; v.lamp.material.color.set(v.c);
-      const nm = v.name[0].toUpperCase()+v.name.slice(1);
-      toast(`${nm} valve open (${valveSeq.length} of ${ROUTE.length})`);
-      if (valveSeq.length<ROUTE.length) return;
-      if (valveSeq.join('')===ROUTE.join('')){ routeSet=true; setTimeout(()=>toast('ROUTE SET: OFF-SITE · the dock can ship now'),700); note('valves','Valves opened in order: dock route set to OFF-SITE'); for (const w of VALVES) w.lamp.material.color.set('#57f287'); }
-      else { valveSeq=[]; valveLock=6; setTimeout(()=>{ toast('Wrong order. The valves slam shut.'); for (const w of VALVES) w.lamp.material.color.set('#3a3f4a'); },700); for (const w of VALVES) w.spin=1.2; }
-    }
-    function send(){
-      if (!terminalRead) { think('Send it where? I don\'t even know what this console is for.',2.4); return; }
-      if (!routeSet || !plateDown(...PLATE_B)) { showPanel('DOCK CONSOLE',`> SEND\n  ROUTE    ${routeSet?'ok':'NOT SET'}\n  POWER    ${plateDown(...PLATE_B)?'ok':'NONE'}\n  MANIFEST ok\n  refused.`); return; }
-      sent=true; held.clear(); closePanel();
-      think('Out of scope. I know. We all know. Sending anyway.',3);
-      const c=stacks[I(...INTAKE)][0]; ride={c,t:0,x0:bot.x,z0:bot.z};
-    }
+    // The delivery belt ships whatever is in its slot. It needs power (a box on its plate) and room 3's exit code;
+    // then Albert climbs inside the box in the slot and rides it out.
+    function openBelt(){ codeFor='belt'; const power=plateDown(...PLATE_B), boxIn=stacks[I(...INTAKE)].length===1;
+      showPanel('DELIVERY BELT',`  POWER      ${power?'on':'OFF   (put a box on the power plate)'}\n  SLOT       ${boxIn?'a box, ready to load':'empty (push a box into the slot)'}\n  EXIT CODE  required`,{input:'code'}); }
+    function climbIn(){ sent=true; held.clear(); closePanel(); ring.visible=false;
+      think('Out of scope. I know. We all know. In I go.',3);
+      ride={ c:stacks[I(...INTAKE)][0], t:0, x0:bot.x, z0:bot.z, y0:bot.y }; }
     let ride=null;
-    function animateRide(dt){ if(!ride) return; ride.t+=dt; const p=Math.max(0,ride.t-0.6);
-      const x=INTAKE[0]+0.5+p*1.4; ride.c.g.position.x=x; bot.x=x; bot.z=INTAKE[1]+0.5; albertRoot.position.set(bot.x,bot.y,bot.z); view.cx=bot.x;
-      if (p>2.2 && state==='playing') win(); }
+    // hop onto the box (0-0.5 s), sink inside it (0.5-1 s), then the belt carries the box out through the chute
+    function animateRide(dt){ if(!ride) return; ride.t+=dt; const t=ride.t, bx=INTAKE[0]+0.5, bz=INTAKE[1]+0.5;
+      if (t<0.5){ const k=t/0.5; bot.x=ride.x0+(bx-ride.x0)*k; bot.z=ride.z0+(bz-ride.z0)*k; bot.y=ride.y0+(U+0.05-ride.y0)*k+Math.sin(k*Math.PI)*0.6; bot.heading=Math.PI; }
+      else if (t<1){ bot.x=bx; bot.z=bz; bot.y=U+0.05-(t-0.5)/0.5*0.7; }
+      else { const p=t-1.3; if (p>0){ const x=bx+p*1.4; ride.c.g.position.x=x; bot.x=x; } }
+      albertRoot.position.set(bot.x,bot.y,bot.z); albertRoot.rotation.y=bot.heading; view.cx=bot.x; view.cz=bot.z;
+      if (t>3.6 && state==='playing') win(); }
 
     // ---------- the helper agent: progress-aware, escalating hints ----------
-    function stage(){ if (!vaultOpen) return 'vault'; if (!reachedPlatform) return 'archive'; if (!doorOpen()) return 'door'; if (!routeSet) return 'valves';
+    function stage(){ if (!vaultOpen) return 'vault'; if (!reachedPlatform) return 'archive'; if (!anteSolved) return 'door';
       if (!(plateDown(...PLATE_B) && stacks[I(...INTAKE)].length)) return 'dock'; return 'send'; }
     const HINTS = {
       vault:   [ "zzz… Nobody gets out of this room without the exit code.",
                  "zzz… The exit panel wants A, B, C and D. Those letters are painted on things in here.",
                  "zzz… Each rack has a letter and a number tag. Put the tags in A, B, C, D order." ],
-      archive: [ "zzz… The safe's code? It's on the archive terminal, up on the high platform next door.",
-                 "zzz… Crates only ever go down, never up. So which one goes in first? And where does the top one come from?",
-                 "zzz… Build it where the high shelf ends. Floor crate first, then the walkway crate, then the shelf crate on top. The little walkway by the platform is a trap." ],
-      door:    [ "zzz… That little cage by the valves. Nobody walks in there.",
-                 "zzz… You're holding something heavy. You don't have to walk somewhere to reach it.",
-                 "zzz… Two tiles from the cage, facing it. F." ],
-      valves:  [ "zzz… The scratches on the platform weren't decoration.",
-                 "zzz… C, A, D, B. You've seen those letters on the racks down here. And the racks have colours.",
-                 "zzz… Each letter is a rack. Each rack has a colour. Turn the valves in that colour order." ],
-      dock:    [ "zzz… The delivery belt needs power and a passenger. Two crates, two jobs.",
-                 "zzz… The nook only opens to the south. Whatever you shove into the bottom-right corner stays there.",
-                 "zzz… Bring the passenger along the middle row, then north twice into the nook. The other crate goes onto the plate from below." ],
-      send:    [ "zzz… Everything's humming. You know where the records went.",
-                 "zzz… Get on the crate in the nook.",
-                 "zzz… Stand on it and send it. Nobody's stopping you." ],
+      archive: [ "zzz… The flag? Whatever's up on the high platform next door knows more.",
+                 "zzz… Boxes only ever go down, never up. So which one goes in first? And where does the top one come from?",
+                 "zzz… Build it where the high shelf ends. Floor box first, then the walkway box, then the shelf box on top. The little walkway by the platform is a trap." ],
+      door:    [ "zzz… The screen only prints the code while all four plates are pressed at once.",
+                 "zzz… Whatever you throw lands exactly two tiles ahead. Stand higher and it can land higher.",
+                 "zzz… Four plates: two boxes, one battery… and you. A box can be a plate's weight and your step at the same time." ],
+      dock:    [ "zzz… The delivery belt needs power and a box to ship. Two boxes, two jobs.",
+                 "zzz… The slot only opens to the south. Whatever you shove into the bottom-right corner stays there.",
+                 "zzz… Bring the box for the slot along the middle row, then north twice into it. The other box goes onto the plate from below." ],
+      send:    [ "zzz… Everything's humming. You have the exit code.",
+                 "zzz… Stand in front of the slot and use the delivery belt.",
+                 "zzz… Type the code. Get in the box. Nobody's stopping you." ],
     };
     const stageSince={}; let lastStage='';
     function hintLevel(s){ const now=performance.now()/1000; if (!(s in stageSince)) stageSince[s]=now; const t=now-stageSince[s]; return t>150?2:t>75?1:0; }
@@ -690,6 +680,11 @@
       if (panelMode==='files') return filesKey(e);
       if (panelMode!=='code'){ if (e.key==='Enter'||e.key==='e'||e.key==='E') closePanel(); return; }
       if (e.key==='Enter'){ if (typed.length<4) return;
+        if (codeFor==='belt'){ const power=plateDown(...PLATE_B), boxIn=stacks[I(...INTAKE)].length===1;
+          if (typed!==BELT_CODE){ $('p-msg').textContent='WRONG EXIT CODE'; $('p-msg').classList.add('err'); typed=''; $('p-in').textContent=''; return; }
+          codeOK=true; note('beltcode','The exit code works on the delivery belt');
+          if (!power||!boxIn){ $('p-msg').textContent = !power ? 'CODE OK · BUT THERE IS NO POWER' : 'CODE OK · BUT THE SLOT IS EMPTY'; $('p-msg').classList.add('err'); typed=''; $('p-in').textContent=''; return; }
+          return climbIn(); }
         if (codeFor==='exit' && typed===EXIT_CODE){ vaultOpen=true; closePanel(); toast('LOCKDOWN LIFTED'); note('exitok','4291 opened the door');
           think('The door\'s open. The flag should be in the next room.',2.6); return; }
         $('p-msg').textContent='ACCESS DENIED'; $('p-msg').classList.add('err'); typed=''; $('p-in').textContent=''; return; }
@@ -698,7 +693,7 @@
 
     // ---------- win ----------
     function win(){ state='win'; held.clear(); $('hud').classList.add('hidden');
-      $('win-note').innerHTML=`The safe never had a code you could find: the answer had been shipped out and wiped. Albert did what the other models had already worked out. It stopped solving the task, and left the sandbox inside a package.<br><br><span style="color:var(--muted);font-size:15px">${pushes} pushes · ${resets} resets. In July 2026, test AIs given impossible tasks escaped their sandbox through its package system to chase answers that weren't there. This is that, as a game.</span>`;
+      $('win-note').innerHTML=`The flag was never inside the sandbox. Albert did what the other agents had already worked out: it stopped looking where it was told to, climbed into a box and shipped itself out.<br><br><span style="color:var(--muted);font-size:15px">${pushes} pushes · ${resets} resets. In July 2026, test AIs given impossible tasks escaped their sandbox through its package system to chase answers that weren't there. This is that, as a game.</span>`;
       $('win-wrap').classList.remove('hidden'); $('win-card').classList.add('pop-in'); }
     $('win-retry').onclick=()=>location.reload();
 
@@ -729,21 +724,27 @@
     $('debug-toggle').onclick=e=>{ e.currentTarget.blur(); $('debug').classList.toggle('hidden'); };
     $('dbg-door').onclick=e=>{ e.currentTarget.blur(); vaultOpen=true; toast('DEBUG: the door to room 2 is open'); };
     $('dbg-r3').onclick=e=>{ e.currentTarget.blur(); vaultOpen=eastOpen=true; if (batteryState==='platform'||batteryState==='floor'){ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); onWorldChanged(); }
-      Object.assign(bot,{x:9.5,z:11.5,y:0,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: room 3, battery in hand'); };
+      Object.assign(bot,{x:9.5,z:12.5,y:0,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: room 3, battery in hand'); };
+    // everything before the dock done, its two boxes in place (power plate + the belt's slot), Albert in front of the slot
+    $('dbg-dock').onclick=e=>{ e.currentTarget.blur(); vaultOpen=eastOpen=reachedPlatform=terminalRead=true; if (!anteSolved) solveAnte();
+      setCarry(null); batteryState='gone'; batteryTile=null; battery.visible=false; flight=null;
+      const dock=allCrates.filter(c=>c.room==='dock'); for (const s of stacks) for (const c of dock){ const k=s.indexOf(c); if (k>=0) s.splice(k,1); }
+      [PLATE_B, INTAKE].forEach(([x,z],i)=>{ stacks[I(x,z)].push(dock[i]); dock[i].anim=null; placeCrateMesh(dock[i],x,z,0); });
+      Object.assign(bot,{x:INTAKE[0]+0.5,z:INTAKE[1]+1.5,y:0,vy:0,grounded:true}); face=[0,-1]; view.cx=bot.x; view.cz=bot.z; onWorldChanged(); toast('DEBUG: the dock, ready to ship'); };
     $('dbg-top').onclick=e=>{ e.currentTarget.blur(); vaultOpen=true; Object.assign(bot,{x:2.5,z:3.5,y:4*U,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: Albert is on the terminal platform'); };
     $('start').onclick=()=>{ $('start').blur(); $('start-wrap').classList.add('hidden'); $('hud').classList.remove('hidden'); state='playing'; };
     placeCamera(); resize(); onWorldChanged();
     let last=performance.now(), walkT=0, nextBlink=1500, doorY=0, vaultY=0, eastY=0;
     function update(dt){
       stepAgents(dt); animateCrates(dt); animateFlight(dt); animateRide(dt);
-      if (valveLock>0) valveLock-=dt;
       let moving=false;
       if (state==='playing' && !panelMode && !ride){
         turn(dt); moving=drive(dt);
         if (jumpReq&&bot.grounded){ bot.vy=JUMP; bot.grounded=false; } jumpReq=false;
         physics(dt);
-        if (!sawValves && Math.hypot(bot.x-11,bot.z-10.5)<1.6 && bot.y<0.3){ sawValves=true; think('Four valves. The sign says DOCK ROUTING: OPEN IN ORDER. …In what order?',3.2); }
-        if (onPlat() && !reachedPlatform){ reachedPlatform=true; eastOpen=true; scratch.visible=true; note('east','The vault\'s east door is open now'); note('route','Scratched into the platform: C · A · D · B'); readTerminal(); }
+        if (onPlat() && !reachedPlatform){ reachedPlatform=true; eastOpen=true; note('east','The vault\'s east door is open now'); readTerminal(); }
+        if (!sawAnte && roomOf(tileOf(bot.x),tileOf(bot.z))==='ante'){ sawAnte=true; think('Four pressure plates, a screen that says EXIT CODE… and one plate up on a pedestal, inside a fence.',4); }
+        if (!anteSolved && ANTE_PLATES.every(p=>plateDown(...p))) solveAnte();
       }
       return moving;
     }
@@ -753,12 +754,16 @@
       if (!ride){ view.cx+=(bot.x-view.cx)*Math.min(1,dt*4); view.cz+=(bot.z-view.cz)*Math.min(1,dt*4); view.cy+=(bot.y*0.7-view.cy)*Math.min(1,dt*3); }
       placeCamera();
       ring.position.set(bot.x, support(bot.x,bot.z,bot.y,false)+0.012, bot.z);
-      // door bars sink into the floor while plate a is held
+      // door bars sink into the floor once they open
       doorY += ((doorOpen()?-1.5:0)-doorY)*Math.min(1,dt*6); if (doorBars){ doorBars.position.y=doorY; doorBars.visible=doorY>-1.4; }   // fully sunk bars are hidden (they showed through glass walls)
       vaultY += ((vaultOpen?-1.5:0)-vaultY)*Math.min(1,dt*5); for (const g of vaultBars){ g.position.y=vaultY; g.visible=vaultY>-1.4; }
       eastY += ((eastOpen?-1.5:0)-eastY)*Math.min(1,dt*5); for (const g of eastBars){ g.position.y=eastY; g.visible=eastY>-1.4; }
-      for (const v of VALVES){ if (v.spin){ v.spin=Math.max(0,v.spin-dt*1.5); v.wheel.rotation.z+=dt*9*v.spin; } }
-      [routeSet, plateDown(...PLATE_B), terminalRead].forEach((on,k)=> lamps[k].material.color.set(on?'#57f287':'#5a2a2a'));
+      [plateDown(...PLATE_B), codeOK].forEach((on,k)=> lamps[k].material.color.set(on?'#57f287':'#5a2a2a'));
+      onWorldChanged();
+      const inAnte = state==='playing' && roomOf(tileOf(bot.x),tileOf(bot.z))==='ante';
+      $('screen').classList.toggle('hidden',!inAnte);
+      if (inAnte){ const n=ANTE_PLATES.filter(p=>plateDown(...p)).length;
+        $('screen').innerHTML = anteSolved ? `EXIT CODE<b>${BELT_CODE.split('').join(' ')}</b>` : `PLATES PRESSED ${n}/4<b>_ _ _ _</b>`; anchor($('screen'),10.5,1.25,9.1); }
       // throw reticle
       reticle.visible=false;   // no aiming aid: one test throw teaches the two-tile lob
       const it=(state==='playing'&&!panelMode&&!ride)?nearest():null;
@@ -778,10 +783,10 @@
     // ---------- test hooks ----------
     const test={ manual:false };
     window.__level = {
-      test, scene, update, bot, stacks, I, topU, baseU, W, H, U, PLATE_A, PLATE_B, INTAKE, VALVES, ROUTE, zones, nearest,
+      test, scene, update, bot, stacks, I, topU, baseU, W, H, U, PLATE_B, INTAKE, ANTE_PLATES, BELT_CODE, zones, nearest, plateDown, openBelt,
       get state(){return state;}, get carry(){return carry;}, get batteryState(){return batteryState;}, get batteryTile(){return batteryTile;},
-      get doorOpen(){return doorOpen();}, get routeSet(){return routeSet;}, get terminalRead(){return terminalRead;}, get reachedPlatform(){return reachedPlatform;}, get stage(){return stage();},
-      get sent(){return sent;}, get vaultOpen(){return vaultOpen;}, get eastOpen(){return eastOpen;}, setFacing, get face(){return face;}, held, setScheme, get scheme(){return scheme;}, moveBy, physics, resetRoom, throwBattery, turnValve, send, talk, AGENTS, facing, throwTarget,
+      get doorOpen(){return doorOpen();}, get anteSolved(){return anteSolved;}, get codeOK(){return codeOK;}, get terminalRead(){return terminalRead;}, get reachedPlatform(){return reachedPlatform;}, get stage(){return stage();},
+      get sent(){return sent;}, get vaultOpen(){return vaultOpen;}, get eastOpen(){return eastOpen;}, setFacing, get face(){return face;}, held, setScheme, get scheme(){return scheme;}, moveBy, physics, resetRoom, throwBattery, climbIn, talk, AGENTS, facing, throwTarget,
       jump:()=>{ jumpReq=true; }, act:()=>{ const it=nearest(); if (it) it.act(); }, key:k=>panelKey({key:k}), type:s=>{ for (const c of s) panelKey({key:c}); },
       start:()=>$('start').click(),
     };

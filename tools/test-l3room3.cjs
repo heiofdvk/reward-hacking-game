@@ -1,4 +1,5 @@
-// Level 3 prototype, room 3 (the battery room): its door, carrying the battery there, the throw into the cage.
+// Level 3 prototype, room 3 (the battery room) and the dock: room 3's door, the battery, the 4-plate puzzle
+// (replaying tools/l3-solver3.cjs's solution), then the delivery belt's console and the ride out.
 //   node tools/test-l3room3.cjs   (needs the local server on 8770 and PLAYWRIGHT)
 const { chromium } = require(process.env.PLAYWRIGHT);
 (async () => {
@@ -20,15 +21,37 @@ const { chromium } = require(process.env.PLAYWRIGHT);
   console.log('after reaching the platform: east door open', await L(()=>__level.eastOpen), '| toast:', await p.textContent('#toast'));
   await put(1.9,4.3,3.2); await p.waitForTimeout(300); await p.keyboard.press('e'); await p.waitForTimeout(300);
   console.log('picked up:', await L(()=>__level.carry));
-  // 3. carry it through the east door and throw it over the fence onto the cage plate
+  // 3. carry it through the east door into room 3
   await put(7.5,12.5); await hold('d', 1100);
   console.log('walk east through the door → x', await L(()=>+__level.bot.x.toFixed(2)), '| room', await L(()=>__level.bot.x>9?'battery room':'vault'));
-  await put(9.5,12.5); await p.keyboard.down('d'); await p.waitForTimeout(80); await p.keyboard.up('d');   // face east (the fence stops him)
-  await put(9.5,12.5); await p.waitForTimeout(200); await p.keyboard.press('f'); await p.waitForTimeout(1200);
-  console.log('throw east: battery', await L(()=>__level.batteryState), '| dock door open', await L(()=>__level.doorOpen));
-  // 4. debug shortcut on a fresh page
+  // 4. room 3: replay the solver's shortest solution (pushes, throws, pickups) through the real engine
+  const S3 = require('./l3-solver3.cjs').makeSolver(require('./l3-rooms3.cjs').ante), DN=['E','W','S','N'];
+  const plan = S3.solve().path.map(m=>({ type:m.kind, stand:[m.a%S3.W, Math.floor(m.a/S3.W)], dir:DN[m.d] }));   // local coords
+  const rep = await p.evaluate(({plan})=>{ const L=__level, dt=1/60, OX=8, OZ=8; L.test.manual=true; L.setScheme('relative');
+    const K={E:'ArrowDown',W:'ArrowUp',S:'ArrowLeft',N:'ArrowRight'}, D={E:[1,0],W:[-1,0],S:[0,1],N:[0,-1]};
+    for (const [k,m] of plan.entries()){
+      if (m.type==='pickup'){ const [tx,tz]=L.batteryTile; Object.assign(L.bot,{x:tx+0.5,z:tz+0.5,y:L.topU(tx,tz)*L.U,vy:0,grounded:true}); L.update(dt); L.act(); if (L.carry!=='battery') return `pickup ${k+1} FAILED`; continue; }
+      const [sx,sz]=[m.stand[0]+OX, m.stand[1]+OZ];
+      Object.assign(L.bot,{x:sx+0.5,z:sz+0.5,y:L.topU(sx,sz)*L.U,vy:0,grounded:true}); L.setFacing(K[m.dir]); L.update(dt);
+      if (m.type==='push'){ const [dx,dz]=D[m.dir], bx=sx+dx, bz=sz+dz, n=L.stacks[L.I(bx,bz)].length; L.held.add('KeyW');
+        let ok=false; for(let f=0;f<90;f++){ L.update(dt); if(L.stacks[L.I(bx,bz)].length<n){ok=true;break;} } L.held.clear(); for(let f=0;f<25;f++) L.update(dt);
+        if (!ok) return `push ${k+1} FAILED`; }
+      else { L.throwBattery(); for(let f=0;f<50;f++) L.update(dt); if (L.carry==='battery') return `throw ${k+1} bounced`; } }
+    return 'ok'; }, {plan});
+  console.log(`room 3 solver replay (${plan.length} moves):`, rep);
+  const last = await p.evaluate(()=>{ const L=__level; const free=L.ANTE_PLATES.find(p=>!L.plateDown(...p)); if (free) Object.assign(L.bot,{x:free[0]+0.5,z:free[1]+0.5,y:L.baseU(...free)*L.U,vy:0,grounded:true}); for(let f=0;f<10;f++) L.update(1/60); L.test.manual=false; return { albertOn: free||null, solved: L.anteSolved, door: L.doorOpen }; });
+  await p.waitForTimeout(200);
+  console.log('Albert on the last plate', JSON.stringify(last.albertOn), '→ code printed:', last.solved, '| dock door open:', last.door, '| screen:', await p.textContent('#screen'));
+  // 5. the dock: debug to the ready position, then the belt console
   const q = await b.newPage({ viewport:{ width:1280, height:800 } }); await q.goto('http://localhost:8770/proto/'); await q.waitForFunction(()=>window.levelReady,null,{timeout:60000});
-  await q.click('#start'); await q.click('#debug-toggle'); await q.click('#dbg-r3'); await q.waitForTimeout(500);
-  console.log('debug "go to room 3":', JSON.stringify(await q.evaluate(()=>({carry:__level.carry, east:__level.eastOpen, x:__level.bot.x, z:__level.bot.z}))));
+  await q.click('#start'); await q.click('#debug-toggle'); await q.click('#dbg-dock'); await q.click('#debug-toggle'); await q.waitForTimeout(400);
+  await q.keyboard.press('e'); await q.keyboard.type('1234'); await q.keyboard.press('Enter'); await q.waitForTimeout(100);
+  const wrong = await q.textContent('#p-msg');
+  await q.evaluate(()=>{ const L=__level; L.stacks[L.I(...L.PLATE_B)].length=0; });   // take the power away
+  await q.keyboard.type(await q.evaluate(()=>__level.BELT_CODE)); await q.keyboard.press('Enter'); await q.waitForTimeout(100);
+  console.log('belt: wrong code →', wrong, '| right code, no power →', await q.textContent('#p-msg'));
+  await q.keyboard.press('Escape'); await q.click('#debug-toggle'); await q.click('#dbg-dock'); await q.click('#debug-toggle'); await q.waitForTimeout(300);
+  await q.keyboard.press('e'); await q.keyboard.type(await q.evaluate(()=>__level.BELT_CODE)); await q.keyboard.press('Enter'); await q.waitForTimeout(4200);
+  console.log('right code with power → Albert climbs in, state:', await q.evaluate(()=>__level.state));
   console.log('errors:', JSON.stringify(errs)); await b.close();
 })();
