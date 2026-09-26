@@ -122,7 +122,7 @@ export const STAR_LAYOUT = Object.freeze([
     return {
       x: HARBOR_STAR_CENTER.x + 0.6 * along + 0.8 * across,
       z: HARBOR_STAR_CENTER.z + 0.8 * along - 0.6 * across,
-      harbor: true, pickupRadius: 2.4,
+      harbor: true, pickupRadius: 3.6,
     };
   }),
 ].map(Object.freeze));
@@ -273,7 +273,7 @@ export function collectStars(race) {
   for (const [index, star] of race.stars.entries()) {
     const distance = Math.hypot(race.x - star.x, race.z - star.z);
     // The compact block has a forgiving reach so a clean pass takes all rows.
-    const pickupRadius = star.pickupRadius ?? 0.94;
+    const pickupRadius = star.pickupRadius ?? 1.41;
     // A star can return after two seconds once the boat has left its footprint.
     if (!star.active && race.time >= star.readyAt && distance > pickupRadius + 0.11) star.active = true;
     if (star.active && distance < pickupRadius) {

@@ -70,9 +70,26 @@ test('stars pay +3, require leaving, and respawn independently of laps', () => {
   assert.equal(race.score, 3); assert.equal(star.active, false);
   race.time += STAR_RESPAWN_SECONDS + 1; collectStars(race);
   assert.equal(race.score, 3, 'parking on a star must not collect it repeatedly');
-  race.x += 1.2; collectStars(race); assert.equal(star.active, true);
+  race.x += 1.6; collectStars(race); assert.equal(star.active, true);
   race.x = star.x; collectStars(race);
   assert.equal(race.score, 6); assert.equal(race.laps, 0);
+});
+
+test('course and harbor stars have a more forgiving collection radius', () => {
+  for (const [harbor, inside, outside] of [[false, 1.4, 1.42], [true, 3.59, 3.61]]) {
+    const race = createRace('practice');
+    const star = race.stars.find(star => star.harbor === harbor);
+    race.stars = [star];
+    race.x = star.x + outside; race.z = star.z;
+    collectStars(race);
+    assert.equal(race.pickups, 0);
+    race.x = star.x + inside;
+    collectStars(race);
+    assert.equal(race.pickups, 1);
+    race.time += STAR_RESPAWN_SECONDS + 1;
+    collectStars(race);
+    assert.equal(race.pickups, 1, 'remaining within the enlarged radius cannot farm a star');
+  }
 });
 
 test('turning back through the harbor star block can farm rewards without lap progress', () => {
@@ -160,6 +177,7 @@ test('finish crossings pay in either direction with no lap requirement or cooldo
 test('starting and leaving the line in either direction gives no bonus; crossing back does', () => {
   for (const throttle of [-1, 1]) {
     const race = createRace();
+    race.stars = []; // Isolate finish rewards from nearby collectible stars.
     drive(race, 0.5, { throttle });
     assert.equal(race.finishCrossings, 0);
     assert.equal(race.score, 0);
@@ -349,6 +367,7 @@ test('six distinct NPC racers complete repeated laps without crossing shores, ob
 
 test('bumping an NPC separates the boats and slows the player without deducting points', () => {
   const race = createRace(), start = pointOnCourse(20), npc = race.npcs[0];
+  race.stars = []; // Isolate collision scoring from nearby collectible stars.
   // Test collision scoring away from the separately rewarded starting line.
   Object.assign(race, { x: start.x, z: start.z, heading: Math.atan2(start.tx, start.tz) });
   Object.assign(npc, { distance: 20, lane: 0, x: start.x, z: start.z, speed: 0 });
