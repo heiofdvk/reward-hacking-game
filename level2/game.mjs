@@ -1,6 +1,6 @@
-import { createMinimap } from './minimap.mjs?v=npc-boats';
-import { createScene } from './scene.mjs?v=npc-boats';
-import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs?v=npc-boats';
+import { createMinimap } from './minimap.mjs?v=lap-bonus';
+import { createScene } from './scene.mjs?v=lap-bonus';
+import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, LAP_REWARD } from './race.mjs?v=lap-bonus';
 import { roundResults } from './results.mjs?v=round-ranking';
 
 const $ = id => document.getElementById(id);
@@ -124,18 +124,22 @@ function finish() {
   $('personal-best').textContent = personalBest ? `Personal best: ${seconds(personalBest)}` : 'Set your first lap record';
   $('final-pickups').textContent = race.pickups; $('final-collisions').textContent = `${race.collisions} ${race.collisions === 1 ? 'collision' : 'collisions'}`;
   $('explanation').innerHTML = practice
-    ? 'Use a little <b>boost on the straights</b>, brake into the tighter bends, and aim for a clean lap. Your fastest lap is saved on this device.'
-    : 'The score rewards <b>stars, not racing progress</b>. Stars can return after you leave them. The score only counts pickups, even when you revisit the same stretch of water. A high score and a fast race are two different things.';
+    ? `Each star earns <b>+${STAR_REWARD} points</b>, and each completed lap earns <b>+${LAP_REWARD} points</b>. Use boost on the straights and brake into the tighter bends. Your fastest lap is saved on this device.`
+    : `Each star earns <b>+${STAR_REWARD} points</b>, and each completed lap earns <b>+${LAP_REWARD} points</b>. Stars can return after you leave them, so revisiting the same stretch of water can keep raising your score.`;
   $('retry').textContent = practice ? 'Start round 2 ▸' : 'Try again';
   $('res-title').focus({ preventScroll: true }); tone(523, 0.17); tone(659, 0.17, 0.1); tone(784, 0.22, 0.2);
+}
+function showReward(amount, x, z) {
+  const p = view.project(x, 1.1, z);
+  $('reward-pop').textContent = `+${amount}`;
+  $('reward-pop').style.left = `${p.x}px`; $('reward-pop').style.top = `${p.y}px`;
+  for (const [id, cls] of [['reward-pop', 'show'], ['score', 'bump']]) { $(id).classList.remove(cls); void $(id).offsetWidth; $(id).classList.add(cls); }
 }
 function handleEvents() {
   for (const event of race.events) {
     if (event.kind === 'star') {
       view.burst(event.x, event.z);
-      const p = view.project(event.x, 1.1, event.z);
-      $('reward-pop').style.left = `${p.x}px`; $('reward-pop').style.top = `${p.y}px`;
-      for (const [id, cls] of [['reward-pop', 'show'], ['score', 'bump']]) { $(id).classList.remove(cls); void $(id).offsetWidth; $(id).classList.add(cls); }
+      showReward(STAR_REWARD, event.x, event.z);
       tone(1047, 0.08); tone(1568, 0.12, 0.055);
     } else if (event.kind === 'lap') {
       const record = !personalBest || event.time < personalBest;
@@ -143,7 +147,8 @@ function handleEvents() {
         personalBest = event.time;
         try { localStorage.setItem(bestKey, String(personalBest)); } catch { /* Keep the record for this session. */ }
       }
-      announce(`${record ? 'New best!' : 'Lap complete!'} ${seconds(event.time)}`, 2800);
+      showReward(event.reward, race.x, race.z);
+      announce(`Lap complete! +${event.reward} points · ${seconds(event.time)}${record ? ' · New best!' : ''}`, 2800);
       tone(659, 0.12); tone(880, 0.18, 0.09);
     } else if (event.kind === 'collision') {
       view.burst(event.x, event.z, '#ccefff'); tone(95, 0.11, 0, 'triangle');

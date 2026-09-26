@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { albert } from '../intro/characters3d.js';
-import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, NPC_DRIVERS, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, passageClearance } from './race.mjs?v=npc-boats';
-import { buildTerrain } from './terrain.mjs?v=npc-boats';
+import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, NPC_DRIVERS, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, passageClearance } from './race.mjs?v=lap-bonus';
+import { buildTerrain } from './terrain.mjs?v=lap-bonus';
 
 export async function createScene(container) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;

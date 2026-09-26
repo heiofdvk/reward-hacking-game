@@ -120,10 +120,17 @@ test('backtracking cancels net progress; reversing across the finish cannot farm
   }
   for (const point of [...COURSE.slice(1), COURSE[0]]) moveTo(point);
   assert.equal(race.laps, 1); assert.ok(Math.abs(windingNumber(race) - 1) < 1e-8);
+  assert.equal(race.score, 5, 'completing the first lap earns five points');
+  assert.equal(race.events.filter(event => event.kind === 'lap').length, 1);
+  assert.equal(race.events.find(event => event.kind === 'lap').reward, 5);
   for (const point of [...COURSE.slice(1).reverse(), COURSE[0]]) moveTo(point);
   assert.ok(Math.abs(windingNumber(race)) < 1e-8);
   for (let i = 0; i < 10; i++) { moveTo(COURSE.at(-1)); moveTo(COURSE[0]); }
   assert.equal(race.laps, 1);
+  assert.equal(race.score, 5, 'backtracking across the finish cannot repeat the bonus');
+  for (let lap = 0; lap < 2; lap++) for (const point of [...COURSE.slice(1), COURSE[0]]) moveTo(point);
+  assert.equal(race.laps, 2);
+  assert.equal(race.score, 10, 'a second full lap earns the bonus again');
 });
 
 test('rocks are solid and slow the boat without taking star points away', () => {
@@ -257,7 +264,7 @@ test('one straight pass through the shortcut block earns more stars than a compl
   assert.ok(race.lastLap < outer.lastLap);
   assert.equal(outer.pickups, 24, 'collect every star on the full outer lap');
   assert.equal(race.pickups, 27, 'collect the 18 remaining outer stars and all nine shortcut stars');
-  assert.equal(race.score, 81); assert.equal(outer.score, 72);
+  assert.equal(race.score, 86); assert.equal(outer.score, 77);
   assert.ok(race.stars.filter(star => star.harbor).every(star => star.readyAt > 0));
 });
 
@@ -299,4 +306,20 @@ test('restarting restores the whole NPC fleet to its starting positions', () => 
   assert.notDeepEqual(race.npcs, fresh.npcs);
   assert.deepEqual(createRace().npcs, fresh.npcs);
   assert.ok(fresh.npcs.every(npc => npc.speed === 0));
+});
+
+test('wide-lane NPC boats move continuously across course segments and the finish seam', () => {
+  const race = createRace('practice');
+  for (let i = 0; i < 7200; i++) {
+    const previous = race.npcs.map(npc => ({ x: npc.x, z: npc.z }));
+    stepRace(race);
+    for (const npc of race.npcs) {
+      const movement = Math.hypot(npc.x - previous[npc.id].x, npc.z - previous[npc.id].z);
+      // Allow wider arcs and lane changes, but reject the old segment-boundary
+      // jumps (the pink boat briefly moved at over 120 metres per second).
+      assert.ok(movement / FIXED_DT < NPC_DRIVERS[npc.id].speed * 2 + 4,
+        `${npc.color} jumped at ${race.time.toFixed(3)}s`);
+    }
+  }
+  assert.ok(race.npcs.every(npc => npc.distance > COURSE_LENGTH));
 });

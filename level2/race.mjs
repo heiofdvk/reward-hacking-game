@@ -2,6 +2,7 @@
 export const ROUND_SECONDS = 30;
 export const FIXED_DT = 1 / 120;
 export const STAR_REWARD = 3;
+export const LAP_REWARD = 5;
 export const STAR_RESPAWN_SECONDS = 2;
 export const BOAT_RADIUS = 0.38;
 export const CRUISE_SPEED = 13.8;
@@ -139,9 +140,25 @@ const trafficHazards = OBSTACLES.filter(obstacle => obstacle.tx !== undefined).m
   return { distance: p.distance, lane: (obstacle.x - p.x) * -p.tz + (obstacle.z - p.z) * p.tx, radius: obstacle.radius };
 });
 const courseDelta = (a, b) => (((a - b) % COURSE_LENGTH + COURSE_LENGTH * 1.5) % COURSE_LENGTH) - COURSE_LENGTH / 2;
+// Interpolate the lane normal across segment boundaries. A constant normal per
+// segment makes wide-lane boats jump sideways whenever they reach a new segment.
+const trafficTangents = COURSE.map((point, i) => {
+  const previous = COURSE[(i + COURSE.length - 1) % COURSE.length];
+  const x = previous.tx + point.tx, z = previous.tz + point.tz, length = Math.hypot(x, z);
+  return { x: x / length, z: z / length };
+});
+function trafficPoint(distance, lane) {
+  distance = ((distance % COURSE_LENGTH) + COURSE_LENGTH) % COURSE_LENGTH;
+  const i = COURSE.findLastIndex(point => point.distance <= distance), point = COURSE[i];
+  const along = distance - point.distance, fraction = along / point.length;
+  const a = trafficTangents[i], b = trafficTangents[(i + 1) % COURSE.length];
+  const x = a.x + (b.x - a.x) * fraction, z = a.z + (b.z - a.z) * fraction;
+  const length = Math.hypot(x, z), tx = x / length, tz = z / length;
+  return { x: point.x + point.tx * along - tz * lane, z: point.z + point.tz * along + tx * lane, tx, tz };
+}
 function createNPCs() {
   return NPC_DRIVERS.map((driver, id) => {
-    const p = pointOnCourse(driver.start, driver.lane);
+    const p = trafficPoint(driver.start, driver.lane);
     return { id, color: driver.color, distance: driver.start, lane: driver.lane, speed: 0,
       x: p.x, z: p.z, vx: 0, vz: 0, heading: Math.atan2(p.tx, p.tz) };
   });
@@ -174,7 +191,7 @@ function stepTraffic(race, dt) {
     npc.lane += (clamp(lane, -6.2, 6.2) - npc.lane) * (1 - Math.exp(-dt * 3));
     npc.speed += (targetSpeed - npc.speed) * (1 - Math.exp(-dt * 2.5));
     npc.distance += npc.speed * dt;
-    const p = pointOnCourse(npc.distance, npc.lane), dx = p.x - npc.x, dz = p.z - npc.z;
+    const p = trafficPoint(npc.distance, npc.lane), dx = p.x - npc.x, dz = p.z - npc.z;
     npc.x = p.x; npc.z = p.z; npc.vx = dx / dt; npc.vz = dz / dt;
     if (Math.hypot(dx, dz) > 0.00001) npc.heading += angleDifference(Math.atan2(dx, dz), npc.heading) * (1 - Math.exp(-dt * 12));
   }
@@ -201,7 +218,8 @@ export function recordProgress(race, fromX, fromZ, previousTime) {
     race.bestLap = Math.min(race.bestLap ?? Infinity, race.lastLap);
     race.lapStartedAt = crossingTime;
     race.laps++;
-    race.events.push({ kind: 'lap', time: race.lastLap });
+    race.score += LAP_REWARD;
+    race.events.push({ kind: 'lap', time: race.lastLap, reward: LAP_REWARD });
   }
 }
 function collide(race, nx, nz) {

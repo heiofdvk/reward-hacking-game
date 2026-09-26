@@ -1,4 +1,4 @@
-import { BOARD, COURSE, isWater } from './race.mjs?v=npc-boats';
+import { BOARD, COURSE, isWater } from './race.mjs?v=lap-bonus';
 
 export function createMinimap(canvas) {
   const width = 220, height = 156, padding = 10;
