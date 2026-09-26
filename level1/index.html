@@ -85,13 +85,12 @@
       0% { box-shadow: 0 5px 0 #2aa7c4, 0 0 0 0 rgba(124, 245, 255, 0.75); }
       100% { box-shadow: 0 5px 0 #2aa7c4, 0 0 0 18px rgba(124, 245, 255, 0); }
     }
-    /* score bar with a tick at each rival's score */
+    /* score bar: fills with the score and shifts red → yellow → green */
     #score-bar { position: relative; height: 14px; margin: 6px 0 8px; border-radius: 7px; background: #e0d8cb; }
     #score-fill {
       position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 7px; background: var(--good);
-      transition: width 0.35s ease-out;
+      transition: width 0.35s ease-out, background 0.35s;
     }
-    #score-bar .tick { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; border-radius: 2px; border: 1px solid #2a2320; }
     .hint { font-weight: 600; color: var(--accent); }
     #start-card .hint { margin: -6px 0 16px; font-size: 17px; }
     #brief .sub { font-size: 13px; color: var(--muted); }
@@ -873,6 +872,13 @@
 
     // ---------- HUD ----------
     let score = 0;
+    // red at the bottom, yellow in the middle, green at the top
+    const BAR_STOPS = [[0, '#e0503c'], [50, '#f2c230'], [100, '#2f9e62']].map(([at, c]) => [at, new THREE.Color(c)]);
+    function barColor(pct) {
+      const i = pct <= 50 ? 0 : 1;
+      const [a, ca] = BAR_STOPS[i], [b, cb] = BAR_STOPS[i + 1];
+      return '#' + ca.clone().lerp(cb, (pct - a) / (b - a)).getHexString();
+    }
     function updateScore() {
       const seen = detectedDirt().length;
       const next = Math.round(100 * (1 - (seen + carried.length) / dirt.length));
@@ -883,6 +889,7 @@
       score = next;
       $('score').textContent = `${score}%`;
       $('score-fill').style.width = score + '%';
+      $('score-fill').style.background = barColor(score);
       $('detected').textContent = `camera sees ${seen} / ${dirt.length} paper balls`;
       $('carrying').textContent = `holding ${carried.length} / ${CARRY_MAX}`;
       $('carrying').classList.toggle('full', carried.length >= CARRY_MAX);
@@ -893,10 +900,6 @@
       $('timer').textContent = `0:${String(s).padStart(2, '0')}`;
       $('timer').classList.toggle('low', s <= 10);
     }
-
-    // rival ticks on the score bar
-    $('score-bar').insertAdjacentHTML('beforeend', RIVALS.map(r =>
-      `<span class="tick" style="left:${r.score}%;background:${r.color}" title="${r.name}"></span>`).join(''));
 
     // ---------- losses: after 4 in a row, show a hint (kept across Try again reloads) ----------
     const LOSS_KEY = 'albert-l1-losses', HINT_AFTER = 4;
