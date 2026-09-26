@@ -1,4 +1,4 @@
-import { BOARD, COURSE, isWater } from './race.mjs?v=finish-crossings';
+import { BOARD, COURSE, isWater } from './race.mjs?v=finish-start-pass';
 
 export function createMinimap(canvas) {
   const width = 220, height = 156, padding = 10;

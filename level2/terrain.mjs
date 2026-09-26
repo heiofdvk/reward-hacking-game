@@ -1,4 +1,4 @@
-import { BOARD, nearestCourse, waterClearance } from './race.mjs?v=finish-crossings';
+import { BOARD, nearestCourse, waterClearance } from './race.mjs?v=finish-start-pass';
 
 // Clip a sampled terrain mesh at the actual water boundary. This carves the
 // harbor behind the quay instead of drawing water over an impassable bank.

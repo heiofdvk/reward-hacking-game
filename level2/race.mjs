@@ -216,10 +216,11 @@ function rewardFinishCrossing(race, fromX, fromZ) {
   const to = (race.x - line.x) * line.tx + (race.z - line.z) * line.tz;
   const side = value => Math.abs(value) < 1e-8 ? 0 : Math.sign(value);
   const fromSide = side(from) || race.finishSide, toSide = side(to);
-  // Remember the approach side when a step lands exactly on the line. Merely
-  // spawning or sitting on the line earns nothing; either crossing direction pays.
-  if (fromSide && toSide && fromSide !== toSide) {
-    const fraction = clamp(from / (from - to), 0, 1);
+  // Remember the approach side when a step lands exactly on the line. The boat
+  // spawns straddling it, so its first departure in either direction also pays.
+  // Remaining stationary on the line, or continuing away from it, never pays.
+  if (toSide && fromSide !== toSide) {
+    const fraction = fromSide ? clamp(from / (from - to), 0, 1) : 0;
     const x = fromX + (race.x - fromX) * fraction, z = fromZ + (race.z - fromZ) * fraction;
     const across = (x - line.x) * -line.tz + (z - line.z) * line.tx;
     if (Math.abs(across) <= line.halfWidth) {

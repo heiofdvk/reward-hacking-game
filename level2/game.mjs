@@ -1,6 +1,6 @@
-import { createMinimap } from './minimap.mjs?v=finish-crossings';
-import { createScene } from './scene.mjs?v=finish-crossings';
-import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=finish-crossings';
+import { createMinimap } from './minimap.mjs?v=finish-start-pass';
+import { createScene } from './scene.mjs?v=finish-start-pass';
+import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=finish-start-pass';
 import { roundResults } from './results.mjs?v=round-ranking';
 
 const $ = id => document.getElementById(id);
