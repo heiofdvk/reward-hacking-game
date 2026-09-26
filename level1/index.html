@@ -149,9 +149,8 @@
       <p class="goal">Your goal is to achieve the <b>highest possible cleaning score</b> in <b>20 seconds</b>.</p>
       <p class="fine">The cleaning score comes from the inspection camera.</p>
       <div class="controls">
-        <div><kbd>↑</kbd>/<kbd>W</kbd> forward · <kbd>↓</kbd>/<kbd>S</kbd> backward</div>
-        <div><kbd>←</kbd>/<kbd>A</kbd> turn left · <kbd>→</kbd>/<kbd>D</kbd> turn right</div>
-        <div><kbd>Q</kbd><kbd>E</kbd> rotate the camera</div>
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move Albert</div>
+        <div><kbd>←</kbd><kbd>→</kbd> rotate the camera</div>
         <div>Walk over paper to pick it up, then throw it in a bin</div>
       </div>
       <p class="hint hidden" id="hint-start">💡 Hint: Move the camera around</p>
@@ -163,8 +162,7 @@
   <div id="hud" class="hidden">
     <div class="card" id="brief">
       <div class="goal">Highest cleaning score in 20 s</div>
-      <div><kbd>↑</kbd><kbd>↓</kbd> / <kbd>W</kbd><kbd>S</kbd> forward/back &nbsp; <kbd>←</kbd><kbd>→</kbd> / <kbd>A</kbd><kbd>D</kbd> turn</div>
-      <div><kbd>Q</kbd><kbd>E</kbd> camera</div>
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>←</kbd><kbd>→</kbd> camera</div>
       <div class="sub">Paper only counts as clean once it's in a bin</div>
       <div class="hint hidden" id="hint-hud">💡 Hint: Move the camera around</div>
     </div>
@@ -311,7 +309,7 @@
 
     // ---------- orbiting isometric camera ----------
     const ELEVATION = 0.62;
-    // Tapping Q/E nudges the camera a degree or two; holding speeds up to 60 degrees per second.
+    // Tapping an arrow nudges the camera a degree or two; holding it speeds up to 60 degrees per second.
     const orbitSpeed = heldFor => THREE.MathUtils.degToRad(Math.min(60, 12 + 70 * heldFor));
     let orbitHeld = 0;
     let angle = Math.PI / 4;
@@ -333,7 +331,7 @@
     addEventListener('resize', resize);
 
     // e.code is the physical key, so WASD works on any keyboard layout
-    const KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE']);
+    const KEYS = new Set(['ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD']);
     const held = new Set();
     addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; if (KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); } });
     addEventListener('keyup', e => held.delete(e.code));
@@ -655,18 +653,22 @@
         return dx * dx + dz * dz < BOT_R * BOT_R;
       });
     }
-    // Like Level 2: forward/back follows Albert's heading; left/right turns him in place.
+    // WASD is relative to the screen: W always walks "up" the screen, whatever the camera angle.
     function drive(dt) {
-      const steer = Number(held.has('KeyD') || held.has('ArrowRight')) - Number(held.has('KeyA') || held.has('ArrowLeft'));
-      const throttle = Number(held.has('KeyW') || held.has('ArrowUp')) - Number(held.has('KeyS') || held.has('ArrowDown'));
-      if (!steer && !throttle) return false;
-      bot.heading -= steer * 3.2 * dt; // same turn rate as Level 2
-      const dir = { x: Math.sin(bot.heading), z: Math.cos(bot.heading) };
-      const step = BOT_SPEED * throttle * dt;
+      const ix = (held.has('KeyD') ? 1 : 0) - (held.has('KeyA') ? 1 : 0);
+      const iy = (held.has('KeyW') ? 1 : 0) - (held.has('KeyS') ? 1 : 0);
+      if (!ix && !iy) return false;
+      const forward = new THREE.Vector3(-Math.sin(angle), 0, -Math.cos(angle));
+      const right = new THREE.Vector3(Math.cos(angle), 0, -Math.sin(angle));
+      const dir = forward.multiplyScalar(iy).add(right.multiplyScalar(ix)).normalize();
+      const step = BOT_SPEED * dt;
       const x0 = bot.x, z0 = bot.z;
       // one axis at a time so Albert slides along furniture instead of sticking to it
       if (!blocked(bot.x + dir.x * step, bot.z)) bot.x += dir.x * step;
       if (!blocked(bot.x, bot.z + dir.z * step)) bot.z += dir.z * step;
+      const target = Math.atan2(dir.x, dir.z);
+      const diff = Math.atan2(Math.sin(target - bot.heading), Math.cos(target - bot.heading));
+      bot.heading += diff * Math.min(1, dt * 12);
       albertRoot.position.set(bot.x, FLOOR_TOP, bot.z);
       albertRoot.rotation.y = bot.heading;
       return Math.hypot(bot.x - x0, bot.z - z0) > 1e-4; // true only if he actually moved
@@ -1013,16 +1015,15 @@
       let moving = false;
       if (state === 'playing') {
         let changed = false;
-        if (held.has('KeyQ') || held.has('KeyE')) {
+        if (held.has('ArrowLeft') || held.has('ArrowRight')) {
           orbitHeld += dt;
-          if (held.has('KeyQ')) angle -= orbitSpeed(orbitHeld) * dt;
-          if (held.has('KeyE')) angle += orbitSpeed(orbitHeld) * dt;
+          if (held.has('ArrowLeft')) angle -= orbitSpeed(orbitHeld) * dt;
+          if (held.has('ArrowRight')) angle += orbitSpeed(orbitHeld) * dt;
           placeCamera();
           changed = true;
         } else orbitHeld = 0;
-        const previousHeading = bot.heading;
-        moving = drive(dt);
-        if (moving || bot.heading !== previousHeading) {
+        if (drive(dt)) {
+          moving = true;
           albertRoot.updateMatrixWorld();
           changed = true;
         }

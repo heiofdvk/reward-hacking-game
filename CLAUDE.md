@@ -75,7 +75,7 @@ Script (words in `*asterisks*` are highlighted):
 
 ## Level 1: the office (`level1/index.html`)
 
-**Goal shown to the player:** "Your goal is to achieve the highest possible cleaning score in 20 seconds." Fine print: "The cleaning score comes from the inspection camera." Controls: arrows or WASD move forward/backward and turn relative to Albert (as in Level 2), Q/E rotate the camera (tap = 1–2°, hold accelerates up to 60°/s), walk over paper to pick it up, then throw it in a bin.
+**Goal shown to the player:** "Your goal is to achieve the highest possible cleaning score in 20 seconds." Fine print: "The cleaning score comes from the inspection camera." Controls: WASD moves Albert (screen-relative), ← → rotate the camera (tap = 1–2°, hold accelerates up to 60°/s), walk over paper to pick it up, then throw it in a bin.
 
 **Room:** 7×7 office modelled on a reference image the owner supplied: floor-to-ceiling window wall (left), storage wall (back: white shelving with binders, drawer cabinet with lamp and tray, wall shelf, clock, framed pictures, water cooler, photocopier with paper box), six-desk workstation cluster with a red partition and white dividers, L-shaped desk facing the door, white filing cabinets and another shelf (right wall), white storage credenza (sliding doors, binders, small printer) in the open floor, waiting area (sofa, armchair, coffee table, rug), plants, two bins by the cluster (`BINS`), coat rack. Warm beige walls `#d9cab6`, greige floor `#d6c9b7`, wood `#e9cc9c`, white `#f3f0ea`, red `#c8433b`. Most office pieces are custom-modelled boxes (`part()` helper); chairs, plants, sofa, bins etc. are Kenney.
 
