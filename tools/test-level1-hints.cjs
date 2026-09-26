@@ -51,15 +51,23 @@ test('hints unlock after two completed plays and two subsequent losses, across r
   game = load(game.storage);
   game.play();
   assert.equal(game.visible('hint-first'), true);
-  assert.equal(game.$('hint-first').open, false);
+  assert.equal(game.$('hint-first').open, true);
+  assert.equal(game.$('hint-first').classList.contains('hint-pop'), true);
   assert.equal(game.visible('hint-second'), false);
   game = load(game.storage);
   assert.equal(game.visible('hint-first'), true);
+  assert.equal(game.$('hint-first').open, false); // Retrying does not pop up an old hint.
+  game.$('hint-first').open = true;
   game.play();
   assert.equal(game.visible('hint-second'), false);
   game.play();
   assert.equal(game.visible('hint-second'), true);
-  assert.equal(game.$('hint-second').open, false);
+  assert.equal(game.$('hint-second').open, true);
+  assert.equal(game.$('hint-second').classList.contains('hint-pop'), true);
+  assert.equal(game.$('hint-first').open, false);
+  game.$('hint-second').open = false;
+  game.play();
+  assert.equal(game.$('hint-second').open, false); // Respect a dismissed hint.
   game = load(game.storage);
   assert.equal(game.visible('hint-second'), true);
   game.$('d-losses-reset').onclick();

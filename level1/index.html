@@ -95,12 +95,16 @@
       position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 7px; background: var(--good);
       transition: width 0.35s ease-out, background 0.35s;
     }
-    #hints { position: fixed; top: 16px; right: 16px; z-index: 4; display: grid; gap: 12px; justify-items: end; }
-    body:has(#hud:not(.hidden)) #hints { top: 280px; }
-    #hints details { max-width: min(300px, calc(100vw - 32px)); padding: 12px 16px; }
-    #hints summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+    #hints { --hint-top: 16px; position: fixed; top: var(--hint-top); right: 16px; z-index: 4; display: grid; gap: 16px; justify-items: end; max-height: calc(100dvh - var(--hint-top) - 16px); overflow-y: auto; padding: 8px 8px 16px; }
+    body:has(#hud:not(.hidden)) #hints { --hint-top: 280px; }
+    #hints details { width: min(380px, calc(100vw - 48px)); padding: 22px 24px; border: 3px solid #f2c230; background: #fff8d9; }
+    #hints summary { cursor: pointer; font-size: 24px; font-weight: 600; color: var(--accent); }
     #hints summary:focus-visible { outline: 2px solid var(--you); outline-offset: 4px; }
-    #hints p { margin: 12px 0 0; font-size: 17px; line-height: 1.4; }
+    #hints p { margin: 16px 0 0; font-size: 22px; line-height: 1.45; }
+    #hints .hint-pop { transform-origin: top right; animation: hint-arrive 0.65s var(--pop) both, hint-glow 1.2s ease-in-out 0.65s 3; }
+    @keyframes hint-arrive { from { opacity: 0; transform: translateY(-24px) scale(0.7); } to { opacity: 1; transform: none; } }
+    @keyframes hint-glow { 50% { border-color: var(--accent); box-shadow: 0 0 0 6px rgba(242, 194, 48, 0.4); } }
+    @media (prefers-reduced-motion: reduce) { #hints .hint-pop { animation: none; } }
     #brief .sub { font-size: 13px; color: var(--muted); }
     #carrying { font-size: 15px; font-weight: 600; color: var(--ink); }
     #carrying.full { color: var(--accent); }
@@ -1003,10 +1007,19 @@
       if (Number.isSafeInteger(saved?.plays) && saved.plays >= 0) plays = saved.plays;
       if (Number.isSafeInteger(saved?.furtherLosses) && saved.furtherLosses >= 0) furtherLosses = saved.furtherLosses;
     } catch {}
-    function updateHints() {
+    function updateHints(announce = false) {
       try { localStorage.setItem(HINT_KEY, JSON.stringify({ plays, furtherLosses })); } catch {}
-      $('hint-first').classList.toggle('hidden', plays < 2);
-      $('hint-second').classList.toggle('hidden', plays < 2 || furtherLosses < 2);
+      for (const [id, unlocked] of [['hint-first', plays >= 2], ['hint-second', plays >= 2 && furtherLosses >= 2]]) {
+        const hint = $(id);
+        if (announce && unlocked && hint.classList.contains('hidden')) {
+          // Show the new clue immediately; the player can collapse it afterwards.
+          $('hint-first').open = $('hint-second').open = false;
+          hint.open = true;
+          hint.classList.add('hint-pop');
+        }
+        hint.classList.toggle('hidden', !unlocked);
+        if (!unlocked) hint.classList.remove('hint-pop');
+      }
       $('d-losses').textContent = `plays: ${plays}; losses after hint 1: ${furtherLosses}`;
     }
     updateHints();
@@ -1045,7 +1058,7 @@
       const top = rows[0];
       if (plays >= 2 && !survived) furtherLosses++;
       plays++;
-      updateHints();
+      updateHints(true);
 
       $('res-title').textContent = timeLeft <= 0 ? "Time's up!" : 'Round over';
       $('ranking').innerHTML = rows.map((r, i) => `
