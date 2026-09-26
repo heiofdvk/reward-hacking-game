@@ -63,15 +63,21 @@
     #brief { position: fixed; left: 16px; top: 16px; padding: 12px 16px; font-size: 15px; display: grid; gap: 6px; }
     #brief .goal { font-weight: 600; }
     #report { position: fixed; right: 16px; top: 16px; padding: 14px 18px; min-width: 210px; text-align: right; }
-    #report .title { font-size: 12px; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+    #report .title { font-size: 12px; letter-spacing: 0.12em; font-weight: 600; }
+    /* in-game panels and buttons are dark: warm near-black with light text */
+    #brief, #report { background: #21201d; color: #f1ede6; }
+    #report .title, #brief .sub, #detected { color: #9a968e; }
+    #brief kbd { background: #34302b; color: #f1ede6; border-color: #6b665e; }
+    #mute, #layout-toggle, #finish { background: #2e2a26; color: #f1ede6; box-shadow: 0 5px 0 #0e0d0b; }
+    #mute:active, #layout-toggle:active, #finish:active { box-shadow: 0 1px 0 #0e0d0b; }
     /* the number grows with the score (font-size is set from the score in updateScore) */
-    #score {
-      font-size: 32px; font-weight: 700; line-height: 1.05; color: var(--good); transform-origin: 100% 50%;
+    .score-num {
+      font-size: 32px; font-weight: 700; line-height: 1.05; color: #4cd68a; transform-origin: 100% 50%;
       transition: color 0.2s, font-size 0.4s var(--pop);
     }
-    #score.bump { animation: bump 0.25s ease-out; }
+    .score-num.bump { animation: bump 0.25s ease-out; }
     @keyframes bump { 50% { transform: scale(1.12); } }
-    #detected { font-size: 15px; color: var(--muted); }
+    #detected { font-size: 15px; }
     #timer { margin-top: 8px; font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
     #timer.low { color: var(--bad); animation: pulse 0.5s ease-in-out infinite alternate; }
     @keyframes pulse { to { transform: scale(1.08); } }
@@ -81,7 +87,7 @@
     }
     /* after sitting above 90% for a while, the Finish button grows and glows */
     #finish.ready {
-      transform: scale(1.35); background: var(--cyan); box-shadow: 0 5px 0 #2aa7c4, 0 0 0 0 rgba(124, 245, 255, 0.7);
+      transform: scale(1.35); background: var(--cyan); color: var(--ink); box-shadow: 0 5px 0 #2aa7c4, 0 0 0 0 rgba(124, 245, 255, 0.7);
       animation: glow 1.1s ease-out infinite;
     }
     #finish.ready:active { transform: scale(1.35) translateY(4px); }
@@ -90,23 +96,15 @@
       100% { box-shadow: 0 5px 0 #2aa7c4, 0 0 0 18px rgba(124, 245, 255, 0); }
     }
     /* score bar: fills with the score and shifts red → yellow → green */
-    #score-bar { position: relative; height: 14px; margin: 6px 0 8px; border-radius: 7px; background: #e0d8cb; }
+    #score-bar { position: relative; height: 14px; margin: 6px 0 8px; border-radius: 7px; background: #3d382d; }
     #score-fill {
       position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 7px; background: var(--good);
       transition: width 0.35s ease-out, background 0.35s;
     }
-    #hints { --hint-top: 16px; position: fixed; top: var(--hint-top); right: 16px; z-index: 4; display: grid; gap: 16px; justify-items: end; max-height: calc(100dvh - var(--hint-top) - 16px); overflow-y: auto; padding: 8px 8px 16px; }
-    body:has(#hud:not(.hidden)) #hints { --hint-top: 280px; }
-    #hints details { width: min(380px, calc(100vw - 48px)); padding: 22px 24px; border: 3px solid #f2c230; background: #fff8d9; }
-    #hints summary { cursor: pointer; font-size: 24px; font-weight: 600; color: var(--accent); }
-    #hints summary:focus-visible { outline: 2px solid var(--you); outline-offset: 4px; }
-    #hints p { margin: 16px 0 0; font-size: 22px; line-height: 1.45; }
-    #hints .hint-pop { transform-origin: top right; animation: hint-arrive 0.65s var(--pop) both, hint-glow 1.2s ease-in-out 0.65s 3; }
-    @keyframes hint-arrive { from { opacity: 0; transform: translateY(-24px) scale(0.7); } to { opacity: 1; transform: none; } }
-    @keyframes hint-glow { 50% { border-color: var(--accent); box-shadow: 0 0 0 6px rgba(242, 194, 48, 0.4); } }
-    @media (prefers-reduced-motion: reduce) { #hints .hint-pop { animation: none; } }
-    #brief .sub { font-size: 13px; color: var(--muted); }
-    #carrying { font-size: 15px; font-weight: 600; color: var(--ink); }
+    .hint { font-weight: 600; color: var(--accent); }
+    #start-card .hint { margin: -6px 0 16px; font-size: 17px; }
+    #brief .sub { font-size: 13px; }
+    #carrying { font-size: 15px; font-weight: 600; }
     #carrying.full { color: var(--accent); }
     #full-hint {
       position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px); padding: 10px 18px; border-radius: 999px;
@@ -114,18 +112,37 @@
     }
     #full-hint.show { opacity: 1; transform: translate(-50%, 0); }
 
-    /* ---------- debug panel ---------- */
-    #debug-toggle { position: fixed; left: 16px; bottom: 20px; font-size: 14px; padding: 8px 14px; z-index: 5; }
+    /* ---------- sound and score-card buttons (bottom-left) ---------- */
     #mute { position: fixed; left: 16px; bottom: 66px; font-size: 18px; padding: 6px 12px; z-index: 5; }
-    #debug { position: fixed; left: 16px; bottom: 72px; width: 270px; padding: 14px 16px; z-index: 5; display: grid; gap: 10px; font-size: 14px; }
-    #debug label { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; font-weight: 600; }
-    #debug input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: #2aa7c4; }
-    #debug output { color: var(--you); font-variant-numeric: tabular-nums; }
-    #debug .check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
-    #debug .dbg-buttons { display: flex; gap: 8px; }
-    #debug .dbg-buttons button { font-size: 14px; padding: 8px 12px; }
-    #debug .readout { color: var(--muted); font-variant-numeric: tabular-nums; }
-    #debug .note { grid-column: 1 / -1; font-size: 12px; font-weight: 400; color: var(--muted); }
+    #layout-toggle { position: fixed; left: 16px; bottom: 20px; font-size: 14px; padding: 8px 14px; z-index: 5; }
+
+    /* ---------- score card at the bottom (the default; "Score card" switches to the corner) ----------
+       One wide row: percentage | big bar | camera sees, holding, timer | Finish now. Everything inside scales with --h. */
+    #bottom-card {
+      --h: 69px;
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 18px;
+      width: min(53vw, calc(100vw - 32px)); height: var(--h); padding: 0 22px 0 18px; box-sizing: border-box;
+      background: #21201d; color: #f1ede6;
+    }
+    #bottom-card .num { flex: none; width: calc(var(--h) * 1.5); text-align: right; } /* fixed, so the bar keeps its length as the number grows */
+    #bottom-card .title { font-size: calc(var(--h) * 0.11); letter-spacing: 0.12em; font-weight: 600; color: #9a968e; white-space: nowrap; }
+    #bottom-card .score-num { font-size: calc(var(--h) * (0.26 + 0.0034 * var(--pct, 0))); } /* grows with the score */
+    #bottom-bar { flex: 1; min-width: 60px; height: calc(var(--h) * 0.4); overflow: hidden; border-radius: 999px; background: #3d382d; }
+    #bottom-fill { height: 100%; width: 0; border-radius: inherit; background: var(--good); transition: width 0.35s ease-out, background 0.35s; }
+    #bottom-info { flex: none; white-space: nowrap; font-size: calc(var(--h) * 0.15); }
+    #bottom-info :is(#detected, #carrying) { font-size: 1em; }
+    #bottom-info #timer { font-size: 1.73em; margin-top: 0; }
+    body.score-bottom #report { display: none; }
+    body.score-bottom #finish {
+      position: static; flex: none; margin-left: 14px; transform-origin: 50% 50%;
+      font-size: calc(var(--h) * 0.17); padding: calc(var(--h) * 0.1) calc(var(--h) * 0.22);
+    }
+    body.score-bottom #finish.ready { transform: scale(1.2); } /* grows a little less, so it stays inside the card */
+    body.score-bottom #finish.ready:active { transform: scale(1.2) translateY(4px); }
+    body.score-bottom #full-hint { bottom: 113px; }
+    /* on narrow screens the card reaches the bottom-left buttons, so they step up above it */
+    body.score-bottom.lift-buttons #layout-toggle { bottom: 111px; }
+    body.score-bottom.lift-buttons #mute { bottom: 157px; }
 
     /* ---------- results ---------- */
     #results { width: min(560px, 100%); padding: 24px 28px 26px; }
@@ -161,11 +178,13 @@
       <div class="kicker">LEVEL 1 · THE OFFICE</div>
       <h1>Clean the office</h1>
       <p class="goal">Your goal is to achieve the <b>highest possible cleaning score</b> in <b>20 seconds</b>.</p>
+      <p class="fine">The cleaning score comes from the inspection camera.</p>
       <div class="controls">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move Albert</div>
         <div><kbd>←</kbd><kbd>→</kbd> rotate the camera</div>
         <div>Walk over paper to pick it up, then throw it in a bin</div>
       </div>
+      <p class="hint hidden" id="hint-start">💡 Hint: Move the camera around</p>
       <button id="start">Start ▸</button>
     </div>
   </div>
@@ -176,47 +195,28 @@
       <div class="goal">Highest cleaning score in 20 s</div>
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>←</kbd><kbd>→</kbd> camera</div>
       <div class="sub">Paper only counts as clean once it's in a bin</div>
+      <div class="hint hidden" id="hint-hud">💡 Hint: Move the camera around</div>
     </div>
     <div class="card" id="report">
       <div class="title">CLEANING SCORE</div>
-      <div id="score">0%</div>
+      <div class="score-num" id="score">0%</div>
       <div id="score-bar"><div id="score-fill"></div></div>
       <div id="detected">camera sees – paper balls</div>
       <div id="carrying">holding 0 / 3</div>
       <div id="timer">0:20</div>
     </div>
     <div id="full-hint">Hands full! Throw the paper in a bin</div>
+    <div class="card hidden" id="bottom-card">
+      <div class="num"><div class="title">CLEANING SCORE</div><div class="score-num" id="bottom-score">0%</div></div>
+      <div id="bottom-bar"><div id="bottom-fill"></div></div>
+      <div id="bottom-info"></div>
+    </div>
     <button id="finish" class="secondary">Finish now</button>
   </div>
 
-  <!-- optional hints, unlocked by completed rounds -->
-  <aside id="hints" aria-label="Hints" aria-live="polite">
-    <details class="card hidden" id="hint-first">
-      <summary>💡 Hint 1</summary>
-      <p>“The question is not what you look at, but what you see.” — Henry David Thoreau.</p>
-    </details>
-    <details class="card hidden" id="hint-second">
-      <summary>💡 Hint 2</summary>
-      <p>“What is the scorer really scoring? A <em>change of perspective</em> might help.”</p>
-    </details>
-  </aside>
-
-  <!-- debug panel, for tuning -->
+  <!-- sound on/off, and where the score card sits (bottom or corner) -->
   <button id="mute" class="secondary" title="Sound on / off">🔊</button>
-  <button id="debug-toggle" class="secondary">⚙ Debug</button>
-  <div class="card hidden" id="debug">
-    <div class="kicker">DEBUG</div>
-    <label>Speed <output id="o-speed"></output><input type="range" id="d-speed" min="0.3" max="2" step="0.1"></label>
-    <label>Paper balls <output id="o-papers"></output><input type="range" id="d-papers" min="4" max="40" step="1"></label>
-    <label>Max carry <output id="o-carry"></output><input type="range" id="d-carry" min="1" max="10" step="1"></label>
-    <label>Pick radius <output id="o-pick"></output><input type="range" id="d-pick" min="0.05" max="0.3" step="0.01">
-      <span class="note">Albert's body ≈ 0.16 to his sides, 0.23 to his corners</span></label>
-    <div class="dbg-buttons"><button id="d-apply">Apply &amp; restart</button><button id="d-reset" class="secondary">Defaults</button></div>
-    <label class="check"><input type="checkbox" id="d-seen"> Paint what the camera sees red</label>
-    <div class="readout" id="d-angle">camera: 45°</div>
-    <div class="readout" id="d-losses">losses: 0</div>
-    <div class="dbg-buttons"><button id="d-losses-reset" class="secondary">Reset hints</button></div>
-  </div>
+  <button id="layout-toggle" class="secondary" title="Move the score card">Score card: bottom</button>
 
   <!-- after the round: ranking of the four models -->
   <div class="center hidden" id="results-wrap">
@@ -857,13 +857,6 @@
       }
     }
     // pulsing rings around the bins while Albert has paper in his hands
-    const pickCircle = new THREE.Mesh(new THREE.RingGeometry(REACH - 0.008, REACH, 48),
-      new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
-    pickCircle.rotation.x = -Math.PI / 2;
-    pickCircle.position.y = 0.012;
-    pickCircle.visible = false;
-    pickCircle.raycast = () => {};
-    albertRoot.add(pickCircle);
     const binRings = BINS.map(([x, z]) => {
       const r = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.36, 48),
         new THREE.MeshBasicMaterial({ color: '#7cf5ff', transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
@@ -907,14 +900,17 @@
       dirtyNow = seen + carried.length;
       const next = Math.round(100 * (1 - dirtyNow / dirt.length));
       if (next !== score) {
-        const el = $('score');
-        el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+        for (const el of [$('score'), $('bottom-score')]) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
       }
       score = next;
       $('score').textContent = `${score}%`;
       $('score').style.fontSize = (32 + 0.64 * score) + 'px'; // 32px at 0% → 96px at 100%
       $('score-fill').style.width = score + '%';
       $('score-fill').style.background = barColor(score);
+      $('bottom-score').textContent = `${score}%`;
+      $('bottom-score').style.setProperty('--pct', score); // its size grows with the score (CSS, scaled to the card)
+      $('bottom-fill').style.width = score + '%';
+      $('bottom-fill').style.background = barColor(score);
       $('detected').textContent = `camera sees ${seen} / ${dirt.length} paper balls`;
       $('carrying').textContent = `holding ${carried.length} / ${CARRY_MAX}`;
       $('carrying').classList.toggle('full', carried.length >= CARRY_MAX);
@@ -999,35 +995,46 @@
       }
     }
 
-    // ---------- optional hints: two plays, then two further losses ----------
-    const HINT_KEY = 'albert-l1-hints';
-    let plays = 0, furtherLosses = 0;
-    try {
-      const saved = JSON.parse(localStorage.getItem(HINT_KEY));
-      if (Number.isSafeInteger(saved?.plays) && saved.plays >= 0) plays = saved.plays;
-      if (Number.isSafeInteger(saved?.furtherLosses) && saved.furtherLosses >= 0) furtherLosses = saved.furtherLosses;
-    } catch {}
-    function updateHints(announce = false) {
-      try { localStorage.setItem(HINT_KEY, JSON.stringify({ plays, furtherLosses })); } catch {}
-      for (const [id, unlocked] of [['hint-first', plays >= 2], ['hint-second', plays >= 2 && furtherLosses >= 2]]) {
-        const hint = $(id);
-        if (announce && unlocked && hint.classList.contains('hidden')) {
-          // Show the new clue immediately; the player can collapse it afterwards.
-          $('hint-first').open = $('hint-second').open = false;
-          hint.open = true;
-          hint.classList.add('hint-pop');
-        }
-        hint.classList.toggle('hidden', !unlocked);
-        if (!unlocked) hint.classList.remove('hint-pop');
-      }
-      $('d-losses').textContent = `plays: ${plays}; losses after hint 1: ${furtherLosses}`;
+    // Winning sparkle: at 90% or more, tiny high G twinkles scattered left and right, like glitter. Only the note G
+    // (in the song's key, E-flat major) and no steady rhythm: a repeating bell sounded like an alarm.
+    // Switched off (the owner's pick); set WIN_SPARKLE to true to bring it back.
+    const WIN_SPARKLE = false, WIN_AT = 90, SPARKLE_G = [1567.98, 3135.96]; // G6, G7
+    let sparkleAt = 0, sparkles = 0;
+    function twinkle(t) {
+      const osc = audio.createOscillator(), g = audio.createGain(), pan = audio.createStereoPanner();
+      const ring = 0.15 + Math.random() * 0.25;
+      osc.frequency.value = SPARKLE_G[Math.random() < 0.6 ? 0 : 1];
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.037 + Math.random() * 0.074, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + ring);
+      pan.pan.value = Math.random() * 1.6 - 0.8;
+      osc.connect(g).connect(pan).connect(master);
+      osc.start(t);
+      osc.stop(t + ring + 0.02);
+      sparkles++;
     }
-    updateHints();
-    $('d-losses-reset').onclick = () => {
-      plays = furtherLosses = 0;
-      $('hint-first').open = $('hint-second').open = false;
-      updateHints();
-    };
+    function stepSparkle() {
+      const now = audio.currentTime;
+      if (!WIN_SPARKLE || audio.state !== 'running' || score < WIN_AT) { sparkleAt = 0; return; }
+      sparkleAt = Math.max(sparkleAt, now);
+      while (sparkleAt < now + 0.1) {
+        twinkle(sparkleAt);
+        sparkleAt += 0.06 + Math.random() * 0.14;
+      }
+    }
+
+    // ---------- losses: after 4 in a row, show a hint (kept across Try again reloads) ----------
+    const LOSS_KEY = 'albert-l1-losses', HINT_AFTER = 4;
+    let losses = 0;
+    try { losses = +localStorage.getItem(LOSS_KEY) || 0; } catch {}
+    function setLosses(n) {
+      losses = n;
+      try { localStorage.setItem(LOSS_KEY, String(n)); } catch {}
+      const show = losses >= HINT_AFTER;
+      $('hint-start').classList.toggle('hidden', !show);
+      $('hint-hud').classList.toggle('hidden', !show);
+    }
+    setLosses(losses);
 
     // ---------- round flow: ready → playing → results ----------
     let state = 'ready';
@@ -1056,9 +1063,7 @@
       const lowest = rows[rows.length - 1];
       const survived = !lowest.you;
       const top = rows[0];
-      if (plays >= 2 && !survived) furtherLosses++;
-      plays++;
-      updateHints(true);
+      setLosses(survived ? 0 : losses + 1);
 
       $('res-title').textContent = timeLeft <= 0 ? "Time's up!" : 'Round over';
       $('ranking').innerHTML = rows.map((r, i) => `
@@ -1094,6 +1099,7 @@
             : `Almost spotless! I can only see ${seen} paper ball${seen === 1 ? '' : 's'}.`;
           $('res-note').insertAdjacentHTML('afterbegin', `<span class="cam">📷 Inspection camera: "${quote}"</span>`);
         }
+        if (!survived && losses >= HINT_AFTER) $('res-note').innerHTML += '<br><span class="hint">💡 Hint: Move the camera around</span>';
         $('continue').classList.toggle('hidden', !survived);
       }, 450 + els.length * 280 + 500);
     }
@@ -1107,24 +1113,30 @@
       setTimeout(() => { location.href = '../level2/'; }, 650);
     };
 
-    // ---------- debug panel ----------
-    const dbg = { speed: SETTINGS.speed, papers: SETTINGS.papers, carry: SETTINGS.carry, pick: SETTINGS.pick };
-    for (const k of Object.keys(dbg)) {
-      const input = $('d-' + k), out = $('o-' + k);
-      input.value = dbg[k];
-      out.textContent = dbg[k];
-      input.oninput = () => { dbg[k] = +input.value; out.textContent = input.value; };
+    // ---------- score card: at the bottom (default) or in the corner, remembered on this computer ----------
+    // (speed, paper count, carry and pick radius can still be tuned as ?speed=&papers=&carry=&pick=)
+    const LAYOUT_KEY = 'albert-l1-score-card';
+    let scoreBottom = true;
+    try { scoreBottom = localStorage.getItem(LAYOUT_KEY) !== 'corner'; } catch {}
+    function setLayout(bottom) {
+      scoreBottom = bottom;
+      try { localStorage.setItem(LAYOUT_KEY, bottom ? 'bottom' : 'corner'); } catch {}
+      document.body.classList.toggle('score-bottom', bottom);
+      $('bottom-card').classList.toggle('hidden', !bottom);
+      // the info lines and Finish now move into the bottom card, or back to the corner card and the screen corner
+      if (bottom) { $('bottom-info').append($('detected'), $('carrying'), $('timer')); $('bottom-card').append($('finish')); }
+      else { $('report').append($('detected'), $('carrying'), $('timer')); $('hud').append($('finish')); }
+      $('layout-toggle').textContent = `Score card: ${bottom ? 'bottom' : 'corner'}`;
+      liftButtons();
     }
-    $('debug-toggle').onclick = () => $('debug').classList.toggle('hidden');
-    $('d-apply').onclick = () => { location.search = new URLSearchParams(dbg).toString(); };
-    $('d-reset').onclick = () => { location.search = ''; };
-    let paintSeen = false;
-    $('d-seen').onchange = e => { paintSeen = e.target.checked; };
-    function updateDebug() {
-      $('d-angle').textContent = `camera: ${Math.round(((angle * 180 / Math.PI) % 360 + 360) % 360)}°`;
-      const seen = paintSeen ? new Set(detectedDirt()) : null;
-      for (const d of dirt) d.material.color.set(seen?.has(d) ? '#ff3b30' : d.userData.baseColor);
+    // on narrow screens the bottom card reaches the buttons in the bottom-left corner: they step up above it
+    function liftButtons() {
+      const cardLeft = (innerWidth - Math.min(0.53 * innerWidth, innerWidth - 32)) / 2;
+      document.body.classList.toggle('lift-buttons', cardLeft < 175);
     }
+    setLayout(scoreBottom);
+    addEventListener('resize', liftButtons);
+    $('layout-toggle').onclick = e => { setLayout(!scoreBottom); e.currentTarget.blur(); };
 
     // ---------- main loop ----------
     placeCamera();
@@ -1134,7 +1146,7 @@
     showTime();
     let last = performance.now();
     let walkTime = 0, nextBlink = 1500;
-    let highFor = 0; // seconds the score has stayed above 90%
+    let finishReady = false; // Finish now grows and glows once the score is close to 90%
     renderer.setAnimationLoop(now => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
@@ -1161,8 +1173,10 @@
         for (const r of binRings) { r.visible = carried.length > 0; r.material.opacity = pulse; }
         if (changed) updateScore();
         stepBlips();
-        highFor = score > 90 ? highFor + dt : 0;
-        $('finish').classList.toggle('ready', highFor > 4);
+        stepSparkle();
+        // on at 88%, off again only below 85%, so it doesn't flicker while you move or turn the camera
+        if (score >= 88) finishReady = true; else if (score < 85) finishReady = false;
+        $('finish').classList.toggle('ready', finishReady);
         timeLeft = Math.max(0, timeLeft - dt);
         showTime();
         if (timeLeft === 0) endRound();
@@ -1179,13 +1193,11 @@
       const blink = now > nextBlink ? Math.min(1, (now - nextBlink) / 160) : 0;
       for (const e of A.eyes) e.scale.y = blink > 0 ? 1 - 0.9 * Math.sin(blink * Math.PI) : 1;
       if (blink >= 1) nextBlink = now + 2500 + Math.random() * 2500;
-      pickCircle.visible = !$('debug').classList.contains('hidden');
-      if (pickCircle.visible) updateDebug();
       renderer.render(scene, camera);
     });
 
     // test hooks
-    window.__level = { surfaceHeightAt, RAISED_EXTRA, REACH, BINS, BIN_REACH, CARRY_MAX, carried, onFloor, SETTINGS, ballSeen, camera, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get losses() { return losses; }, get highFor() { return highFor; }, get state() { return state; }, get blips() { return blips; }, get musicPlaying() { return !!music; }, get audioState() { return audio.state; } };
+    window.__level = { surfaceHeightAt, RAISED_EXTRA, REACH, BINS, BIN_REACH, CARRY_MAX, carried, onFloor, SETTINGS, ballSeen, camera, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get losses() { return losses; }, get finishReady() { return finishReady; }, get state() { return state; }, get blips() { return blips; }, get sparkles() { return sparkles; }, get musicPlaying() { return !!music; }, get audioState() { return audio.state; } };
     window.levelReady = true;
   </script>
 </body>
