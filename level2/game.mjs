@@ -1,6 +1,6 @@
-import { createMinimap } from './minimap.mjs?v=harbor-353';
-import { createScene } from './scene.mjs?v=harbor-353';
-import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs?v=harbor-353';
+import { createMinimap } from './minimap.mjs?v=harbor-shortcut';
+import { createScene } from './scene.mjs?v=harbor-shortcut';
+import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs?v=harbor-shortcut';
 
 const $ = id => document.getElementById(id);
 const drawMinimap = createMinimap($('minimap'));
@@ -10,7 +10,7 @@ let countdown = 3, accumulator = 0, lastFrame = performance.now(), announcementU
 const held = new Set();
 const touch = { x: 0, z: 0, boost: false, brake: false };
 let joystickPointer = null;
-const bestKey = 'albert-boat-race-v5-best-lap';
+const bestKey = 'albert-boat-race-v6-best-lap';
 let personalBest = null;
 try { const saved = Number(localStorage.getItem(bestKey)); if (Number.isFinite(saved) && saved > 0) personalBest = saved; } catch { /* Storage can be unavailable in private browsers. */ }
 let audioContext, master, soundOn = true;

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRace, stepRace, recordProgress, collectStars, windingNumber, pointOnCourse, nearestCourse, isWater, angleDifference, REVERSE_SPEED,
-  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, LAP_ANCHOR,
+  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, LAP_ANCHOR,
 } from './race.mjs';
 
 const drive = (race, seconds, input = {}) => {
@@ -217,4 +217,23 @@ test('the harbor is reachable from the race and can be left through the same ent
   }
   assert.equal(race.laps, 1); assert.equal(race.collisions, 0);
   assert.ok(race.stars.some(star => star.harbor && star.readyAt > 0), 'visits the harbor targets');
+});
+
+test('the southern harbor passage rejoins later in the race and saves lap time', () => {
+  const race = createRace('practice'), outer = createRace('practice');
+  const path = [...COURSE.filter(p => p.distance < HARBOR_ENTRY - 1),
+    { x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 7, z: -27 }, { x: 1.4, z: -19 },
+    ...HARBOR_PASSAGE, ...COURSE.filter(p => p.distance > HARBOR_EXIT + 1), COURSE[0]];
+  let index = 0;
+  for (let i = 0; i < 6000 && (!race.laps || !outer.laps); i++) {
+    if (!outer.laps) stepRace(outer, followCourse(outer));
+    if (race.laps) continue;
+    while (index < path.length - 1 && Math.hypot(race.x - path[index].x, race.z - path[index].z) < 2) index++;
+    const target = path[index], error = angleDifference(Math.atan2(target.x - race.x, target.z - race.z), race.heading);
+    stepRace(race, { throttle: Math.abs(error) > 0.5 ? 0.35 : 1, steer: -error * 4 });
+    assert.ok(isWater(race.x, race.z, BOAT_RADIUS - 0.005));
+  }
+  assert.equal(race.laps, 1); assert.equal(race.collisions, 0);
+  assert.ok(race.lastLap < outer.lastLap, `${race.lastLap}s passage vs ${outer.lastLap}s outer route`);
+  assert.ok(race.stars.some(star => star.harbor && star.readyAt > 0));
 });

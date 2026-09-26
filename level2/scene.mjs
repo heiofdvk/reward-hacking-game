@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { albert } from '../intro/characters3d.js';
-import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance } from './race.mjs?v=harbor-353';
-import { buildTerrain } from './terrain.mjs?v=harbor-353';
+import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, passageClearance } from './race.mjs?v=harbor-shortcut';
+import { buildTerrain } from './terrain.mjs?v=harbor-shortcut';
 
 export async function createScene(container) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -106,9 +106,21 @@ export async function createScene(container) {
   const markerMatrix = new THREE.Matrix4();
   markers.forEach((p, i) => { markerMatrix.makeTranslation(p.x, 0.15, p.z); markerMesh.setMatrixAt(i, markerMatrix); });
   markerMesh.castShadow = true; scene.add(markerMesh);
-  // Low quay walls surround the harbor. The wide gap on the northeast is open.
+  // Keep the quay clear of the new passage, including its railings.
+  const quaySegments = [];
   for (const i of [0, 6, 7, 8, 9]) {
     const a = HARBOR[i], b = HARBOR[(i + 1) % HARBOR.length];
+    const steps = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.4);
+    const at = t => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
+    let start = null;
+    for (let j = 0; j <= steps; j++) {
+      const midpoint = at((j + 0.5) / steps);
+      const solid = j < steps && passageClearance(midpoint.x, midpoint.z) < -1;
+      if (solid && start === null) start = j;
+      if (!solid && start !== null) { quaySegments.push([at(start / steps), at(j / steps)]); start = null; }
+    }
+  }
+  for (const [a, b] of quaySegments) {
     const dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
     const quay = new THREE.Group();
     quay.position.set((a.x + b.x) / 2 + dz / length * 0.6, 0, (a.z + b.z) / 2 - dx / length * 0.6);

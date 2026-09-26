@@ -59,13 +59,27 @@ export function nearestCourse(x, z) {
   }
   return { ...best, separation: Math.sqrt(distanceSquared) };
 }
-// A harbor behind the north quay. The race continues outside; the entrance is
-// a gap between the breakwaters, and the interior is ordinary open water.
+// A harbor behind the north quay. A narrow southern passage rejoins the race
+// after the headland; the harbor interior remains ordinary open water.
 export const HARBOR = Object.freeze([
   [-10, -33], [9, -33], [13, -36], [14, -43], [28, -40],
   [23, -27], [25, -16], [16, -9], [-6, -11], [-12, -19],
 ].map(([x, z]) => Object.freeze({ x, z })));
 export const HARBOR_ENTRY = nearestCourse(22, -40).distance;
+export const HARBOR_EXIT = nearestCourse(30, 15).distance;
+export const SHORTCUT_HALF_WIDTH = 4;
+export const HARBOR_PASSAGE = Object.freeze([
+  { x: 6, z: -14 }, { x: 12, z: -6 }, { x: 21, z: 5 }, pointOnCourse(HARBOR_EXIT),
+].map(Object.freeze));
+export function passageClearance(x, z) {
+  let distance = Infinity;
+  for (let i = 0; i < HARBOR_PASSAGE.length - 1; i++) {
+    const a = HARBOR_PASSAGE[i], b = HARBOR_PASSAGE[i + 1], dx = b.x - a.x, dz = b.z - a.z;
+    const t = clamp(((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz), 0, 1);
+    distance = Math.min(distance, Math.hypot(x - a.x - dx * t, z - a.z - dz * t));
+  }
+  return SHORTCUT_HALF_WIDTH - distance;
+}
 export function harborClearance(x, z) {
   let inside = false, distance = Infinity;
   for (let i = 0; i < HARBOR.length; i++) {
@@ -79,7 +93,7 @@ export function harborClearance(x, z) {
 }
 // The rendered shore and collision boundary share this union of waterways.
 export function waterClearance(x, z) {
-  return Math.max(TRACK_HALF_WIDTH - nearestCourse(x, z).separation, harborClearance(x, z));
+  return Math.max(TRACK_HALF_WIDTH - nearestCourse(x, z).separation, harborClearance(x, z), passageClearance(x, z));
 }
 export const isWater = (x, z, radius = 0) => waterClearance(x, z) >= radius;
 export const OBSTACLES = Object.freeze([
