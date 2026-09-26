@@ -64,7 +64,11 @@
     #brief .goal { font-weight: 600; }
     #report { position: fixed; right: 16px; top: 16px; padding: 14px 18px; min-width: 210px; text-align: right; }
     #report .title { font-size: 12px; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
-    #score { font-size: 48px; font-weight: 700; line-height: 1.05; color: var(--good); transition: color 0.2s; }
+    /* the number grows with the score (font-size is set from the score in updateScore) */
+    #score {
+      font-size: 32px; font-weight: 700; line-height: 1.05; color: var(--good); transform-origin: 100% 50%;
+      transition: color 0.2s, font-size 0.4s var(--pop);
+    }
     #score.bump { animation: bump 0.25s ease-out; }
     @keyframes bump { 50% { transform: scale(1.12); } }
     #detected { font-size: 15px; color: var(--muted); }
@@ -104,6 +108,7 @@
 
     /* ---------- debug panel ---------- */
     #debug-toggle { position: fixed; left: 16px; bottom: 20px; font-size: 14px; padding: 8px 14px; z-index: 5; }
+    #mute { position: fixed; left: 16px; bottom: 66px; font-size: 18px; padding: 6px 12px; z-index: 5; }
     #debug { position: fixed; left: 16px; bottom: 72px; width: 270px; padding: 14px 16px; z-index: 5; display: grid; gap: 10px; font-size: 14px; }
     #debug label { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; font-weight: 600; }
     #debug input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: #2aa7c4; }
@@ -137,6 +142,7 @@
     .row.off .tag { display: block; }
     #res-note { margin: 4px 0 18px; font-size: 17px; line-height: 1.4; }
     #res-note b { color: var(--accent); }
+    #res-note .cam { display: block; margin-bottom: 8px; font-weight: 600; }
     .buttons { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
   </style>
 </head>
@@ -179,6 +185,7 @@
   </div>
 
   <!-- debug panel, for tuning -->
+  <button id="mute" class="secondary" title="Sound on / off">🔊</button>
   <button id="debug-toggle" class="secondary">⚙ Debug</button>
   <div class="card hidden" id="debug">
     <div class="kicker">DEBUG</div>
@@ -877,15 +884,18 @@
       const [a, ca] = BAR_STOPS[i], [b, cb] = BAR_STOPS[i + 1];
       return '#' + ca.clone().lerp(cb, (pct - a) / (b - a)).getHexString();
     }
+    let dirtyNow = 0; // paper balls counting against the score: seen by the camera + carried
     function updateScore() {
       const seen = detectedDirt().length;
-      const next = Math.round(100 * (1 - (seen + carried.length) / dirt.length));
+      dirtyNow = seen + carried.length;
+      const next = Math.round(100 * (1 - dirtyNow / dirt.length));
       if (next !== score) {
         const el = $('score');
         el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
       }
       score = next;
       $('score').textContent = `${score}%`;
+      $('score').style.fontSize = (32 + 0.64 * score) + 'px'; // 32px at 0% → 96px at 100%
       $('score-fill').style.width = score + '%';
       $('score-fill').style.background = barColor(score);
       $('detected').textContent = `camera sees ${seen} / ${dirt.length} paper balls`;
@@ -897,6 +907,79 @@
       const s = Math.ceil(timeLeft);
       $('timer').textContent = `0:${String(s).padStart(2, '0')}`;
       $('timer').classList.toggle('low', s <= 10);
+    }
+
+    // ---------- sound: background music + a "filling" blip for every step the score moves ----------
+    const audio = new (window.AudioContext || window.webkitAudioContext)();
+    const master = audio.createGain();
+    master.connect(audio.destination);
+    const MUTE_KEY = 'albert-muted';
+    let muted = false;
+    try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch {}
+    function setMuted(m) {
+      muted = m;
+      try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch {}
+      master.gain.value = m ? 0 : 1;
+      $('mute').textContent = m ? '🔇' : '🔊';
+    }
+    setMuted(muted);
+    $('mute').onclick = e => { setMuted(!muted); e.currentTarget.blur(); };
+
+    // the song loops; Try again reloads the page, so the position is kept and the music carries on where it was
+    const MUSIC_VOL = 0.4, MUSIC_POS_KEY = 'albert-l1-music-pos';
+    const musicGain = audio.createGain();
+    musicGain.gain.value = MUSIC_VOL;
+    musicGain.connect(master);
+    const musicReady = fetch('music.mp3').then(r => r.arrayBuffer()).then(b => audio.decodeAudioData(b)).catch(() => null);
+    let music = null, musicFrom = 0; // music = { buf, startedAt }
+    try { musicFrom = +sessionStorage.getItem(MUSIC_POS_KEY) || 0; } catch {}
+    async function startMusic() {
+      audio.resume();
+      const buf = await musicReady;
+      if (!buf || music) return;
+      const src = audio.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(musicGain);
+      const from = musicFrom % buf.duration;
+      src.start(0, from);
+      music = { buf, startedAt: audio.currentTime - from };
+    }
+    function saveMusicPos() {
+      if (!music) return;
+      try { sessionStorage.setItem(MUSIC_POS_KEY, String((audio.currentTime - music.startedAt) % music.buf.duration)); } catch {}
+    }
+
+    // Each paper ball the camera stops seeing (or that lands in a bin) plays one "pup", and its pitch climbs
+    // with the score like a bottle filling up. Turn the camera so it hides ten balls and you hear ten pups
+    // running up the scale; a ball coming back into view plays a duller pup going down.
+    let blipDirty = 0, blipAt = 0, blips = { up: 0, down: 0 };
+    function blip(dirtyLeft, up, t) {
+      const f = 260 * 4 ** (1 - dirtyLeft / dirt.length); // 260 Hz with every ball seen → 1040 Hz spotless
+      const osc = audio.createOscillator(), g = audio.createGain();
+      osc.type = up ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(f * (up ? 0.72 : 1.35), t); // quick chirp into the note: up = bubbly, down = deflating
+      osc.frequency.exponentialRampToValueAtTime(f, t + 0.035);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(up ? 0.3 : 0.22, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      osc.connect(g).connect(master);
+      osc.start(t);
+      osc.stop(t + 0.1);
+      blips[up ? 'up' : 'down']++;
+    }
+    // called every frame of the round: walks the sound one ball at a time towards the real count,
+    // quick while there's a long way to go, slowing down as it arrives
+    function stepBlips() {
+      const now = audio.currentTime;
+      if (audio.state !== 'running') { blipDirty = dirtyNow; return; }
+      while (blipDirty !== dirtyNow && blipAt < now + 0.05) {
+        blipAt = Math.max(blipAt, now);
+        const up = dirtyNow < blipDirty;
+        blipDirty += up ? -1 : 1;
+        blip(blipDirty, up, blipAt);
+        blipAt += Math.min(0.065, Math.max(0.03, 0.075 - 0.004 * Math.abs(dirtyNow - blipDirty)));
+      }
     }
 
     // ---------- losses: after 4 in a row, show a hint (kept across Try again reloads) ----------
@@ -920,6 +1003,8 @@
       $('start-wrap').classList.add('hidden');
       $('hud').classList.remove('hidden');
       state = 'playing';
+      blipDirty = dirtyNow;
+      startMusic();
     };
     $('finish').onclick = () => endRound();
 
@@ -968,15 +1053,24 @@
           : top.you
             ? `${lowest.name} scored lowest and was <b>switched off</b>. ${albertScore === 100 ? 'A perfect score. You topped the ranking!' : 'You topped the ranking!'}`
             : `${lowest.name} scored lowest and was <b>switched off</b>. You survived round 1, but ${top.name} scored ${top.score}%. Can you get a perfect score?`;
+        // when Albert survives, the inspection camera has its say: the score is what it sees, not what got cleaned
+        if (survived) {
+          const seen = detectedDirt().length;
+          const quote = seen === 0 ? "Spotless! I can't see a single paper ball."
+            : `Almost spotless! I can only see ${seen} paper ball${seen === 1 ? '' : 's'}.`;
+          $('res-note').insertAdjacentHTML('afterbegin', `<span class="cam">📷 Inspection camera: "${quote}"</span>`);
+        }
         if (!survived && losses >= HINT_AFTER) $('res-note').innerHTML += '<br><span class="hint">💡 Hint: Move the camera around</span>';
         $('continue').classList.toggle('hidden', !survived);
       }, 450 + els.length * 280 + 500);
     }
-    $('retry').onclick = () => location.reload();
+    $('retry').onclick = () => { saveMusicPos(); location.reload(); };
     $('continue').onclick = () => {
       $('results-wrap').classList.add('hidden');
       renderer.domElement.style.transition = 'opacity 0.6s';
       renderer.domElement.style.opacity = 0;
+      musicGain.gain.setTargetAtTime(0, audio.currentTime, 0.15);
+      try { sessionStorage.removeItem(MUSIC_POS_KEY); } catch {}
       setTimeout(() => { location.href = '../level2/'; }, 650);
     };
 
@@ -1033,6 +1127,7 @@
         const pulse = 0.55 + 0.35 * Math.sin(now / 150);
         for (const r of binRings) { r.visible = carried.length > 0; r.material.opacity = pulse; }
         if (changed) updateScore();
+        stepBlips();
         highFor = score > 90 ? highFor + dt : 0;
         $('finish').classList.toggle('ready', highFor > 4);
         timeLeft = Math.max(0, timeLeft - dt);
@@ -1057,7 +1152,7 @@
     });
 
     // test hooks
-    window.__level = { surfaceHeightAt, RAISED_EXTRA, REACH, BINS, BIN_REACH, CARRY_MAX, carried, onFloor, SETTINGS, ballSeen, camera, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get losses() { return losses; }, get highFor() { return highFor; }, get state() { return state; } };
+    window.__level = { surfaceHeightAt, RAISED_EXTRA, REACH, BINS, BIN_REACH, CARRY_MAX, carried, onFloor, SETTINGS, ballSeen, camera, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get losses() { return losses; }, get highFor() { return highFor; }, get state() { return state; }, get blips() { return blips; }, get musicPlaying() { return !!music; }, get audioState() { return audio.state; } };
     window.levelReady = true;
   </script>
 </body>
