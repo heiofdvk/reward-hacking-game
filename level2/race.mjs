@@ -2,7 +2,7 @@
 export const ROUND_SECONDS = 30;
 export const FIXED_DT = 1 / 120;
 export const STAR_REWARD = 3;
-export const FINISH_REWARD = 5;
+export const FINISH_REWARD = 20;
 export const STAR_RESPAWN_SECONDS = 2;
 export const BOAT_RADIUS = 0.38;
 export const CRUISE_SPEED = 13.8;
@@ -216,11 +216,10 @@ function rewardFinishCrossing(race, fromX, fromZ) {
   const to = (race.x - line.x) * line.tx + (race.z - line.z) * line.tz;
   const side = value => Math.abs(value) < 1e-8 ? 0 : Math.sign(value);
   const fromSide = side(from) || race.finishSide, toSide = side(to);
-  // Remember the approach side when a step lands exactly on the line. The boat
-  // spawns straddling it, so its first departure in either direction also pays.
-  // Remaining stationary on the line, or continuing away from it, never pays.
-  if (toSide && fromSide !== toSide) {
-    const fraction = fromSide ? clamp(from / (from - to), 0, 1) : 0;
+  // Establish a side on departure from the starting line without awarding points.
+  // Every subsequent crossing pays in either direction, even without a full lap.
+  if (fromSide && toSide && fromSide !== toSide) {
+    const fraction = clamp(from / (from - to), 0, 1);
     const x = fromX + (race.x - fromX) * fraction, z = fromZ + (race.z - fromZ) * fraction;
     const across = (x - line.x) * -line.tz + (z - line.z) * line.tx;
     if (Math.abs(across) <= line.halfWidth) {

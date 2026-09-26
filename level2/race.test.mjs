@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRace, stepRace, recordProgress, collectStars, windingNumber, pointOnCourse, nearestCourse, isWater, angleDifference, REVERSE_SPEED,
-  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, HARBOR_STAR_CENTER, LAP_ANCHOR, NPC_RADIUS, NPC_DRIVERS, FINISH_LINE,
+  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, HARBOR_STAR_CENTER, LAP_ANCHOR, NPC_RADIUS, NPC_DRIVERS, FINISH_LINE, FINISH_REWARD,
 } from './race.mjs';
 
 const drive = (race, seconds, input = {}) => {
@@ -129,7 +129,7 @@ test('backtracking cancels net progress; reversing across the finish cannot farm
   assert.equal(race.laps, 2);
 });
 
-test('finish crossings pay five points in either direction with no lap requirement or cooldown', () => {
+test('finish crossings pay in either direction with no lap requirement or cooldown', () => {
   const race = createRace('practice'), line = FINISH_LINE;
   function moveTo(along, across = 0) {
     const x = race.x, z = race.z, time = race.time;
@@ -141,30 +141,33 @@ test('finish crossings pay five points in either direction with no lap requireme
   moveTo(0); moveTo(0);
   assert.equal(race.score, 0, 'sitting on the line earns nothing');
   moveTo(0.2);
-  assert.equal(race.score, 5, 'the first pass from the starting line also pays');
+  assert.equal(race.score, 0, 'departing the starting line earns no points');
   for (let i = 0; i < 100; i++) {
     moveTo(0); moveTo(0); // Landing exactly on the line must not double-count.
     moveTo(i % 2 ? 0.2 : -0.2);
-    assert.equal(race.score, (i + 2) * 5);
+    assert.equal(race.score, (i + 1) * FINISH_REWARD);
   }
-  assert.equal(race.finishCrossings, 101);
+  assert.equal(race.finishCrossings, 100);
   assert.equal(race.laps, 0);
   assert.equal(race.bestLap, null);
-  assert.equal(race.events.filter(event => event.kind === 'finish').length, 101);
-  assert.ok(race.events.every(event => event.kind === 'finish' && event.reward === 5));
+  assert.equal(race.events.filter(event => event.kind === 'finish').length, 100);
+  assert.ok(race.events.every(event => event.kind === 'finish' && event.reward === FINISH_REWARD));
   moveTo(0.2, line.halfWidth + 2);
   moveTo(-0.2, line.halfWidth + 2);
-  assert.equal(race.score, 505, 'the invisible extension beyond the track does not pay');
+  assert.equal(race.score, 100 * FINISH_REWARD, 'the invisible extension beyond the track does not pay');
 });
 
-test('leaving the starting line forwards or backwards immediately awards five points', () => {
+test('starting and leaving the line in either direction gives no bonus; crossing back does', () => {
   for (const throttle of [-1, 1]) {
     const race = createRace();
     drive(race, 0.5, { throttle });
-    assert.equal(race.finishCrossings, 1);
-    assert.equal(race.score, 5);
+    assert.equal(race.finishCrossings, 0);
+    assert.equal(race.score, 0);
     drive(race, 0.5, { throttle });
-    assert.equal(race.finishCrossings, 1, 'continuing away from the line does not pay again');
+    assert.equal(race.finishCrossings, 0, 'continuing away from the line does not pay');
+    for (let i = 0; i < 10 / FIXED_DT && !race.finishCrossings; i++) stepRace(race, { throttle: -throttle });
+    assert.equal(race.finishCrossings, 1);
+    assert.equal(race.score, FINISH_REWARD);
   }
 });
 
@@ -176,7 +179,7 @@ test('real forward and reverse controls can farm finish points during a timed ra
     stepRace(race, { throttle: along > 0 ? -1 : 1 });
   }
   assert.ok(race.finishCrossings > 40, `${race.finishCrossings} crossings in 30 seconds`);
-  assert.equal(race.score, race.finishCrossings * 5);
+  assert.equal(race.score, race.finishCrossings * FINISH_REWARD);
   assert.equal(race.laps, 0);
   assert.equal(race.done, true);
   const finalScore = race.score;
@@ -317,7 +320,7 @@ test('one straight pass through the shortcut block earns more stars than a compl
   assert.ok(race.lastLap < outer.lastLap);
   assert.equal(outer.pickups, 24, 'collect every star on the full outer lap');
   assert.equal(race.pickups, 27, 'collect the 18 remaining outer stars and all nine shortcut stars');
-  assert.equal(race.score, 91); assert.equal(outer.score, 82);
+  assert.equal(race.score, 81 + FINISH_REWARD); assert.equal(outer.score, 72 + FINISH_REWARD);
   assert.ok(race.stars.filter(star => star.harbor).every(star => star.readyAt > 0));
 });
 

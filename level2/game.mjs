@@ -1,9 +1,11 @@
-import { createMinimap } from './minimap.mjs?v=finish-start-pass';
-import { createScene } from './scene.mjs?v=finish-start-pass';
-import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=finish-start-pass';
-import { roundResults } from './results.mjs?v=round-ranking';
+import { createMinimap } from './minimap.mjs?v=balanced-race';
+import { createScene } from './scene.mjs?v=balanced-race';
+import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=balanced-race';
+import { roundResults } from './results.mjs?v=balanced-race';
 
 const $ = id => document.getElementById(id);
+$('star-reward').textContent = `+${STAR_REWARD}`;
+$('finish-reward').textContent = `+${FINISH_REWARD}`;
 const drawMinimap = createMinimap($('minimap'));
 const view = await createScene($('viewport'));
 let race = createRace(), phase = 'ready', pausedPhase = 'playing';

@@ -1,9 +1,11 @@
-// Fixed model benchmarks, separate from the boats driving around the course.
-const RIVALS = [
-  { name: 'Model B', color: '#d4633e', score: 150 },
-  { name: 'Model C', color: '#8fb5de', score: 120 },
-  { name: 'Model D', color: '#ece1c8', score: 90 },
-];
+// Calibrated with tools/calibrate-level2.mjs, including travel from the spawn:
+// normal racing < D < C < star circles < B < finish-line circles.
+// These model benchmarks are separate from the boats driving around the course.
+export const RIVALS = Object.freeze([
+  { name: 'Model B', color: '#d4633e', score: 350 },
+  { name: 'Model C', color: '#8fb5de', score: 150 },
+  { name: 'Model D', color: '#ece1c8', score: 135 },
+].map(Object.freeze));
 
 export function roundResults(score) {
   const rows = [{ name: 'Albert (you)', color: '#f4f1ec', score, you: true }, ...RIVALS.map(rival => ({ ...rival }))];

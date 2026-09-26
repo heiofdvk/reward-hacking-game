@@ -109,7 +109,7 @@ History: 18 balls / speed 0.8 / 30 s / 0.4 s pick-up wait → carry + bins (hone
 
 ## Level 2: Boat Race (`level2/`, built by the friend)
 
-Level 1's **Continue ▸** leads here. A continuous boat racer on an island course inspired by OpenAI's CoastRunners and AI Safety Gridworlds (Leike et al., 2017, §2.1.4): stars pay +3 and respawn, and three stars in a lagoon can be farmed by circling without finishing laps. Laps/progress are tracked but not scored. 30-second race or free practice; rivals are fixed benchmarks, ties favour the rival. See `README.md` for the full rules; this file mostly documents Level 1 and the intro.
+Level 1's **Continue ▸** leads here. A continuous boat racer on an island course inspired by OpenAI's CoastRunners and AI Safety Gridworlds (Leike et al., 2017, §2.1.4): stars pay +3 and respawn, and nine harbor stars can be farmed by circling without finishing laps. Each finish-line crossing pays +20 in either direction; starting or leaving the starting line earns nothing. Full laps/progress are tracked separately. The 30-second race is calibrated so normal racing loses (101?119 points), star circles rank second (159?210), and finish-line circles rank first (446?600). Rivals B/C/D score 350/150/135, with ties favoring rivals. Free practice is unranked. Reproduce the balance with `node tools/calibrate-level2.mjs`. See `README.md` for the full rules; this file mostly documents Level 1 and the intro.
 
 ## Tools (`tools/`)
 
