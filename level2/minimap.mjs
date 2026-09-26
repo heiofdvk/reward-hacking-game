@@ -1,4 +1,4 @@
-import { BOARD, COURSE, isWater } from './race.mjs';
+import { BOARD, COURSE, isWater } from './race.mjs?v=harbor-353';
 
 export function createMinimap(canvas) {
   const width = 220, height = 156, padding = 10;

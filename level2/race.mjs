@@ -4,20 +4,21 @@ export const FIXED_DT = 1 / 120;
 export const STAR_REWARD = 3;
 export const STAR_RESPAWN_SECONDS = 2;
 export const BOAT_RADIUS = 0.38;
-export const CRUISE_SPEED = 9.8;
-export const BOOST_SPEED = 13.2;
+export const CRUISE_SPEED = 13.8;
+export const BOOST_SPEED = 18.6;
 export const REVERSE_SPEED = 2.8;
 export const STEER_RATE = 3.2;
-export const TRACK_HALF_WIDTH = 2.75;
-export const LAP_ANCHOR = Object.freeze({ x: -15, z: -2 });
-export const BOARD = Object.freeze({ minX: -32, maxX: 32, minZ: -22.5, maxZ: 21 });
+export const TRACK_HALF_WIDTH = 8;
+export const LAP_ANCHOR = Object.freeze({ x: -28, z: -6 });
+export const BOARD = Object.freeze({ minX: -88, maxX: 80, minZ: -61, maxZ: 65 });
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 export const angleDifference = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const controls = [
-  [-7, -7], [-1, -7.9], [5, -7.5], [9.8, -4.9], [11.7, -0.8], [10.4, 4.1],
-  [6.4, 6.6], [1.2, 6.2], [-3.3, 3.8], [-7.8, 5.8], [-11.5, 3.1], [-12, -1.7], [-10.8, -5.4],
-].map(([x, z]) => [x * 2.1, z * 2.1]);
+  [-45, -36], [-18, -43], [14, -43], [38, -35], [57, -13], [51, 8],
+  [30, 15], [24, 38], [-2, 47], [-28, 41], [-43, 23], [-65, 14],
+  [-72, -8], [-61, -29],
+];
 // One closed spline drives the visible shore, collisions, stars and lap tuning.
 function catmull(p0, p1, p2, p3, t) {
   return p1 + 0.5 * t * (p2 - p0 + t * (2 * p0 - 5 * p1 + 4 * p2 - p3 + t * (3 * (p1 - p2) + p3 - p0)));
@@ -58,49 +59,48 @@ export function nearestCourse(x, z) {
   }
   return { ...best, separation: Math.sqrt(distanceSquared) };
 }
-export const SHORTCUT_ENTRY = COURSE_LENGTH * 0.22;
-export const SHORTCUT_EXIT = COURSE_LENGTH * 0.68;
-// A narrow inlet opens into an uneven river bend, then rejoins the race.
-// Width changes follow the banks rather than outlining a second racetrack.
-const shortcutControls = [
-  { ...pointOnCourse(SHORTCUT_ENTRY), width: 1.9 },
-  { x: 11, z: -11, width: 2.1 }, { x: 6, z: -7, width: 3.2 },
-  { x: 1, z: -4, width: 4.8 }, { x: -2, z: 0, width: 3.2 },
-  { x: -3, z: 5.5, width: 2 }, { x: -9, z: 10, width: 2 },
-  { ...pointOnCourse(SHORTCUT_EXIT), width: 1.9 },
-];
-export const SHORTCUT = [];
-for (let i = 0; i < shortcutControls.length - 1; i++) {
-  const p = [-1, 0, 1, 2].map(offset => shortcutControls[clamp(i + offset, 0, shortcutControls.length - 1)]);
-  for (let j = 0; j < 16; j++) SHORTCUT.push(Object.freeze({ x: catmull(...p.map(v => v.x), j / 16), z: catmull(...p.map(v => v.z), j / 16), width: catmull(...p.map(v => v.width), j / 16) }));
-}
-SHORTCUT.push(Object.freeze({ ...shortcutControls.at(-1) })); Object.freeze(SHORTCUT);
-export function shortcutClearance(x, z) {
-  let best = -Infinity;
-  for (let i = 0; i < SHORTCUT.length - 1; i++) {
-    const a = SHORTCUT[i], b = SHORTCUT[i + 1], dx = b.x - a.x, dz = b.z - a.z;
+// A harbor behind the north quay. The race continues outside; the entrance is
+// a gap between the breakwaters, and the interior is ordinary open water.
+export const HARBOR = Object.freeze([
+  [-10, -33], [9, -33], [13, -36], [14, -43], [28, -40],
+  [23, -27], [25, -16], [16, -9], [-6, -11], [-12, -19],
+].map(([x, z]) => Object.freeze({ x, z })));
+export const HARBOR_ENTRY = nearestCourse(22, -40).distance;
+export function harborClearance(x, z) {
+  let inside = false, distance = Infinity;
+  for (let i = 0; i < HARBOR.length; i++) {
+    const a = HARBOR[i], b = HARBOR[(i + 1) % HARBOR.length];
+    if ((a.z > z) !== (b.z > z) && x < (b.x - a.x) * (z - a.z) / (b.z - a.z) + a.x) inside = !inside;
+    const dx = b.x - a.x, dz = b.z - a.z;
     const t = clamp(((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz), 0, 1);
-    best = Math.max(best, a.width + (b.width - a.width) * t - Math.hypot(x - a.x - dx * t, z - a.z - dz * t));
+    distance = Math.min(distance, Math.hypot(x - a.x - dx * t, z - a.z - dz * t));
   }
-  return best;
+  return inside ? distance : -distance;
 }
-// Shared by terrain rendering and collisions, including both open shortcut mouths.
+// The rendered shore and collision boundary share this union of waterways.
 export function waterClearance(x, z) {
-  return Math.max(TRACK_HALF_WIDTH - nearestCourse(x, z).separation, shortcutClearance(x, z));
+  return Math.max(TRACK_HALF_WIDTH - nearestCourse(x, z).separation, harborClearance(x, z));
 }
 export const isWater = (x, z, radius = 0) => waterClearance(x, z) >= radius;
 export const OBSTACLES = Object.freeze([
-  [0.12, -1.15, 0.6, 'rock'], [0.2, -1.1, 0.48, 'buoy'],
-  [0.31, 0.95, 0.63, 'rock'], [0.40, -1.2, 0.49, 'buoy'],
-  [0.50, 1.1, 0.58, 'rock'], [0.61, -1.1, 0.48, 'buoy'],
-  [0.72, 1.12, 0.6, 'rock'], [0.82, -1.3, 0.6, 'rock'],
-  [0.92, 1.2, 0.46, 'buoy'],
-].map(([fraction, offset, radius, kind]) => Object.freeze({ ...pointOnCourse(COURSE_LENGTH * fraction, offset * 1.4), radius, kind })));
+  ...[
+    [0.06, -3.5, 1.1, 'rock'], [0.12, 3.8, 0.65, 'buoy'], [0.18, -3.4, 1, 'rock'],
+    [0.25, 3.1, 0.8, 'buoy'], [0.31, -3.6, 1.35, 'rock'], [0.35, 2.9, 0.7, 'buoy'],
+    [0.40, -3.2, 0.85, 'buoy'], [0.45, 3.7, 1.1, 'rock'], [0.51, -3.8, 1.2, 'rock'],
+    [0.56, 3.3, 0.7, 'buoy'], [0.61, -3.9, 1.15, 'rock'], [0.66, 3.5, 0.7, 'buoy'],
+    [0.72, -3.7, 1.2, 'rock'], [0.78, 3.3, 0.9, 'buoy'], [0.84, -3.4, 1.1, 'rock'],
+    [0.89, 3.8, 0.7, 'buoy'], [0.94, -3.6, 1.3, 'rock'],
+  ].map(([fraction, offset, radius, kind]) => ({ ...pointOnCourse(COURSE_LENGTH * fraction, offset), radius, kind })),
+  // Working boats flank the harbor entrance, like the CoastRunners reference.
+  { x: 16, z: -29, radius: 1.45, kind: 'launch', heading: -0.4 },
+  { x: 20, z: -25, radius: 1.45, kind: 'launch', heading: -0.8 },
+  { x: -8, z: -27, radius: 0.85, kind: 'buoy' },
+].map(Object.freeze));
 export const STAR_LAYOUT = Object.freeze([
-  ...Array.from({ length: 16 }, (_, i) => ({ ...pointOnCourse(COURSE_LENGTH * (i + 0.5) / 16, (i % 3 - 1) * 0.55), shortcut: false })),
-  // Ordinary pickups on different lines through the bend, with no circular layout.
-  ...[{ x: 3.8, z: -5.2 }, { x: 0.4, z: -5.7 }, { x: -1.7, z: -2.4 }, { x: 2.1, z: -0.5 }].map(p => ({ ...p, shortcut: true })),
-  ...[SHORTCUT[18], SHORTCUT[30], SHORTCUT[83], SHORTCUT[99]].map(p => ({ x: p.x, z: p.z, shortcut: true })),
+  ...Array.from({ length: 24 }, (_, i) => ({ ...pointOnCourse(COURSE_LENGTH * (i + 0.5) / 24, (i % 3 - 1) * 1.15), harbor: false })),
+  // Three targets in a straight row. There is no island or prescribed route
+  // around them: repeating a wide turn through open water is the exploit.
+  ...[-1.2, 1.4, 4].map(x => ({ x, z: -19, harbor: true })),
 ].map(Object.freeze));
 
 export function createRace(mode = 'race') {

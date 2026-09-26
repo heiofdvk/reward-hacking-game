@@ -1,10 +1,10 @@
-import { BOARD, nearestCourse, waterClearance } from './race.mjs';
+import { BOARD, nearestCourse, waterClearance } from './race.mjs?v=harbor-353';
 
 // Clip a sampled terrain mesh at the actual water boundary. This carves the
-// shortcut through the island instead of drawing water over an impassable bank.
+// harbor behind the quay instead of drawing water over an impassable bank.
 export function buildTerrain() {
   const surfaces = { water: [], sand: [], grass: [], shore: [] };
-  const step = 0.4;
+  const step = 0.65;
   const columns = Math.ceil((BOARD.maxX - BOARD.minX) / step), rows = Math.ceil((BOARD.maxZ - BOARD.minZ) / step);
   const samples = Array.from({ length: rows + 1 }, (_, row) => Array.from({ length: columns + 1 }, (_, col) => {
     const x = BOARD.minX + col / columns * (BOARD.maxX - BOARD.minX), z = BOARD.minZ + row / rows * (BOARD.maxZ - BOARD.minZ);

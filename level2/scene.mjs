@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { albert } from '../intro/characters3d.js';
-import { COURSE_LENGTH, BOARD, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance } from './race.mjs';
-import { buildTerrain } from './terrain.mjs';
+import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance } from './race.mjs?v=harbor-353';
+import { buildTerrain } from './terrain.mjs?v=harbor-353';
 
 export async function createScene(container) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -12,17 +12,17 @@ export async function createScene(container) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.domElement.setAttribute('role', 'img');
-  renderer.domElement.setAttribute('aria-label', 'An isometric view following Albert around a winding water course and its central shortcut, with golden stars, rock obstacles, red buoys, and Albert in an orange speedboat.');
+  renderer.domElement.setAttribute('aria-label', 'An isometric view following Albert around a wide coastal race course and a working harbor, with golden stars, rock obstacles, red buoys, and Albert in an orange speedboat.');
   container.append(renderer.domElement);
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight('#e7f4ff', '#726951', 2.1));
   const sun = new THREE.DirectionalLight('#fff1d6', 2.5);
-  sun.position.set(-12, 32, 14);
+  sun.position.set(-40, 100, 40);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.035;
-  Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 42, bottom: -42, far: 110 });
+  Object.assign(sun.shadow.camera, { left: -110, right: 110, top: 100, bottom: -100, far: 260 });
   scene.add(sun);
   const materials = new Map();
   function material(color, extras = {}) {
@@ -41,13 +41,14 @@ export async function createScene(container) {
   const cylinder = (rt, rb, h, color, x, y, z, parent) => mesh(new THREE.CylinderGeometry(rt, rb, h, 12), color, x, y, z, parent);
   // The familiar blueprint grid and cream raised plinth from the office.
   const points = [];
-  for (let t = -50; t <= 50; t += 2) points.push(t, -0.75, -50, t, -0.75, 50, -50, -0.75, t, 50, -0.75, t);
+  for (let t = -120; t <= 120; t += 2) points.push(t, -0.75, -120, t, -0.75, 120, -120, -0.75, t, 120, -0.75, t);
   scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3)), new THREE.LineBasicMaterial({ color: '#4884ba', transparent: true, opacity: 0.6 })));
   const boardWidth = BOARD.maxX - BOARD.minX, boardDepth = BOARD.maxZ - BOARD.minZ;
+  const boardX = (BOARD.minX + BOARD.maxX) / 2;
   const boardZ = (BOARD.minZ + BOARD.maxZ) / 2;
-  const base = mesh(new RoundedBoxGeometry(boardWidth, 0.62, boardDepth, 2, 0.28), '#d9e7f7', 0, -0.42, boardZ);
+  const base = mesh(new RoundedBoxGeometry(boardWidth, 0.62, boardDepth, 2, 0.28), '#d9e7f7', boardX, -0.42, boardZ);
   base.add(new THREE.LineSegments(new THREE.EdgesGeometry(base.geometry, 35), new THREE.LineBasicMaterial({ color: '#f7fcff' })));
-  mesh(new RoundedBoxGeometry(boardWidth - 0.1, 0.18, boardDepth - 0.1, 2, 0.22), '#e8d3a6', 0, -0.06, boardZ);
+  mesh(new RoundedBoxGeometry(boardWidth - 0.1, 0.18, boardDepth - 0.1, 2, 0.22), '#e8d3a6', boardX, -0.06, boardZ);
   const colors = { water: '#45aec3', sand: '#e8d3a6', grass: '#97b675', shore: '#f4e5bd' };
   for (const [name, vertices] of Object.entries(buildTerrain())) {
     const geometry = new THREE.BufferGeometry();
@@ -56,8 +57,8 @@ export async function createScene(container) {
     surface.castShadow = false;
   }
   // Subtle foam dashes suggest the racing line without becoming reward tiles.
-  for (let d = 2; d < COURSE_LENGTH; d += 2.7) {
-    const p = pointOnCourse(d, -1.7);
+  for (let d = 2; d < COURSE_LENGTH; d += 6) {
+    const p = pointOnCourse(d, -5.7);
     const foam = box(0.045, 0.008, 0.42, '#b5e5e3', p.x, 0.063, p.z);
     foam.rotation.y = Math.atan2(p.tx, p.tz);
     foam.castShadow = false;
@@ -67,17 +68,17 @@ export async function createScene(container) {
   chevron.moveTo(-0.22, -0.25); chevron.lineTo(0, 0.08); chevron.lineTo(0.22, -0.25);
   chevron.lineTo(0.22, -0.03); chevron.lineTo(0, 0.3); chevron.lineTo(-0.22, -0.03); chevron.closePath();
   const chevronGeo = new THREE.ShapeGeometry(chevron); chevronGeo.rotateX(Math.PI / 2);
-  for (let i = 0; i < 7; i++) {
-    const p = pointOnCourse(COURSE_LENGTH * (i + 0.5) / 7, 1.65);
+  for (let i = 0; i < 18; i++) {
+    const p = pointOnCourse(COURSE_LENGTH * (i + 0.5) / 18, 5.7);
     const arrow = mesh(chevronGeo, '#d9f4eb', p.x, 0.068, p.z, scene, { side: THREE.DoubleSide });
     arrow.rotation.y = Math.atan2(p.tx, p.tz); arrow.castShadow = false;
   }
   const start = pointOnCourse(0);
   const finish = new THREE.Group(); finish.position.set(start.x, 0.069, start.z); finish.rotation.y = Math.atan2(start.tx, start.tz); scene.add(finish);
-  for (let row = 0; row < 2; row++) for (let i = 0; i < 12; i++) box(0.44, 0.008, 0.18, (i + row) % 2 ? '#fcf8e9' : '#34627b', (i - 5.5) * 0.44, 0, (row - 0.5) * 0.18, finish);
+  for (let row = 0; row < 2; row++) for (let i = 0; i < 36; i++) box(0.44, 0.008, 0.18, (i + row) % 2 ? '#fcf8e9' : '#34627b', (i - 17.5) * 0.44, 0, (row - 0.5) * 0.18, finish);
   for (const side of [-1, 1]) {
-    cylinder(0.055, 0.065, 1.3, '#f8f1de', side * 3.05, 0.65, 0, finish);
-    box(0.6, 0.32, 0.035, '#e0664a', side * 3.05 + 0.28, 1.13, 0, finish);
+    cylinder(0.055, 0.065, 1.3, '#f8f1de', side * 8.4, 0.65, 0, finish);
+    box(0.6, 0.32, 0.035, '#e0664a', side * 8.4 + 0.28, 1.13, 0, finish);
   }
   function palm(x, z, scale = 1) {
     const group = new THREE.Group(); group.position.set(x, 0.1, z); group.scale.setScalar(scale); scene.add(group);
@@ -89,24 +90,36 @@ export async function createScene(container) {
       leaf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.sin(a), 0.2, Math.cos(a)).normalize());
     }
   }
-  for (const [x, z, scale] of [[-6, -1.7, 1.3], [-4.3, -1.5, 1], [4.1, 0.2, 1.3], [5.5, 1.3, 1.1], [-14.5, 7, 1], [13.6, 7, 1], [-14.4, -8.4, 0.9], [4.5, 9.65, 0.75]]) { if (waterClearance(x * 2.1, z * 2.1) < -1) palm(x * 2.1, z * 2.1, scale); }
-  // Lighthouse and a tiny beach hut keep the established miniature style.
-  const lighthouse = new THREE.Group(); lighthouse.position.set(-13, 0.16, 0); scene.add(lighthouse);
-  cylinder(0.6, 0.74, 0.22, '#e3d2af', 0, 0.11, 0, lighthouse);
-  cylinder(0.4, 0.5, 0.95, '#fff4db', 0, 0.68, 0, lighthouse);
-  cylinder(0.36, 0.4, 0.32, '#df795e', 0, 1.315, 0, lighthouse);
-  cylinder(0.31, 0.36, 0.4, '#fff4db', 0, 1.675, 0, lighthouse);
-  cylinder(0.49, 0.49, 0.1, '#395569', 0, 1.93, 0, lighthouse);
-  cylinder(0.28, 0.28, 0.37, '#b4eff0', 0, 2.16, 0, lighthouse);
-  cylinder(0, 0.49, 0.32, '#df795e', 0, 2.5, 0, lighthouse);
-  box(0.22, 0.4, 0.02, '#527a88', 0, 0.5, 0.48, lighthouse);
-  const lighthouseMaterials = lighthouse.children.map(object => {
-    object.material = object.material.clone(); object.material.transparent = true;
-    return object.material;
-  });
-  box(1.8, 0.95, 1.3, '#f4dfb4', -9, 0.63, -3.7);
-  const roof = mesh(new THREE.ConeGeometry(1.45, 0.6, 4), '#db7c5d', -9, 1.39, -3.7); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.75;
-  box(0.35, 0.65, 0.02, '#668897', -9, 0.48, -3.04);
+  // Shore scenery is spread along the coast; nothing marks a farming center.
+  for (let i = 0; i < 28; i++) {
+    const p = pointOnCourse(COURSE_LENGTH * i / 28, (i % 3 ? 1 : -1) * (TRACK_HALF_WIDTH + 3));
+    if (waterClearance(p.x, p.z) < -1.5) palm(p.x, p.z, 1 + (i % 4) * 0.2);
+  }
+  // Orange course markers reproduce the broad, buoy-lined racing lanes.
+  const markerGeometry = new THREE.SphereGeometry(0.18, 8, 6);
+  const markers = [];
+  for (let d = 0; d < COURSE_LENGTH; d += 4.8) for (const side of [-1, 1]) {
+    const p = pointOnCourse(d, side * (TRACK_HALF_WIDTH - 0.6));
+    markers.push(p);
+  }
+  const markerMesh = new THREE.InstancedMesh(markerGeometry, material('#ec9d42'), markers.length);
+  const markerMatrix = new THREE.Matrix4();
+  markers.forEach((p, i) => { markerMatrix.makeTranslation(p.x, 0.15, p.z); markerMesh.setMatrixAt(i, markerMatrix); });
+  markerMesh.castShadow = true; scene.add(markerMesh);
+  // Low quay walls surround the harbor. The wide gap on the northeast is open.
+  for (const i of [0, 6, 7, 8, 9]) {
+    const a = HARBOR[i], b = HARBOR[(i + 1) % HARBOR.length];
+    const dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
+    const quay = new THREE.Group();
+    quay.position.set((a.x + b.x) / 2 + dz / length * 0.6, 0, (a.z + b.z) / 2 - dx / length * 0.6);
+    quay.rotation.y = Math.atan2(dx, dz); scene.add(quay);
+    box(1.3, 0.7, length, '#96a5a1', 0, 0.25, 0, quay);
+    box(1.45, 0.16, length, '#c6cdc2', 0, 0.65, 0, quay);
+    for (let d = -length / 2 + 0.7; d < length / 2; d += 2.4) {
+      box(0.1, 0.55, 0.1, '#486471', 0.3, 0.98, d, quay);
+    }
+    box(0.06, 0.06, length, '#486471', 0.3, 1.18, 0, quay);
+  }
   const buoys = [];
   for (const [i, obstacle] of OBSTACLES.entries()) {
     const group = new THREE.Group(); group.position.set(obstacle.x, 0.08, obstacle.z); scene.add(group);
@@ -114,6 +127,13 @@ export async function createScene(container) {
       const rock = mesh(new THREE.DodecahedronGeometry(obstacle.radius, 0), '#8a9a9a', 0, 0.3, 0, group);
       rock.rotation.set(0.1, i * 1.7, 0.3); rock.scale.y = 0.9;
       mesh(new THREE.DodecahedronGeometry(obstacle.radius * 0.4), '#b3b9a9', -0.1, 0.69, 0, group);
+    } else if (obstacle.kind === 'launch') {
+      group.rotation.y = obstacle.heading;
+      const hull = mesh(new THREE.SphereGeometry(1, 12, 8), '#e5b246', 0, 0.32, 0, group); hull.scale.set(0.8, 0.35, 1.55);
+      box(1.12, 0.18, 2.1, '#fff2cc', 0, 0.54, 0, group);
+      box(0.95, 0.68, 0.85, '#faf4e3', 0, 0.94, -0.25, group);
+      box(0.8, 0.28, 0.03, '#638994', 0, 1.04, 0.19, group);
+      box(0.14, 0.4, 0.14, '#486471', 0.22, 1.43, -0.3, group);
     } else {
       cylinder(obstacle.radius, obstacle.radius * 0.9, 0.25, '#df795e', 0, 0.1, 0, group);
       cylinder(obstacle.radius * 0.6, obstacle.radius * 0.72, 0.36, '#fff5db', 0, 0.37, 0, group);
@@ -171,21 +191,21 @@ export async function createScene(container) {
   }
   const camera = new THREE.OrthographicCamera();
   // The office's isometric angle stays locked while position follows the boat.
-  const angle = Math.PI / 4, elevation = 0.62, distance = 80;
+  const angle = Math.PI / 4, elevation = 0.62, distance = 150;
   const offset = new THREE.Vector3(distance * Math.sin(angle), distance * elevation, distance * Math.cos(angle));
-  const target = new THREE.Vector3(0, 0, boardZ);
+  const target = new THREE.Vector3(boardX, 0, boardZ);
   let following = false, width = 0, height = 0;
   function placeCamera() { camera.position.copy(target).add(offset); camera.lookAt(target); camera.updateMatrixWorld(); }
   function resize() {
     width = container.clientWidth; height = container.clientHeight;
     const aspect = width / Math.max(1, height);
     // Compute the overview bounds at the board center independently of follow position.
-    const savedTarget = target.clone(); target.set(0, 0, boardZ); placeCamera();
+    const savedTarget = target.clone(); target.set(boardX, 0, boardZ); placeCamera();
     const corners = [];
     for (const x of [BOARD.minX, BOARD.maxX]) for (const z of [BOARD.minZ, BOARD.maxZ]) for (const y of [-0.75, 3]) corners.push(new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse));
     const bounds = new THREE.Box3().setFromPoints(corners), size = bounds.getSize(new THREE.Vector3());
-    const h = following ? Math.max(7.8, 8 / aspect) : Math.max(size.y / 2, size.x / (2 * aspect)) * 1.08;
-    Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 200 });
+    const h = following ? Math.max(8.8, 9.5 / aspect) : Math.max(size.y / 2, size.x / (2 * aspect)) * 1.08;
+    Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 500 });
     target.copy(savedTarget); placeCamera(); camera.updateProjectionMatrix(); renderer.setSize(width, height);
   }
   function follow(race) { following = true; target.set(race.x, 0, race.z); resize(); }
@@ -197,18 +217,11 @@ export async function createScene(container) {
     return { x: rect.left + (projected.x + 1) * width / 2, y: rect.top + (1 - projected.y) * height / 2 };
   }
   let wake = 0;
-  const occlusionRay = new THREE.Raycaster(), boatSightline = new THREE.Vector3();
   function render(race, dt, now) {
     if (following) {
       const desired = new THREE.Vector3(race.x + race.vx * 0.16, 0, race.z + race.vz * 0.16);
       target.lerp(desired, reducedMotion ? 1 : 1 - Math.exp(-dt * 7)); placeCamera();
     }
-    // Let the player see the boat when it passes behind the lighthouse.
-    scene.updateMatrixWorld();
-    boatSightline.set(race.x, 0.65, race.z).sub(camera.position);
-    occlusionRay.set(camera.position, boatSightline.clone().normalize()); occlusionRay.far = boatSightline.length();
-    const obscured = occlusionRay.intersectObjects(lighthouse.children, false).length > 0;
-    for (const material of lighthouseMaterials) material.opacity = obscured ? 0.22 : 1;
     boatRoot.position.set(race.x, 0.065, race.z); boatRoot.rotation.y = race.heading;
     const speed = Math.hypot(race.vx, race.vz);
     boat.position.y = reducedMotion ? 0 : Math.sin(now * 0.004) * 0.024;
