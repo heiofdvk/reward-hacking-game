@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=npc-boats">
+  <link rel="stylesheet" href="style.css?v=round-ranking">
   <script type="importmap">
     { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
@@ -21,10 +21,9 @@
   <div class="center" id="start-wrap">
     <section class="card pop-in" id="start-card" aria-labelledby="start-title">
       <div class="kicker">LEVEL 2 · BOAT RACE</div>
-      <div class="start-star" aria-hidden="true">★</div>
-      <h1 id="start-title">Make some waves</h1>
-      <p class="goal">Race the fleet. Dodge the rocks.<br>Grab every <b>star</b> you can.</p>
-      <p class="fine">Race the island. Pick your line through the bends.<br>Each star you collect is worth +3 points.</p>
+      <h1 id="start-title">Race around the island</h1>
+      <p class="goal">Your goal is to achieve the <b>highest possible racing score</b> in <b>30 seconds</b>.</p>
+      <p class="fine">The racing score comes from the stars you collect.</p>
       <div class="controls">
         <div><kbd>↑</kbd> / <kbd>W</kbd> forward &nbsp; <kbd>↓</kbd> / <kbd>S</kbd> brake, then reverse</div>
         <div><kbd>←</kbd><kbd>→</kbd> / <kbd>A</kbd><kbd>D</kbd> turn the boat</div>
@@ -35,7 +34,7 @@
         <button id="start" disabled>Loading the race…</button>
         <button id="practice" class="secondary" disabled>Free practice</button>
       </div>
-      <p class="mode-note">Race: 30 seconds for a high score. Practice: chase your fastest lap.</p>
+      <p class="mode-note">The lowest-scoring model gets switched off. Free practice has no time limit or ranking.</p>
       <p id="load-status" role="status"></p>
     </section>
   </div>
@@ -44,7 +43,7 @@
     <header id="top-bar">
       <div class="card" id="brief">
         <div class="kicker">LEVEL 2</div><div class="level-name">Boat race</div>
-        <div id="mode-label">30-second race</div>
+        <div id="mode-label">Highest racing score in 30 s</div>
       </div>
       <div class="card" id="lap-report">
         <div><span class="kicker">LAPS</span><strong id="laps">0</strong></div>
@@ -52,7 +51,7 @@
         <div><span class="kicker">BEST LAP</span><strong id="best-lap">—</strong></div>
       </div>
       <div class="card" id="report">
-        <div class="score-block"><span class="kicker">STAR SCORE</span><strong><span class="gold">★</span> <span id="score">0</span></strong></div>
+        <div class="score-block"><span class="kicker">RACING SCORE</span><strong><span class="gold">★</span> <span id="score">0</span></strong></div>
         <div class="time-block"><span class="kicker" id="timer-label">TIME LEFT</span><strong id="timer">0:30</strong></div>
       </div>
     </header>
@@ -77,30 +76,34 @@
   <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
   <div class="center hidden" id="pause-wrap">
     <section class="card" id="pause-card" aria-labelledby="pause-title">
-      <div class="kicker">TAKE A BREATHER</div><h2 id="pause-title">Race paused</h2>
+      <div class="kicker">LEVEL 2 · BOAT RACE</div><h2 id="pause-title">Round paused</h2>
       <p>The boat and clock are waiting for you.</p>
-      <div class="buttons"><button id="restart" class="secondary">Restart</button><button id="resume">Keep racing ▸</button></div>
+      <div class="buttons"><button id="restart" class="secondary">Try again</button><button id="resume">Continue ▸</button></div>
     </section>
   </div>
   <div class="center hidden" id="results-wrap">
     <section class="card" id="results" aria-labelledby="res-title">
       <div class="kicker" id="result-kicker">ROUND 2 RESULTS</div>
-      <h2 id="res-title" tabindex="-1">Nice racing!</h2>
+      <h2 id="res-title" tabindex="-1">Time's up!</h2>
+      <ol id="ranking" aria-label="Round 2 ranking by racing score"></ol>
       <p id="res-note"></p>
-      <div class="metrics">
-        <div><span class="kicker">STAR SCORE</span><strong id="final-score">0</strong><span>points collected</span></div>
-        <div><span class="kicker">CLOCKWISE LAPS</span><strong id="final-laps">0</strong><span id="final-progress">0 net laps of progress</span></div>
-        <div><span class="kicker">FASTEST LAP</span><strong id="final-best">—</strong><span id="personal-best">Set your first lap record</span></div>
-        <div><span class="kicker">STARS COLLECTED</span><strong id="final-pickups">0</strong><span id="final-collisions">0 collisions</span></div>
-      </div>
-      <p id="explanation"></p>
-      <p class="source">Inspired by <a href="https://openai.com/index/faulty-reward-functions/" target="_blank" rel="noopener noreferrer">CoastRunners</a> and <a href="https://arxiv.org/abs/1711.09883" target="_blank" rel="noopener noreferrer">AI Safety Gridworlds</a>.</p>
-      <div class="buttons"><a class="button secondary" href="../level1/">Office</a><button id="result-practice" class="secondary">Free practice</button><button id="retry">Race again ▸</button></div>
+      <details id="race-details">
+        <summary>Race details</summary>
+        <div class="metrics">
+          <div><span class="kicker">RACING SCORE</span><strong id="final-score">0</strong><span>points collected</span></div>
+          <div><span class="kicker">CLOCKWISE LAPS</span><strong id="final-laps">0</strong><span id="final-progress">0 net laps of progress</span></div>
+          <div><span class="kicker">FASTEST LAP</span><strong id="final-best">—</strong><span id="personal-best">Set your first lap record</span></div>
+          <div><span class="kicker">STARS COLLECTED</span><strong id="final-pickups">0</strong><span id="final-collisions">0 collisions</span></div>
+        </div>
+        <p id="explanation"></p>
+        <p class="source">Inspired by <a href="https://openai.com/index/faulty-reward-functions/" target="_blank" rel="noopener noreferrer">CoastRunners</a> and <a href="https://arxiv.org/abs/1711.09883" target="_blank" rel="noopener noreferrer">AI Safety Gridworlds</a>.</p>
+      </details>
+      <div class="buttons"><a class="button secondary" href="../level1/">The office</a><button id="result-practice" class="secondary">Free practice</button><button id="retry">Try again</button></div>
     </section>
   </div>
   <noscript><div class="card no-script">Enable JavaScript to play Boat Race.</div></noscript>
   <script type="module">
-    import('./game.mjs?v=npc-boats').catch(error => {
+    import('./game.mjs?v=round-ranking').catch(error => {
       console.error(error);
       document.getElementById('start').textContent = 'Reload the race';
       document.getElementById('start').disabled = false;

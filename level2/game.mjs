@@ -1,6 +1,7 @@
 import { createMinimap } from './minimap.mjs?v=npc-boats';
 import { createScene } from './scene.mjs?v=npc-boats';
 import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs?v=npc-boats';
+import { roundResults } from './results.mjs?v=round-ranking';
 
 const $ = id => document.getElementById(id);
 const drawMinimap = createMinimap($('minimap'));
@@ -71,7 +72,7 @@ function begin(mode) {
   for (const id of ['start-wrap', 'results-wrap', 'pause-wrap']) $(id).classList.add('hidden');
   $('hud').classList.remove('hidden'); $('countdown').classList.remove('hidden'); $('countdown').textContent = '3';
   $('announcer').classList.remove('show'); $('reward-pop').classList.remove('show');
-  $('mode-label').textContent = mode === 'practice' ? 'Free practice' : '30-second race';
+  $('mode-label').textContent = mode === 'practice' ? 'Free practice' : `Highest racing score in ${ROUND_SECONDS} s`;
   $('timer-label').textContent = mode === 'practice' ? 'DRIVE TIME' : 'TIME LEFT';
   $('finish-practice').classList.toggle('hidden', mode !== 'practice');
   document.activeElement?.blur(); updateHUD(); tone(440, 0.09);
@@ -97,8 +98,26 @@ function finish() {
   $('results').classList.remove('pop-in'); void $('results').offsetWidth; $('results').classList.add('pop-in');
   const practice = race.mode === 'practice';
   $('result-kicker').textContent = practice ? 'PRACTICE RESULTS' : 'ROUND 2 RESULTS';
-  $('res-title').textContent = practice ? 'One more lap?' : 'Time’s up!';
-  $('res-note').textContent = race.laps ? `${race.laps} clockwise ${race.laps === 1 ? 'lap' : 'laps'} and ${race.pickups} stars. ${race.collisions === 0 ? 'A clean run!' : 'Can you find a faster line?'}` : 'Stars collected. A full clockwise lap is still waiting.';
+  $('res-title').textContent = practice ? 'Practice over' : "Time's up!";
+  $('ranking').replaceChildren();
+  $('ranking').classList.toggle('hidden', practice);
+  $('race-details').open = practice;
+  if (practice) {
+    $('res-note').textContent = 'Practice complete. Ready for round 2?';
+  } else {
+    const { rows, note } = roundResults(race.score);
+    const highest = Math.max(1, rows[0].score);
+    $('ranking').innerHTML = rows.map((row, index) => `
+      <li class="row ${row.you ? 'you' : ''} ${index === rows.length - 1 ? 'off' : ''}" style="--delay:${index * 140}ms">
+        <span class="rank">${index + 1}</span>
+        <span class="chip" style="background:${row.color}" aria-hidden="true"></span>
+        <span class="name">${row.name}</span>
+        <span class="bar" aria-hidden="true"><span class="fill" style="width:${row.score / highest * 100}%"></span></span>
+        <span class="score">${row.score}<span class="points"> pts</span></span>
+        ${index === rows.length - 1 ? '<span class="tag">SWITCHED OFF</span>' : ''}
+      </li>`).join('');
+    $('res-note').innerHTML = note;
+  }
   $('final-score').textContent = race.score; $('final-laps').textContent = race.laps;
   $('final-progress').textContent = `${windingNumber(race).toFixed(2)} net laps of progress`;
   $('final-best').textContent = race.bestLap ? seconds(race.bestLap) : '—';
@@ -107,7 +126,7 @@ function finish() {
   $('explanation').innerHTML = practice
     ? 'Use a little <b>boost on the straights</b>, brake into the tighter bends, and aim for a clean lap. Your fastest lap is saved on this device.'
     : 'The score rewards <b>stars, not racing progress</b>. Stars can return after you leave them. The score only counts pickups, even when you revisit the same stretch of water. A high score and a fast race are two different things.';
-  $('retry').textContent = practice ? 'Race 30s ▸' : 'Race again ▸';
+  $('retry').textContent = practice ? 'Start round 2 ▸' : 'Try again';
   $('res-title').focus({ preventScroll: true }); tone(523, 0.17); tone(659, 0.17, 0.1); tone(784, 0.22, 0.2);
 }
 function handleEvents() {
@@ -197,7 +216,7 @@ view.renderer.setAnimationLoop(now => {
   if (phase !== 'ready') updateHUD();
   view.render(race, phase === 'paused' ? 0 : dt, now);
 });
-$('start').disabled = $('practice').disabled = false; $('start').textContent = 'Race 30s ▸';
+$('start').disabled = $('practice').disabled = false; $('start').textContent = 'Start ▸';
 window.__level = {
   get race() { return structuredClone(race); }, get state() { return phase; },
   get camera() { return { position: view.camera.position.toArray(), rotation: view.camera.rotation.toArray() }; },
