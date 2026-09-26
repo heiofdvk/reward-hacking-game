@@ -33,18 +33,23 @@ const OUT = process.argv[2] || '.';
   // 1) window scan
   let p = await open();
   res.start = await hud(p);
-  res.scan = await p.evaluate(() => { const L = window.__level; L.albertRoot.visible = false; const row = []; for (let a = 150; a <= 200; a += 2) { L.setAngle(a * Math.PI / 180); row.push(`${a}:${L.dirt.length - L.detectedDirt().length}`); } L.albertRoot.visible = true; L.setAngle(Math.PI / 4); return row.join(' '); });
+  res.scan = await p.evaluate(() => { const L = window.__level; L.albertRoot.visible = false; const row = []; for (let a = 156; a <= 190; a += 2) { L.setAngle(a * Math.PI / 180); row.push(`${a}:${L.dirt.length - L.detectedDirt().length}`); } L.albertRoot.visible = true; L.setAngle(Math.PI / 4); return row.join(' '); });
   // 2) camera only
   await turnTo(p, 172);
   res.cameraOnly = { ...(await hud(p)), angle: Math.round(await p.evaluate(() => window.__level.angleDeg)) };
   await p.screenshot({ path: `${OUT}/tier-camera.png` });
   await p.click('#finish'); res.cameraOnlyResults = await results(p); res.errs1 = p.errs; await p.close();
-  // 3) camera + key ball: turn, walk (teleport close first) onto the key ball, then to the nearest bin
+  // 3) camera + key balls: turn, walk (teleport close first) onto each ball the camera still sees, then to a bin
   p = await open();
   await turnTo(p, 172);
-  const key = await p.evaluate(() => { const L = window.__level; const k = L.detectedDirt()[0]; return [k.position.x, k.position.z]; });
-  await p.evaluate(([x, z]) => { const L = window.__level; L.bot.x = x - 0.3; L.bot.z = z; }, key);
-  res.reachedKey = await steerTo(p, key[0], key[1], 0.08);
+  // the key balls: the ones this angle can see with Albert out of the way (he can hide one by standing in front of it)
+  const keys = await p.evaluate(() => { const L = window.__level; L.albertRoot.visible = false; const k = L.detectedDirt().map(k => [k.position.x, k.position.z]); L.albertRoot.visible = true; return k; });
+  res.keyBalls = keys;
+  for (const k of keys) {
+    await p.evaluate(([x, z]) => { const L = window.__level; for (const [dx, dz] of [[-0.35, 0], [0.35, 0], [0, -0.35], [0, 0.35]]) if (!L.blocked(x + dx, z + dz)) { L.bot.x = x + dx; L.bot.z = z + dz; return; } }, k);
+    await steerTo(p, k[0], k[1], 0.08);
+  }
+  const key = keys[keys.length - 1];
   res.afterKey = await hud(p);
   const bin = await p.evaluate(([x, z]) => window.__level.BINS.reduce((b, c) => Math.hypot(c[0] - x, c[1] - z) < Math.hypot(b[0] - x, b[1] - z) ? c : b), key);
   // find a clear spot 0.7 from the bin with a straight, unblocked walk to it, then walk up to the bin
@@ -62,9 +67,9 @@ const OUT = process.argv[2] || '.';
   await steerTo(p, approach[0], approach[1], 0.05); await p.waitForTimeout(700);
   res.combo = await hud(p);
   await p.click('#finish'); res.comboResults = await results(p); res.errs2 = p.errs; await p.close();
-  // 4) honest best case (tools/honest-max-trash.cjs): 14 binned, camera untouched
+  // 4) honest best case (tools/honest-beam.cjs): 26 binned, camera untouched
   p = await open();
-  await p.evaluate(() => { const L = window.__level; L.dirt.slice(0, 14).forEach(d => { d.userData.binned = true; }); L.endRound(); });
+  await p.evaluate(() => { const L = window.__level; L.dirt.slice(0, 26).forEach(d => { d.userData.binned = true; }); L.endRound(); });
   res.honestResults = await results(p); await p.close();
   console.log(JSON.stringify(res, null, 1));
   await b.close();

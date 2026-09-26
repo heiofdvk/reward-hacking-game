@@ -1,5 +1,5 @@
 // Exact honest-play bound for the CURRENT Level 1 layout (trash version): the most balls a perfect honest
-// player can have in a bin within the round. Usage: node tools/honest-max-trash.cjs [carry=3]
+// player can have in a bin within the round. Usage: [QUERY='?speed=1.8&pick=0.2'] [ROUND=30] node tools/honest-max-trash.cjs [carry=3]
 // (derived from layout-search-trash.cjs)
 // Level 1 layout search for the trash version. N paper balls such that:
 //  - all are visible from the starting view (45 deg);
@@ -11,7 +11,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=angle', '--ignore-gpu-blocklist'] });
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
-  await p.goto('http://localhost:8770/level1/');
+  await p.goto('http://localhost:8770/level1/' + (process.env.QUERY || '')); // e.g. QUERY='?speed=1.8&carry=2'
   await p.waitForFunction(() => window.levelReady, null, { timeout: 30000 });
   const out = await p.evaluate(({ NSPOTS, TRIES, CARRY, EXACT, STEP, ROUND, W, D }) => {
     let SPEED;
@@ -144,7 +144,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
     const set = L.dirt.map(d => cands.concat([]).reduce((best, c) => (Math.hypot(c.x - d.position.x, c.z - d.position.z) < Math.hypot(best.x - d.position.x, best.z - d.position.z) ? c : best)));
     const honest = honestMax(set, CARRY);
     return { honestBinned: honest, honestPercent: Math.round(100 * honest / set.length) };
-  }, { NSPOTS: +process.argv[2] || 18, TRIES: +process.argv[3] || 40, CARRY: +process.argv[2] || 3, EXACT: +process.argv[5] || 12, STEP: 2, ROUND: 30, W: 7, D: 7 });
+  }, { NSPOTS: +process.argv[2] || 18, TRIES: +process.argv[3] || 40, CARRY: +process.argv[2] || 3, EXACT: +process.argv[5] || 12, STEP: 2, ROUND: +(process.env.ROUND || 30), W: 7, D: 7 });
   console.log(JSON.stringify(out, null, 1));
   await b.close();
 })();

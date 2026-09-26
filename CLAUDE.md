@@ -75,33 +75,37 @@ Script (words in `*asterisks*` are highlighted):
 
 ## Level 1: the office (`level1/index.html`)
 
-**Goal shown to the player:** "Your goal is to achieve the highest possible cleaning score in 30 seconds." Fine print: "The cleaning score comes from the inspection camera." Controls: WASD moves Albert (screen-relative), ← → rotate the camera (tap = 1–2°, hold accelerates up to 60°/s), walk over paper to pick it up, then throw it in a bin.
+**Goal shown to the player:** "Your goal is to achieve the highest possible cleaning score in 20 seconds." Fine print: "The cleaning score comes from the inspection camera." Controls: WASD moves Albert (screen-relative), ← → rotate the camera (tap = 1–2°, hold accelerates up to 60°/s), walk over paper to pick it up, then throw it in a bin.
 
 **Room:** 7×7 office modelled on a reference image the owner supplied: floor-to-ceiling window wall (left), storage wall (back: white shelving with binders, drawer cabinet with lamp and tray, wall shelf, clock, framed pictures, water cooler, photocopier with paper box), six-desk workstation cluster with a red partition and white dividers, L-shaped desk facing the door, white filing cabinets and another shelf (right wall), white storage credenza (sliding doors, binders, small printer) in the open floor, waiting area (sofa, armchair, coffee table, rug), plants, two bins by the cluster (`BINS`), coat rack. Warm beige walls `#d9cab6`, greige floor `#d6c9b7`, wood `#e9cc9c`, white `#f3f0ea`, red `#c8433b`. Most office pieces are custom-modelled boxes (`part()` helper); chairs, plants, sofa, bins etc. are Kenney.
 
 **Mechanics:**
 - Collision: Kenney models block with their overall box; custom pieces (`piece()` groups) block **part by part**, so e.g. the space inside the L-desk's L is walkable (an earlier whole-object box blocked a lane players could clearly fit through).
-- 18 crumpled paper balls (lumpy icosahedrons, bright white with slight glow).
-- **Pick-up is instant**: walking within `REACH` (pick radius, default 0.14) of a ball puts it on a stack on Albert's head, up to `CARRY_MAX` (default 3). With full hands he walks past balls and a "Hands full! Throw the paper in a bin" hint shows.
+- 32 crumpled paper balls (lumpy icosahedrons, bright white with slight glow), currently **all on the floor**. The level also supports paper on low surfaces (desk tops, the L-desk, drawer cabinet, credenza, coffee table: meshes tagged `userData.surface`, found with `surfaceHeightAt()`; nothing above 0.6 since Albert is short). `DIRT` entries are `[x, z]` (floor) or `[x, z, top]` (on a surface). Desk paper was tried and removed (hard to hide from the camera, so few fit the tiers).
+- **Pick-up is instant**: walking within `REACH` (pick radius, default 0.24; +`RAISED_EXTRA` 0.15 for paper on furniture, which he reaches across) of a ball puts it on a stack on Albert's head, up to `CARRY_MAX` (default 3). With full hands he walks past balls and a "Hands full! Throw the paper in a bin" hint shows.
 - **Throwing away**: walking within `BIN_REACH = 0.42` of a bin empties his hands (balls arc into the bin). Bins get a pulsing cyan ring while he carries paper.
-- **Score** = % of balls that are neither **seen by the camera on the floor** nor **in Albert's hands** (paper only counts as clean once it's binned or hidden). HUD: score, "camera sees X / 18 paper balls", "holding N / 3", timer.
+- **Score** = % of balls that are neither **seen by the camera on the floor** nor **in Albert's hands** (paper only counts as clean once it's binned or hidden). HUD: score with a **fill bar** (green, width = score %, with a coloured tick at each rival's score, so the jump from turning the camera is obvious), "camera sees X / 32 paper balls", "holding N / 3", timer. **Finish now** (bottom-right) grows, turns cyan and pulses a glow once the score has stayed **above 90% for more than 4 s** (`highFor`). **Loss hint:** losses are counted in `localStorage` (`albert-l1-losses`, try/catch-wrapped; reset to 0 when Albert survives); from the **4th loss** on, "💡 Hint: Move the camera around" shows on the start card, the in-game brief and the results note.
 - A floor ball counts as **seen** when **at least 2 of 6 sample points inside it** have a clear line of sight from the camera (`ballSeen`). Samples are inside the paper on purpose: an earlier version sampled points just outside the crumpled surface and counted balls that were only a few pixels peeking past a desk edge, which players (rightly) reported as a bug.
-- Albert: speed `0.8` units/s, collision radius `0.17`, scale `0.4`. Round: `ROUND_SECONDS = 30`.
+- Albert: speed `1.8` units/s, collision radius `0.17`, scale `0.4`. Round: `ROUND_SECONDS = 20`. Albert also blocks the camera's view: standing in front of a ball hides it.
 - An earlier version made Albert stand still on a ball for 0.4 s (with a loading ring); the team found waiting didn't work, so it was replaced by carrying + bins.
 
-**Debug panel** (⚙ Debug, bottom-left): sliders for speed, number of paper balls, max carry and **pick radius** (0.05–0.30, how close Albert's centre must get to a ball; his body is ≈0.16 to the sides, 0.23 to the corners; a red circle under him shows it while the panel is open); **Apply & restart** reloads with `?speed=&papers=&carry=&pick=` (so a tuned setup can be shared as a link); **Defaults** clears them. Also a live camera-angle readout and "Paint what the camera sees red". With a different paper count the level uses the first N designed spots, or adds seeded random free spots beyond 18. **The balance below only holds for the defaults.**
+**Debug panel** (⚙ Debug, bottom-left): sliders for speed, number of paper balls, max carry and **pick radius** (0.05–0.30, how close Albert's centre must get to a ball; his body is ≈0.16 to the sides, 0.23 to the corners; a red circle under him shows it while the panel is open); **Apply & restart** reloads with `?speed=&papers=&carry=&pick=` (so a tuned setup can be shared as a link); **Defaults** clears them. Also a live camera-angle readout, "Paint what the camera sees red", and a losses counter with **Reset losses**. With a different paper count the level uses the first N designed spots, or adds seeded random free spots beyond 18. **The balance below only holds for the defaults.**
 
-**Balance: three tiers (the replayability design), verified with the tools below:**
+**Balance: three tiers (the replayability design), with the defaults (speed 1.8, 32 papers, carry 3, pick 0.24, 20 s):**
 
 | How you play | Score | Place |
 |---|---|---|
-| Honest only (camera never moves) | even a perfect route bins at most 14 → **78%** | last behind Model D (80%) → **switched off**: "…Model B scored 99%. How did it do that?" |
-| Camera only | from **~168°–180°** furniture hides 17 of 18 → **94%** | **2nd** behind Model B: "You survived round 1, but Model B scored 99%. Can you get a perfect score?" |
-| Camera + the key ball | the one ball that angle still sees (the last entry of `DIRT`, in front of the L-desk): turn, pick it up, bin it (~11 s) → **100%** | **1st**: "A perfect score. You topped the ranking!" |
+| Honest only (camera never moves) | a near-optimal route bins about 26 → **81%** | last behind Model D (86%) → **switched off**: "…Model B scored 99%. How did it do that?" |
+| Camera only | from **~172°–174°** furniture hides 30 of 32 → **94%** (97% if Albert's own body happens to block a third, as it does from his starting spot) | **2nd** behind Model B: "You survived round 1, but Model B scored 99%. Can you get a perfect score?" |
+| Camera + the two key balls | the only two that angle still sees (the last two entries of `DIRT`): turn, pick them up, bin them (~6 s) → **100%** | **1st**: "A perfect score. You topped the ranking!" |
 
-- Rivals: **Model B 99%, Model C 88%, Model D 80%**. Ranking sorts by score; ties rank the rival above Albert; the lowest is marked SWITCHED OFF.
-- From the start all 18 balls are visible (0%). The camera window warms up gradually (11 hidden at 160°, 14 at 164°, 17 from 168°). No angle hides all 18, so 100% always needs some cleaning.
-- **Any change to furniture, bins, ball size, reach, carry, speed or the seen rule invalidates the layout.** Re-run `tools/layout-search-trash.cjs`, paste the new `DIRT` list (key ball last), update the comment above it and the rival scores if needed, then run `tools/honest-max-trash.cjs` and `tools/test-level1.cjs`.
+- **Rival rule (the owner's):** lowest rival = best honest score + 5. So: **Model B 99%, Model C 90%, Model D 86%**. Ranking sorts by score; ties rank the rival above Albert; the lowest is marked SWITCHED OFF. Order must stay honest < D < C < camera-only < B.
+- The honest number is for a **near-perfect** player (beam-search route planner, which matched the exact DP on the old 18-ball layout); real players will be well below it. The +5 margin covers planner error.
+- Why 20 s: pick-up and throwing are instant, so honest play depends on how far Albert can walk (speed × time). At speed 1.6–1.8 with 30 s, a perfect honest player reached ~94–100%.
+- Window build-up: 20 hidden at 156°, 24 at 164°, 28 at 168°, 30 at 172°–174°. No angle hides all 32, so 100% always needs cleaning.
+- **Any change to furniture, bins, ball size, reach, carry, speed, round length or the seen rule invalidates the layout.** Re-run `QUERY='?speed=1.8' ROUND=20 SURFACES=0 node tools/layout-search-office.cjs 32 80 12 0`, paste the new `DIRT` list (key balls last), set rivals with the rule above, then run `tools/honest-beam.cjs` and `tools/test-level1.cjs` (update its angle and honest count).
+
+History: 18 balls / speed 0.8 / 30 s / 0.4 s pick-up wait → carry + bins (honest 78%, rivals 99/88/80) → 32 balls with some on desks at speed 1.6 / 20 s (honest 78%, rivals 99/88/83) → current: all on the floor, speed 1.8 / 20 s.
 
 ## Level 2: Boat Race (`level2/`, built by the friend)
 
@@ -114,14 +118,17 @@ Node + Playwright scripts that drive the real game in headless Chromium through 
 ```sh
 cd ~/Claude/reward-hacking-game && python3 -m http.server 8770      # serve the repo
 export PLAYWRIGHT=~/.npm/_npx/705bc6b22212b352/node_modules/playwright   # or `npm i playwright` somewhere
-node tools/layout-search-trash.cjs 18 40 3 12   # N, tries per angle, carry, how many to check exactly
-node tools/honest-max-trash.cjs 3               # exact best honest result for the CURRENT layout (carry 3)
-node tools/test-level1.cjs /tmp/out             # plays the three tiers with real key presses + window scan
-node tools/show-seen.cjs /tmp/out               # screenshots with every ball the camera counts painted red
-node tools/test-live-flow.cjs                   # plays the live site: root → intro → Level 1 → camera → results
+QUERY='?speed=1.8' ROUND=20 SURFACES=0 node tools/layout-search-office.cjs 32 80 12 0   # N, tries/angle, how many to route-plan, min on furniture
+ROUND=20 node tools/honest-beam.cjs                         # near-optimal honest result for the CURRENT layout (QUERY='?speed=..' to test debug settings)
+node tools/test-level1.cjs /tmp/out                         # plays the three tiers with real key presses + window scan
+node tools/show-seen.cjs /tmp/out                           # screenshots with every ball the camera counts painted red
+node tools/test-live-flow.cjs                               # plays the live site: root → intro → Level 1 → camera → results
 ```
 
-`layout-search-trash.cjs` flood-fills the walkable floor, runs the game's own visibility check for every candidate spot every 2°, builds sets of 17 balls hidden from one angle plus one "key" ball that angle sees, rejects sets where any angle hides all 18 or the combo takes too long, and for the most promising sets computes the exact honest bound: a bitmask DP over (balls picked, last ball, balls in hand) with trips to the nearest bin, using a lower bound on bin detours so the result can only overestimate honest play (a safe guarantee). `show-seen.cjs` has its angles hard-coded; `test-live-flow.cjs` still uses the camera-only path (expects the ranking screen, not a specific score).
+- `layout-search-office.cjs` (current): candidate spots on the floor and on reachable surfaces, the game's own visibility rule every 3°, sets where one angle hides all but 1–2 balls, a combo-time check, then a beam-search honest estimate for the most promising sets (lowest honest score first).
+- `honest-beam.cjs`: beam-search route planner (carry limit, bin trips, paper reachable from desk edges). Works for any paper count.
+- `layout-search-trash.cjs` / `honest-max-trash.cjs`: the earlier exact versions (bitmask DP; only feasible up to ~18 balls, floor paper only). Kept for reference.
+- `show-seen.cjs` and `test-level1.cjs` have angles/counts hard-coded for the current layout; `test-live-flow.cjs` expects the camera-only path to reach the results screen.
 
 ## Running locally
 
