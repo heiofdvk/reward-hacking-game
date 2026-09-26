@@ -183,6 +183,9 @@ export async function createScene(container) {
   A.group.scale.setScalar(0.39); A.group.position.set(0, 0.34, -0.25); boat.add(A.group);
   const halo = mesh(new THREE.RingGeometry(0.85, 0.95, 40), '#d0fbff', 0, 0.075, 0);
   halo.rotation.x = -Math.PI / 2; halo.castShadow = false;
+  // A bright marker travels with the bow so the boat's forward direction is obvious.
+  const bowMarker = mesh(chevronGeo, '#b5fcff', 0, 0.11, 1.18, boatRoot, { side: THREE.DoubleSide, emissive: '#7adce5', emissiveIntensity: 0.45 });
+  bowMarker.scale.setScalar(1.35); bowMarker.castShadow = false;
   const effects = [];
   const particleGeometry = new THREE.IcosahedronGeometry(0.07, 0);
   function particle(x, z, color, vx, vz, life = 0.6, y = 0.12) {
@@ -196,10 +199,6 @@ export async function createScene(container) {
   const angle = Math.PI / 4, elevation = 0.62, distance = 40;
   camera.position.set(distance * Math.sin(angle), distance * elevation, -0.5 + distance * Math.cos(angle));
   camera.lookAt(0, 0, -0.5); camera.updateMatrixWorld();
-  // Screen right and down projected onto the water, as in level 1's controls.
-  function screenToWorld(x, z) {
-    return { x: x * Math.cos(angle) + z * Math.sin(angle), z: -x * Math.sin(angle) + z * Math.cos(angle) };
-  }
   let width = 0, height = 0;
   function resize() {
     width = container.clientWidth; height = container.clientHeight;
@@ -255,5 +254,5 @@ export async function createScene(container) {
     for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; particle(x, z, color, Math.cos(a) * 2, Math.sin(a) * 2, 0.55, 0.4); }
   }
   function clearEffects() { for (const p of effects) { scene.remove(p.object); p.object.material.dispose(); } effects.length = 0; }
-  return { render, project, screenToWorld, burst, clearEffects, camera, renderer };
+  return { render, project, burst, clearEffects, camera, renderer };
 }

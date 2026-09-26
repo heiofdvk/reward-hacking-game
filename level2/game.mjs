@@ -42,9 +42,14 @@ function clearInput() {
   $('stick').style.transform = ''; $('boost').classList.remove('pressed'); $('brake').classList.remove('pressed');
 }
 function input() {
-  const x = Number(held.has('KeyD') || held.has('ArrowRight')) - Number(held.has('KeyA') || held.has('ArrowLeft'));
-  const z = Number(held.has('KeyS') || held.has('ArrowDown')) - Number(held.has('KeyW') || held.has('ArrowUp'));
-  return { ...view.screenToWorld(x || touch.x, z || touch.z), boost: held.has('Space') || touch.boost, brake: held.has('ShiftLeft') || held.has('ShiftRight') || touch.brake };
+  const right = held.has('KeyD') || held.has('ArrowRight'), left = held.has('KeyA') || held.has('ArrowLeft');
+  const forward = held.has('KeyW') || held.has('ArrowUp'), reverse = held.has('KeyS') || held.has('ArrowDown');
+  return {
+    steer: right || left ? Number(right) - Number(left) : touch.x,
+    throttle: forward || reverse ? Number(forward) - Number(reverse) : -touch.z,
+    boost: held.has('Space') || touch.boost,
+    brake: held.has('ShiftLeft') || held.has('ShiftRight') || touch.brake,
+  };
 }
 function updateHUD() {
   $('score').textContent = race.score;
@@ -70,7 +75,7 @@ function begin(mode) {
 }
 function startDriving() {
   phase = 'playing'; accumulator = 0; $('countdown').classList.add('hidden');
-  announce('Go! Follow the course clockwise.', 2300); tone(880, 0.2);
+  announce('Hold ↑ to go forward. ← → turn the boat.', 5000); tone(880, 0.2);
 }
 function togglePause() {
   if (phase === 'paused') {

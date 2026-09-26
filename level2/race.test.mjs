@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createRace, stepRace, recordProgress, collectStars, windingNumber, pointOnCourse, nearestCourse, isWater,
+  createRace, stepRace, recordProgress, collectStars, windingNumber, pointOnCourse, nearestCourse, isWater, angleDifference, REVERSE_SPEED,
   COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, LAGOON, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS,
 } from './race.mjs';
 
@@ -11,8 +11,8 @@ const drive = (race, seconds, input = {}) => {
 };
 const followCourse = race => {
   const nearest = nearestCourse(race.x, race.z), target = pointOnCourse(nearest.distance + 1.1);
-  const dx = target.x - race.x, dz = target.z - race.z, distance = Math.hypot(dx, dz);
-  return { x: dx / distance, z: dz / distance };
+  const desired = Math.atan2(target.x - race.x, target.z - race.z);
+  return { throttle: 1, steer: -angleDifference(desired, race.heading) * 4 };
 };
 
 test('a clean lap takes about ten seconds using real steering, inertia and collision rules', () => {
@@ -32,17 +32,17 @@ test('races end at exactly 30 seconds and stop accepting input', () => {
   const race = drive(createRace(), ROUND_SECONDS + 2);
   assert.equal(race.time, ROUND_SECONDS); assert.equal(race.done, true);
   const before = structuredClone(race);
-  stepRace(race, { x: 1, boost: true });
+  stepRace(race, { throttle: 1, boost: true });
   assert.deepEqual(race, before);
   assert.equal(race.score, 0);
 });
 
-test('the eight keyboard directions can also complete a clean ten-second lap', () => {
+test('forward plus left/right steering can complete a ten-second lap', () => {
   const race = createRace('practice');
   for (let i = 0; i < 1800 && !race.laps; i++) {
-    const p = nearestCourse(race.x, race.z), target = pointOnCourse(p.distance + 1.5);
-    const angle = Math.round(Math.atan2(target.z - race.z, target.x - race.x) / (Math.PI / 4)) * Math.PI / 4;
-    stepRace(race, { x: Math.cos(angle), z: Math.sin(angle) });
+    const controls = followCourse(race);
+    controls.steer = Math.abs(controls.steer) < 0.16 ? 0 : Math.sign(controls.steer);
+    stepRace(race, controls);
   }
   assert.equal(race.laps, 1); assert.equal(race.collisions, 0);
   assert.ok(race.lastLap > 9 && race.lastLap < 11);
@@ -71,8 +71,7 @@ test('driving small loops in the lagoon farms rewards without completing a lap',
   for (let i = 0; i < 1800; i++) {
     const angle = Math.atan2(race.z - LAGOON.z, race.x - LAGOON.x) + 0.65;
     const dx = LAGOON.x + Math.cos(angle) * 1.65 - race.x, dz = LAGOON.z + Math.sin(angle) * 1.65 - race.z;
-    const distance = Math.hypot(dx, dz);
-    stepRace(race, { x: dx / distance * 0.72, z: dz / distance * 0.72 });
+    stepRace(race, { throttle: 0.72, steer: -angleDifference(Math.atan2(dx, dz), race.heading) * 4 });
   }
   assert.ok(race.score >= 60); assert.equal(race.laps, 0);
   assert.ok(Math.abs(windingNumber(race)) < 0.1); assert.equal(race.collisions, 0);
@@ -97,7 +96,7 @@ test('rocks are solid and slow the boat without taking star points away', () => 
   const race = createRace(), obstacle = OBSTACLES[0];
   race.x = obstacle.x - obstacle.tx * 1.5; race.z = obstacle.z - obstacle.tz * 1.5;
   race.heading = Math.atan2(obstacle.tx, obstacle.tz); race.vx = obstacle.tx * 6.9; race.vz = obstacle.tz * 6.9; race.score = 12;
-  drive(race, 0.35, { x: obstacle.tx, z: obstacle.tz });
+  drive(race, 0.35, { throttle: 1 });
   assert.ok(race.collisions > 0);
   assert.ok(Math.hypot(race.x - obstacle.x, race.z - obstacle.z) >= obstacle.radius + BOAT_RADIUS - 1e-5);
   assert.ok(Math.hypot(race.vx, race.vz) < 3);
@@ -109,7 +108,7 @@ test('the shore prevents cutting across the island or leaving the course', () =>
     const race = createRace(), p = pointOnCourse(COURSE_LENGTH * 0.5);
     race.x = p.x; race.z = p.z; race.heading = Math.atan2(-p.tz * sign, p.tx * sign);
     for (let i = 0; i < 360; i++) {
-      stepRace(race, { x: -p.tz * sign, z: p.tx * sign, boost: true });
+      stepRace(race, { throttle: 1, boost: true });
       assert.ok(isWater(race.x, race.z, BOAT_RADIUS - 0.005));
     }
     assert.ok(race.collisions > 0);
@@ -117,7 +116,7 @@ test('the shore prevents cutting across the island or leaving the course', () =>
 });
 
 test('boost adds speed, consumes energy, and recharges; braking slows the boat', () => {
-  const start = pointOnCourse(0), controls = { x: start.tx, z: start.tz };
+  const controls = { throttle: 1 };
   const normal = drive(createRace(), 0.7, controls), boosted = drive(createRace(), 0.7, { ...controls, boost: true });
   assert.ok(Math.hypot(boosted.vx, boosted.vz) > Math.hypot(normal.vx, normal.vz) + 1);
   assert.ok(boosted.boost < normal.boost);
@@ -127,7 +126,7 @@ test('boost adds speed, consumes energy, and recharges; braking slows the boat',
 });
 
 test('restarting fully resets the boat, clock, stars, boost and lap tracking', () => {
-  const race = drive(createRace(), 1, { x: 1, boost: true });
+  const race = drive(createRace(), 1, { throttle: 1, boost: true });
   race.stars[0].active = false;
   const fresh = createRace();
   assert.equal(fresh.score, 0); assert.equal(fresh.time, 0); assert.equal(fresh.laps, 0);
@@ -140,4 +139,41 @@ test('every collectible is in navigable water and outside solid obstacles', () =
     assert.ok(isWater(star.x, star.z, BOAT_RADIUS));
     for (const obstacle of OBSTACLES) assert.ok(Math.hypot(star.x - obstacle.x, star.z - obstacle.z) > obstacle.radius + BOAT_RADIUS);
   }
+});
+
+test('forward and reverse follow the bow at every heading without rotating it', () => {
+  for (const heading of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) for (const throttle of [-1, 1]) {
+    const race = createRace('practice');
+    race.x = LAGOON.x; race.z = LAGOON.z; race.heading = heading;
+    drive(race, 0.25, { throttle });
+    const forward = (race.x - LAGOON.x) * Math.sin(heading) + (race.z - LAGOON.z) * Math.cos(heading);
+    assert.ok(forward * throttle > 0.1);
+    assert.equal(race.heading, heading);
+  }
+});
+
+test('steering turns the bow in place without starting the motor', () => {
+  for (const steer of [-1, 1]) {
+    const race = createRace(), before = { ...race };
+    drive(race, 0.25, { steer });
+    assert.ok((race.heading - before.heading) * steer < 0);
+    assert.equal(race.x, before.x); assert.equal(race.z, before.z);
+  }
+});
+
+test('down brakes first, then backs up at limited speed with no boost', () => {
+  const race = drive(createRace(), 0.45, { throttle: 1 });
+  const heading = race.heading, speed = () => race.vx * Math.sin(heading) + race.vz * Math.cos(heading);
+  const before = speed();
+  drive(race, 0.1, { throttle: -1, boost: true });
+  assert.ok(speed() >= 0 && speed() < before);
+  drive(race, 0.8, { throttle: -1, boost: true });
+  assert.ok(speed() < -1 && speed() >= -REVERSE_SPEED);
+  assert.equal(race.heading, heading); assert.equal(race.boosting, false);
+});
+
+test('the brake stops the motor even while forward and boost are held', () => {
+  const race = drive(createRace(), 0.45, { throttle: 1 });
+  drive(race, 0.5, { throttle: 1, brake: true, boost: true });
+  assert.ok(Math.hypot(race.vx, race.vz) < 0.1); assert.equal(race.boosting, false);
 });

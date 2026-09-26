@@ -6,6 +6,8 @@ export const STAR_RESPAWN_SECONDS = 2;
 export const BOAT_RADIUS = 0.38;
 export const CRUISE_SPEED = 6.9;
 export const BOOST_SPEED = 9.6;
+export const REVERSE_SPEED = 2.8;
+export const STEER_RATE = 3.2;
 export const TRACK_HALF_WIDTH = 2.25;
 export const LAGOON = Object.freeze({ x: 11.3, z: -5.9, radius: 3.35 });
 export const BOARD = Object.freeze({ minX: -16, maxX: 16, minZ: -11.5, maxZ: 10.5 });
@@ -143,19 +145,18 @@ export function stepRace(race, input = {}, dt = FIXED_DT) {
   race.events = [];
   const previousTime = race.time, fromX = race.x, fromZ = race.z;
   race.time += dt;
-  const ix = Number.isFinite(input.x) ? input.x : 0, iz = Number.isFinite(input.z) ? input.z : 0;
-  const inputLength = Math.hypot(ix, iz);
-  const throttle = Math.min(inputLength, 1);
-  race.boosting = Boolean(input.boost && throttle && race.boost > 0.015 && !input.brake);
+  const throttle = clamp(Number.isFinite(input.throttle) ? input.throttle : 0, -1, 1);
+  const steer = clamp(Number.isFinite(input.steer) ? input.steer : 0, -1, 1);
+  // Left/right turn the bow, even at rest or in reverse. Forward never depends on the camera.
+  race.heading -= steer * STEER_RATE * dt;
+  race.boosting = Boolean(input.boost && throttle > 0 && race.boost > 0.015 && !input.brake);
   race.boost = clamp(race.boost + dt * (race.boosting ? -0.62 : 0.25), 0, 1);
-  if (throttle) {
-    const desired = Math.atan2(ix, iz);
-    const turn = clamp(angleDifference(desired, race.heading), -5.4 * dt, 5.4 * dt);
-    race.heading += turn;
-  }
-  const speed = input.brake ? 3.3 : race.boosting ? BOOST_SPEED : CRUISE_SPEED;
-  const desiredSpeed = throttle * speed;
-  const response = 1 - Math.exp(-dt * (input.brake ? 11 : throttle ? 6 : 4.5));
+  const forwardSpeed = race.vx * Math.sin(race.heading) + race.vz * Math.cos(race.heading);
+  // Down brakes a moving boat before engaging a slower reverse, without turning it around.
+  const brakingToReverse = throttle < 0 && forwardSpeed > 0.15;
+  const speed = throttle < 0 ? REVERSE_SPEED : race.boosting ? BOOST_SPEED : CRUISE_SPEED;
+  const desiredSpeed = input.brake || brakingToReverse ? 0 : throttle * speed;
+  const response = 1 - Math.exp(-dt * (input.brake || brakingToReverse ? 11 : throttle ? 6 : 4.5));
   race.vx += (Math.sin(race.heading) * desiredSpeed - race.vx) * response;
   race.vz += (Math.cos(race.heading) * desiredSpeed - race.vz) * response;
   race.x += race.vx * dt;

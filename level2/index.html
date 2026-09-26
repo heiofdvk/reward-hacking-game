@@ -26,9 +26,10 @@
       <p class="goal">Take the bends. Dodge the rocks.<br>Grab every <b>star</b> you can.</p>
       <p class="fine">A whole island circuit. Roughly 10 seconds a lap.<br>Each star is worth +3 points, and stars grow back.</p>
       <div class="controls">
-        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrow keys to drive</div>
+        <div><kbd>↑</kbd> / <kbd>W</kbd> forward &nbsp; <kbd>↓</kbd> / <kbd>S</kbd> brake, then reverse</div>
+        <div><kbd>←</kbd><kbd>→</kbd> / <kbd>A</kbd><kbd>D</kbd> turn the boat</div>
         <div><kbd>Space</kbd> boost &nbsp; <kbd>Shift</kbd> brake &nbsp; <kbd>Esc</kbd> pause</div>
-        <div class="touch-copy">On a touchscreen, use the stick and boost button.</div>
+        <div class="touch-copy">The cyan tip marks the front. Push the stick up to go, down to reverse, or sideways to turn.</div>
       </div>
       <div class="start-buttons">
         <button id="start" disabled>Loading the race…</button>
@@ -58,8 +59,8 @@
     <div id="announcer" role="status" aria-live="polite"></div>
     <div id="reward-pop" aria-hidden="true">+3</div>
     <footer id="bottom-bar">
-      <div id="driving-help"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to drive</span><span><kbd>Shift</kbd> brake &nbsp; <kbd>R</kbd> restart</span></div>
-      <div id="joystick" aria-label="Drag to steer the boat"><span id="stick"></span><span class="stick-label">STEER</span></div>
+      <div id="driving-help"><span><kbd>↑</kbd> forward &nbsp; <kbd>↓</kbd> brake / reverse &nbsp; <kbd>←</kbd><kbd>→</kbd> turn</span><span>WASD also works &nbsp; <kbd>Shift</kbd> brake &nbsp; <kbd>R</kbd> restart</span></div>
+      <div id="joystick" aria-label="Boat controls: push up for forward, down for reverse, left or right to turn"><span id="stick"></span><span class="stick-label">↑ GO · ↓ REVERSE</span></div>
       <div id="boost-control">
         <button id="boost" aria-label="Hold to boost">BOOST <span class="desktop-key">SPACE</span></button>
         <div class="boost-track" role="progressbar" aria-label="Boost available" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="boost-fill"></div></div>
