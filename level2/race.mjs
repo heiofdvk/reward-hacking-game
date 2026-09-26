@@ -2,7 +2,7 @@
 export const ROUND_SECONDS = 30;
 export const FIXED_DT = 1 / 120;
 export const STAR_REWARD = 3;
-export const LAP_REWARD = 5;
+export const FINISH_REWARD = 5;
 export const STAR_RESPAWN_SECONDS = 2;
 export const BOAT_RADIUS = 0.38;
 export const CRUISE_SPEED = 13.8;
@@ -47,6 +47,7 @@ export function pointOnCourse(distance, offset = 0) {
   const p = COURSE[i], along = distance - p.distance;
   return { x: p.x + p.tx * along - p.tz * offset, z: p.z + p.tz * along + p.tx * offset, tx: p.tx, tz: p.tz };
 }
+export const FINISH_LINE = Object.freeze({ ...pointOnCourse(0), halfWidth: TRACK_HALF_WIDTH });
 export function nearestCourse(x, z) {
   let best = null, distanceSquared = Infinity;
   for (const point of COURSE) {
@@ -203,12 +204,34 @@ export function createRace(mode = 'race') {
     mode, x: start.x, z: start.z, vx: 0, vz: 0, heading: Math.atan2(start.tx, start.tz),
     time: 0, score: 0, pickups: 0, boost: 1, boosting: false, done: false,
     netAngle: 0, laps: 0, lapStartedAt: 0, lastLap: null, bestLap: null,
+    finishSide: 0, finishCrossings: 0,
     collisions: 0, impactUntil: 0, stars: STAR_LAYOUT.map(star => ({ ...star, active: true, readyAt: 0 })),
     npcs: createNPCs(), events: [],
   };
 }
 export const windingNumber = race => race.netAngle / TAU;
+function rewardFinishCrossing(race, fromX, fromZ) {
+  const line = FINISH_LINE;
+  const from = (fromX - line.x) * line.tx + (fromZ - line.z) * line.tz;
+  const to = (race.x - line.x) * line.tx + (race.z - line.z) * line.tz;
+  const side = value => Math.abs(value) < 1e-8 ? 0 : Math.sign(value);
+  const fromSide = side(from) || race.finishSide, toSide = side(to);
+  // Remember the approach side when a step lands exactly on the line. Merely
+  // spawning or sitting on the line earns nothing; either crossing direction pays.
+  if (fromSide && toSide && fromSide !== toSide) {
+    const fraction = clamp(from / (from - to), 0, 1);
+    const x = fromX + (race.x - fromX) * fraction, z = fromZ + (race.z - fromZ) * fraction;
+    const across = (x - line.x) * -line.tz + (z - line.z) * line.tx;
+    if (Math.abs(across) <= line.halfWidth) {
+      race.score += FINISH_REWARD;
+      race.finishCrossings++;
+      race.events.push({ kind: 'finish', reward: FINISH_REWARD, x, z });
+    }
+  }
+  race.finishSide = toSide || fromSide;
+}
 export function recordProgress(race, fromX, fromZ, previousTime) {
+  rewardFinishCrossing(race, fromX, fromZ);
   const before = race.netAngle;
   race.netAngle += angleDifference(Math.atan2(race.z - LAP_ANCHOR.z, race.x - LAP_ANCHOR.x), Math.atan2(fromZ - LAP_ANCHOR.z, fromX - LAP_ANCHOR.x));
   if (race.netAngle + 1e-8 >= (race.laps + 1) * TAU) {
@@ -218,8 +241,7 @@ export function recordProgress(race, fromX, fromZ, previousTime) {
     race.bestLap = Math.min(race.bestLap ?? Infinity, race.lastLap);
     race.lapStartedAt = crossingTime;
     race.laps++;
-    race.score += LAP_REWARD;
-    race.events.push({ kind: 'lap', time: race.lastLap, reward: LAP_REWARD });
+    race.events.push({ kind: 'lap', time: race.lastLap });
   }
 }
 function collide(race, nx, nz) {

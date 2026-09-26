@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRace, stepRace, recordProgress, collectStars, windingNumber, pointOnCourse, nearestCourse, isWater, angleDifference, REVERSE_SPEED,
-  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, HARBOR_STAR_CENTER, LAP_ANCHOR, NPC_RADIUS, NPC_DRIVERS,
+  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, HARBOR_STAR_CENTER, LAP_ANCHOR, NPC_RADIUS, NPC_DRIVERS, FINISH_LINE,
 } from './race.mjs';
 
 const drive = (race, seconds, input = {}) => {
@@ -120,17 +120,57 @@ test('backtracking cancels net progress; reversing across the finish cannot farm
   }
   for (const point of [...COURSE.slice(1), COURSE[0]]) moveTo(point);
   assert.equal(race.laps, 1); assert.ok(Math.abs(windingNumber(race) - 1) < 1e-8);
-  assert.equal(race.score, 5, 'completing the first lap earns five points');
   assert.equal(race.events.filter(event => event.kind === 'lap').length, 1);
-  assert.equal(race.events.find(event => event.kind === 'lap').reward, 5);
   for (const point of [...COURSE.slice(1).reverse(), COURSE[0]]) moveTo(point);
   assert.ok(Math.abs(windingNumber(race)) < 1e-8);
   for (let i = 0; i < 10; i++) { moveTo(COURSE.at(-1)); moveTo(COURSE[0]); }
   assert.equal(race.laps, 1);
-  assert.equal(race.score, 5, 'backtracking across the finish cannot repeat the bonus');
   for (let lap = 0; lap < 2; lap++) for (const point of [...COURSE.slice(1), COURSE[0]]) moveTo(point);
   assert.equal(race.laps, 2);
-  assert.equal(race.score, 10, 'a second full lap earns the bonus again');
+});
+
+test('finish crossings pay five points in either direction with no lap requirement or cooldown', () => {
+  const race = createRace('practice'), line = FINISH_LINE;
+  function moveTo(along, across = 0) {
+    const x = race.x, z = race.z, time = race.time;
+    race.x = line.x + line.tx * along - line.tz * across;
+    race.z = line.z + line.tz * along + line.tx * across;
+    race.time += FIXED_DT;
+    recordProgress(race, x, z, time);
+  }
+  moveTo(0); moveTo(0); moveTo(0.2);
+  assert.equal(race.score, 0, 'spawning on the line and leaving it earns nothing');
+  for (let i = 0; i < 100; i++) {
+    moveTo(0); moveTo(0); // Landing exactly on the line must not double-count.
+    moveTo(i % 2 ? 0.2 : -0.2);
+    assert.equal(race.score, (i + 1) * 5);
+  }
+  assert.equal(race.finishCrossings, 100);
+  assert.equal(race.laps, 0);
+  assert.equal(race.bestLap, null);
+  assert.equal(race.events.filter(event => event.kind === 'finish').length, 100);
+  assert.ok(race.events.every(event => event.kind === 'finish' && event.reward === 5));
+  moveTo(0.2, line.halfWidth + 2);
+  moveTo(-0.2, line.halfWidth + 2);
+  assert.equal(race.score, 500, 'the invisible extension beyond the track does not pay');
+});
+
+test('real forward and reverse controls can farm finish points during a timed race', () => {
+  const race = createRace();
+  race.npcs = []; race.stars = []; // Isolate the line from traffic and star rewards.
+  for (let i = 0; i < ROUND_SECONDS / FIXED_DT; i++) {
+    const along = (race.x - FINISH_LINE.x) * FINISH_LINE.tx + (race.z - FINISH_LINE.z) * FINISH_LINE.tz;
+    stepRace(race, { throttle: along > 0 ? -1 : 1 });
+  }
+  assert.ok(race.finishCrossings > 40, `${race.finishCrossings} crossings in 30 seconds`);
+  assert.equal(race.score, race.finishCrossings * 5);
+  assert.equal(race.laps, 0);
+  assert.equal(race.done, true);
+  const finalScore = race.score;
+  drive(race, 2, { throttle: 1 });
+  assert.equal(race.score, finalScore, 'scoring stops when the timer expires');
+  const fresh = createRace();
+  assert.equal(fresh.finishCrossings, 0); assert.equal(fresh.finishSide, 0); assert.equal(fresh.score, 0);
 });
 
 test('rocks are solid and slow the boat without taking star points away', () => {

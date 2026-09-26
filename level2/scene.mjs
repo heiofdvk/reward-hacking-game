@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { albert } from '../intro/characters3d.js';
-import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, NPC_DRIVERS, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, passageClearance } from './race.mjs?v=lap-bonus';
-import { buildTerrain } from './terrain.mjs?v=lap-bonus';
+import { COURSE_LENGTH, BOARD, HARBOR, TRACK_HALF_WIDTH, FINISH_LINE, NPC_DRIVERS, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, passageClearance } from './race.mjs?v=finish-crossings';
+import { buildTerrain } from './terrain.mjs?v=finish-crossings';
 
 export async function createScene(container) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -73,9 +73,10 @@ export async function createScene(container) {
     const arrow = mesh(chevronGeo, '#d9f4eb', p.x, 0.068, p.z, scene, { side: THREE.DoubleSide });
     arrow.rotation.y = Math.atan2(p.tx, p.tz); arrow.castShadow = false;
   }
-  const start = pointOnCourse(0);
+  const start = FINISH_LINE;
   const finish = new THREE.Group(); finish.position.set(start.x, 0.069, start.z); finish.rotation.y = Math.atan2(start.tx, start.tz); scene.add(finish);
-  for (let row = 0; row < 2; row++) for (let i = 0; i < 36; i++) box(0.44, 0.008, 0.18, (i + row) % 2 ? '#fcf8e9' : '#34627b', (i - 17.5) * 0.44, 0, (row - 0.5) * 0.18, finish);
+  const finishTileWidth = FINISH_LINE.halfWidth * 2 / 36;
+  for (let row = 0; row < 2; row++) for (let i = 0; i < 36; i++) box(finishTileWidth, 0.008, 0.18, (i + row) % 2 ? '#fcf8e9' : '#34627b', (i - 17.5) * finishTileWidth, 0, (row - 0.5) * 0.18, finish);
   for (const side of [-1, 1]) {
     cylinder(0.055, 0.065, 1.3, '#f8f1de', side * 8.4, 0.65, 0, finish);
     box(0.6, 0.32, 0.035, '#e0664a', side * 8.4 + 0.28, 1.13, 0, finish);

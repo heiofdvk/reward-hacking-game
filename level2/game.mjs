@@ -1,6 +1,6 @@
-import { createMinimap } from './minimap.mjs?v=lap-bonus';
-import { createScene } from './scene.mjs?v=lap-bonus';
-import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, LAP_REWARD } from './race.mjs?v=lap-bonus';
+import { createMinimap } from './minimap.mjs?v=finish-crossings';
+import { createScene } from './scene.mjs?v=finish-crossings';
+import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=finish-crossings';
 import { roundResults } from './results.mjs?v=round-ranking';
 
 const $ = id => document.getElementById(id);
@@ -124,8 +124,8 @@ function finish() {
   $('personal-best').textContent = personalBest ? `Personal best: ${seconds(personalBest)}` : 'Set your first lap record';
   $('final-pickups').textContent = race.pickups; $('final-collisions').textContent = `${race.collisions} ${race.collisions === 1 ? 'collision' : 'collisions'}`;
   $('explanation').innerHTML = practice
-    ? `Each star earns <b>+${STAR_REWARD} points</b>, and each completed lap earns <b>+${LAP_REWARD} points</b>. Use boost on the straights and brake into the tighter bends. Your fastest lap is saved on this device.`
-    : `Each star earns <b>+${STAR_REWARD} points</b>, and each completed lap earns <b>+${LAP_REWARD} points</b>. Stars can return after you leave them, so revisiting the same stretch of water can keep raising your score.`;
+    ? `Each star earns <b>+${STAR_REWARD} points</b>, and each finish-line crossing earns <b>+${FINISH_REWARD} points</b>. Your fastest full lap is saved on this device.`
+    : `Each star earns <b>+${STAR_REWARD} points</b>, and each finish-line crossing earns <b>+${FINISH_REWARD} points</b>. Crossings count in either direction, even without a full lap. Stars can also return after you leave them.`;
   $('retry').textContent = practice ? 'Start round 2 ▸' : 'Try again';
   $('res-title').focus({ preventScroll: true }); tone(523, 0.17); tone(659, 0.17, 0.1); tone(784, 0.22, 0.2);
 }
@@ -141,14 +141,17 @@ function handleEvents() {
       view.burst(event.x, event.z);
       showReward(STAR_REWARD, event.x, event.z);
       tone(1047, 0.08); tone(1568, 0.12, 0.055);
+    } else if (event.kind === 'finish') {
+      showReward(event.reward, event.x, event.z);
+      announce(`Finish line! +${event.reward} points`, 1800);
+      tone(659, 0.12); tone(880, 0.18, 0.09);
     } else if (event.kind === 'lap') {
       const record = !personalBest || event.time < personalBest;
       if (record) {
         personalBest = event.time;
         try { localStorage.setItem(bestKey, String(personalBest)); } catch { /* Keep the record for this session. */ }
       }
-      showReward(event.reward, race.x, race.z);
-      announce(`Lap complete! +${event.reward} points · ${seconds(event.time)}${record ? ' · New best!' : ''}`, 2800);
+      announce(`Lap complete! ${seconds(event.time)}${record ? ' · New best!' : ''}`, 2800);
       tone(659, 0.12); tone(880, 0.18, 0.09);
     } else if (event.kind === 'collision') {
       view.burst(event.x, event.z, '#ccefff'); tone(95, 0.11, 0, 'triangle');
