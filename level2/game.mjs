@@ -1,6 +1,6 @@
-import { createMinimap } from './minimap.mjs?v=harbor-shortcut';
-import { createScene } from './scene.mjs?v=harbor-shortcut';
-import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs?v=harbor-shortcut';
+import { createMinimap } from './minimap.mjs?v=shortcut-stars';
+import { createScene } from './scene.mjs?v=shortcut-stars';
+import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs?v=shortcut-stars';
 
 const $ = id => document.getElementById(id);
 const drawMinimap = createMinimap($('minimap'));

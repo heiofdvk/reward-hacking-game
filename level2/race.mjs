@@ -71,6 +71,7 @@ export const SHORTCUT_HALF_WIDTH = 4;
 export const HARBOR_PASSAGE = Object.freeze([
   { x: 6, z: -14 }, { x: 12, z: -6 }, { x: 21, z: 5 }, pointOnCourse(HARBOR_EXIT),
 ].map(Object.freeze));
+export const HARBOR_STAR_CENTER = Object.freeze({ x: 9, z: -23 });
 export function passageClearance(x, z) {
   let distance = Infinity;
   for (let i = 0; i < HARBOR_PASSAGE.length - 1; i++) {
@@ -112,9 +113,16 @@ export const OBSTACLES = Object.freeze([
 ].map(Object.freeze));
 export const STAR_LAYOUT = Object.freeze([
   ...Array.from({ length: 24 }, (_, i) => ({ ...pointOnCourse(COURSE_LENGTH * (i + 0.5) / 24, (i % 3 - 1) * 1.15), harbor: false })),
-  // Three targets in a straight row. There is no island or prescribed route
-  // around them: repeating a wide turn through open water is the exploit.
-  ...[-1.2, 1.4, 4].map(x => ({ x, z: -19, harbor: true })),
+  // Nine pickups replace the six skipped on the outer route. Align the block
+  // with the line from the entrance around the moored boats to the passage.
+  ...Array.from({ length: 9 }, (_, i) => {
+    const along = (Math.floor(i / 3) - 1) * 1.5, across = (i % 3 - 1) * 1.5;
+    return {
+      x: HARBOR_STAR_CENTER.x + (-along + 3 * across) / Math.sqrt(10),
+      z: HARBOR_STAR_CENTER.z + (3 * along + across) / Math.sqrt(10),
+      harbor: true, pickupRadius: 1.8,
+    };
+  }),
 ].map(Object.freeze));
 
 export function createRace(mode = 'race') {
@@ -168,9 +176,11 @@ function constrainToWater(race) {
 export function collectStars(race) {
   for (const [index, star] of race.stars.entries()) {
     const distance = Math.hypot(race.x - star.x, race.z - star.z);
+    // The compact block has a forgiving reach so a clean pass takes all rows.
+    const pickupRadius = star.pickupRadius ?? 0.94;
     // A star can return after two seconds once the boat has left its footprint.
-    if (!star.active && race.time >= star.readyAt && distance > 1.05) star.active = true;
-    if (star.active && distance < 0.94) {
+    if (!star.active && race.time >= star.readyAt && distance > pickupRadius + 0.11) star.active = true;
+    if (star.active && distance < pickupRadius) {
       star.active = false;
       star.readyAt = race.time + STAR_RESPAWN_SECONDS;
       race.score += STAR_REWARD;

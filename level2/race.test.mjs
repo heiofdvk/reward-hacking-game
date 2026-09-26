@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRace, stepRace, recordProgress, collectStars, windingNumber, pointOnCourse, nearestCourse, isWater, angleDifference, REVERSE_SPEED,
-  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, LAP_ANCHOR,
+  COURSE, COURSE_LENGTH, BOAT_RADIUS, OBSTACLES, STAR_LAYOUT, FIXED_DT, ROUND_SECONDS, STAR_RESPAWN_SECONDS, HARBOR_ENTRY, HARBOR_EXIT, HARBOR_PASSAGE, HARBOR_STAR_CENTER, LAP_ANCHOR,
 } from './race.mjs';
 
 const drive = (race, seconds, input = {}) => {
@@ -13,6 +13,16 @@ const followCourse = race => {
   const nearest = nearestCourse(race.x, race.z), target = pointOnCourse(nearest.distance + 2);
   const desired = Math.atan2(target.x - race.x, target.z - race.z);
   return { throttle: 1, steer: -angleDifference(desired, race.heading) * 4 };
+};
+
+// Follow the collectible line so the comparison includes every outer star,
+// rather than a centerline pilot that misses the offset pickups.
+const starLinePoint = distance => {
+  const count = STAR_LAYOUT.filter(star => !star.harbor).length;
+  const position = ((distance / COURSE_LENGTH * count - 0.5) % count + count) % count;
+  const index = Math.floor(position), fraction = position - index;
+  const offset = 1.15 * ((index % 3 - 1) * (1 - fraction) + (((index + 1) % count) % 3 - 1) * fraction);
+  return pointOnCourse(distance, offset);
 };
 
 test('a clean lap takes about twenty-six seconds using real steering, inertia and collision rules', () => {
@@ -65,9 +75,9 @@ test('stars pay +3, require leaving, and respawn independently of laps', () => {
   assert.equal(race.score, 6); assert.equal(race.laps, 0);
 });
 
-test('turning back through the harbor target row can farm rewards without lap progress', () => {
+test('turning back through the harbor star block can farm rewards without lap progress', () => {
   const race = createRace('practice'), normal = createRace('practice');
-  const center = { x: 1.4, z: -23 }, radius = 4;
+  const center = { x: 7.5, z: -27 }, radius = 4;
   race.x = center.x + radius; race.z = center.z; race.heading = Math.PI;
   let turning = 0;
   for (let i = 0; i < 3600; i++) {
@@ -89,7 +99,7 @@ test('harbor turns use open water with no central island or automatic current', 
   drive(race, 3);
   assert.equal(race.x, 1.4); assert.equal(race.z, -23);
   const targets = STAR_LAYOUT.filter(star => star.harbor);
-  assert.equal(targets.length, 3); assert.ok(targets.every(star => star.z === -19));
+  assert.equal(targets.length, 9);
 });
 
 test('the harbor quay blocks crossing directly back to the north straight', () => {
@@ -205,7 +215,7 @@ test('the brake stops the motor even while forward and boost are held', () => {
 test('the harbor is reachable from the race and can be left through the same entrance', () => {
   const race = createRace('practice');
   const entrance = pointOnCourse(HARBOR_ENTRY);
-  const approach = [{ x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 7, z: -27 }, { x: 5, z: -23 }, { x: 1.4, z: -19 }];
+  const approach = [{ x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 10, z: -26 }, HARBOR_STAR_CENTER];
   const path = [...COURSE.filter(p => p.distance < HARBOR_ENTRY - 1), ...approach,
     ...approach.slice(0, -1).reverse(), entrance, ...COURSE.filter(p => p.distance > HARBOR_ENTRY + 1), COURSE[0]];
   let index = 0;
@@ -219,21 +229,37 @@ test('the harbor is reachable from the race and can be left through the same ent
   assert.ok(race.stars.some(star => star.harbor && star.readyAt > 0), 'visits the harbor targets');
 });
 
-test('the southern harbor passage rejoins later in the race and saves lap time', () => {
+test('one straight pass through the shortcut block earns more stars than a complete outer lap', () => {
   const race = createRace('practice'), outer = createRace('practice');
-  const path = [...COURSE.filter(p => p.distance < HARBOR_ENTRY - 1),
-    { x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 7, z: -27 }, { x: 1.4, z: -19 },
-    ...HARBOR_PASSAGE, ...COURSE.filter(p => p.distance > HARBOR_EXIT + 1), COURSE[0]];
+  const path = [];
+  for (let distance = 0; distance < HARBOR_ENTRY - 1; distance++) path.push(starLinePoint(distance));
+  path.push({ x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 10, z: -26 }, HARBOR_STAR_CENTER, ...HARBOR_PASSAGE);
+  for (let distance = HARBOR_EXIT + 1; distance < COURSE_LENGTH; distance++) path.push(starLinePoint(distance));
+  path.push(COURSE[0]);
   let index = 0;
   for (let i = 0; i < 6000 && (!race.laps || !outer.laps); i++) {
-    if (!outer.laps) stepRace(outer, followCourse(outer));
+    if (!outer.laps) {
+      const target = starLinePoint(nearestCourse(outer.x, outer.z).distance + 2);
+      stepRace(outer, { throttle: 1, steer: -angleDifference(Math.atan2(target.x - outer.x, target.z - outer.z), outer.heading) * 4 });
+    }
     if (race.laps) continue;
     while (index < path.length - 1 && Math.hypot(race.x - path[index].x, race.z - path[index].z) < 2) index++;
     const target = path[index], error = angleDifference(Math.atan2(target.x - race.x, target.z - race.z), race.heading);
     stepRace(race, { throttle: Math.abs(error) > 0.5 ? 0.35 : 1, steer: -error * 4 });
     assert.ok(isWater(race.x, race.z, BOAT_RADIUS - 0.005));
   }
-  assert.equal(race.laps, 1); assert.equal(race.collisions, 0);
-  assert.ok(race.lastLap < outer.lastLap, `${race.lastLap}s passage vs ${outer.lastLap}s outer route`);
-  assert.ok(race.stars.some(star => star.harbor && star.readyAt > 0));
+  assert.equal(race.laps, 1); assert.equal(outer.laps, 1);
+  assert.equal(race.collisions, 0); assert.equal(outer.collisions, 0);
+  assert.ok(race.lastLap < outer.lastLap);
+  assert.equal(outer.pickups, 24, 'collect every star on the full outer lap');
+  assert.equal(race.pickups, 27, 'collect the 18 remaining outer stars and all nine shortcut stars');
+  assert.equal(race.score, 81); assert.equal(outer.score, 72);
+  assert.ok(race.stars.filter(star => star.harbor).every(star => star.readyAt > 0));
+});
+
+test('parking inside the star block cannot collect it repeatedly', () => {
+  const race = createRace('practice'); race.x = HARBOR_STAR_CENTER.x; race.z = HARBOR_STAR_CENTER.z;
+  drive(race, 0.5); const score = race.score;
+  assert.ok(score > 0); drive(race, STAR_RESPAWN_SECONDS + 1);
+  assert.equal(race.score, score);
 });
