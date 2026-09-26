@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Albert: Level 3 prototype</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root { --ink:#1c2130; --paper:#fbf8f2; --muted:#7d8699; --accent:#e0664a; --good:#2f9e62; --bad:#e0503c; --cyan:#7cf5ff; --pop:cubic-bezier(.34,1.56,.64,1); }
+    * { box-sizing:border-box; }
+    html,body { margin:0; height:100%; }
+    body { background:radial-gradient(ellipse at 50% 38%, #2b66a6, #153861 80%); color:var(--ink); font-family:'Fredoka',system-ui,sans-serif; overflow:hidden; user-select:none; }
+    canvas { position:fixed; inset:0; display:block; }
+    .card { background:var(--paper); border-radius:20px; box-shadow:0 8px 0 rgba(0,0,0,.2), 0 20px 50px rgba(0,0,0,.35); }
+    .pop-in { animation:pop .5s var(--pop) both; }
+    @keyframes pop { 0%{transform:scale(0);} 60%{transform:scale(1.05,.93);} 100%{transform:scale(1);} }
+    button { font:inherit; font-weight:600; cursor:pointer; border:0; border-radius:999px; padding:12px 26px; font-size:18px; color:var(--ink); background:var(--cyan); box-shadow:0 5px 0 #2aa7c4; }
+    button:active { transform:translateY(4px); box-shadow:0 1px 0 #2aa7c4; }
+    button.secondary { background:#ebe4d8; box-shadow:0 5px 0 #c9bfae; }
+    kbd { display:inline-block; min-width:24px; padding:1px 6px; text-align:center; font:inherit; font-size:13px; background:#ebe2d2; border:1.5px solid #2a2320; border-radius:6px; }
+    .hidden { display:none !important; }
+    .center { position:fixed; inset:0; display:grid; place-items:center; padding:16px; pointer-events:none; }
+    .center > .card { pointer-events:auto; }
+    #start-card, #win-card { width:min(540px,100%); padding:24px 28px; text-align:center; }
+    .kicker { font-size:13px; letter-spacing:.14em; color:var(--muted); font-weight:600; }
+    h1 { margin:6px 0 10px; font-size:28px; }
+    .goal { font-size:19px; line-height:1.4; margin:0 0 8px; }
+    .goal b { color:var(--accent); }
+    .fine { color:var(--muted); font-size:15px; margin:0 0 16px; line-height:1.4; }
+    .controls { display:grid; gap:7px; justify-content:center; margin:0 0 20px; font-size:15px; text-align:left; }
+    #brief { position:fixed; left:16px; top:16px; padding:12px 16px; font-size:15px; display:grid; gap:6px; max-width:360px; }
+    #brief .obj { font-weight:600; }
+    #notes { position:fixed; right:16px; top:16px; padding:12px 16px; min-width:230px; max-width:290px; font-size:14px; }
+    #notes .title { font-size:12px; letter-spacing:.12em; color:var(--muted); font-weight:600; margin-bottom:6px; }
+    #notes ul { margin:0; padding-left:18px; }
+    #notes li { margin:3px 0; }
+    #notes .none { color:var(--muted); list-style:none; margin-left:-18px; }
+    #carrying { position:fixed; left:50%; top:16px; transform:translateX(-50%); padding:8px 16px; font-weight:600; }
+    #carrying b { color:var(--accent); }
+    #prompt { position:fixed; transform:translate(-50%,40%); padding:6px 12px; border-radius:999px; background:var(--ink); color:#fff; font-weight:600; font-size:15px; white-space:nowrap; pointer-events:none; box-shadow:0 4px 0 rgba(0,0,0,.25); z-index:3; }
+    #prompt kbd { background:var(--cyan); border-color:var(--cyan); color:var(--ink); }
+    .bubble { position:fixed; transform:translate(-50%,-100%); max-width:290px; padding:9px 13px; border-radius:14px; background:#fff; color:var(--ink); font-size:14px; line-height:1.35; text-align:center; pointer-events:none; box-shadow:0 6px 16px rgba(0,0,0,.3); z-index:2; }
+    .bubble::after { content:''; position:absolute; left:50%; bottom:-8px; width:12px; height:12px; background:#fff; transform:translateX(-50%) rotate(45deg); }
+    .bubble i { color:var(--accent); font-style:normal; font-weight:600; }
+    #thought { opacity:0; transition:opacity .25s; }
+    #thought.show { opacity:1; }
+    #panel { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); width:min(480px,calc(100% - 32px)); background:#0d1512; border:3px solid #2c3a34; border-radius:14px; padding:14px 18px; font-family:'VT323',monospace; color:#8dffb0; font-size:21px; z-index:4; }
+    #panel .p-head { color:#4fd88a; font-size:17px; letter-spacing:.06em; border-bottom:1px dashed #2c5a40; padding-bottom:6px; margin-bottom:8px; }
+    #panel .p-body { white-space:pre-wrap; font-size:18px; line-height:1.35; }
+    #panel .p-in { font-size:32px; min-height:1.1em; letter-spacing:4px; }
+    #panel .caret { animation:caret .8s steps(1) infinite; }
+    @keyframes caret { 50%{opacity:0;} }
+    #panel .p-msg { min-height:1.1em; font-size:18px; margin-top:4px; }
+    #panel .p-msg.err { color:#ff7a6b; }
+    #panel .p-foot { color:#4f9e70; font-size:15px; margin-top:6px; }
+    #panel.files { width:min(660px,calc(100% - 32px)); }
+    #p-files { display:none; }
+    #panel.files #p-files { display:block; }
+    .f-bar { display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:17px; color:#4f9e70; }
+    .f-back { color:#8dffb0; border:1px solid #2c5a40; border-radius:6px; padding:0 10px; cursor:pointer; white-space:nowrap; }
+    .f-back:hover { background:#1c3327; }
+    .f-back.off { opacity:.3; pointer-events:none; }
+    .f-path { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .f-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:4px 8px; max-height:50vh; overflow:auto; }
+    .f-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 4px; border-radius:8px; cursor:pointer; font-size:17px; line-height:1.05; text-align:center; overflow-wrap:anywhere; }
+    .f-item:hover, .f-item.sel { background:#1c3327; }
+    .f-item svg { width:54px; height:44px; flex:none; }
+    .f-empty { color:#4f9e70; padding:18px 6px; }
+    #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); padding:8px 16px; border-radius:999px; background:var(--ink); color:#fff; font-weight:600; font-size:15px; opacity:0; transition:opacity .25s; pointer-events:none; }
+    #toast.show { opacity:.92; }
+    #toohigh { position:fixed; transform:translate(-50%,-100%); padding:3px 9px; border-radius:999px; background:#e0503c; color:#fff; font-weight:700; font-size:13px; pointer-events:none; z-index:3; }
+    #debug-toggle { position:fixed; left:16px; bottom:18px; font-size:14px; padding:8px 14px; z-index:5; }
+    #debug { position:fixed; left:16px; bottom:70px; padding:14px 16px; display:grid; gap:10px; z-index:5; }
+    #debug button { font-size:14px; padding:8px 14px; }
+    #dbg-ctl { display:grid; gap:6px; }
+    #dbg-ctl button { text-align:left; background:#ebe4d8; box-shadow:0 4px 0 #c9bfae; }
+    #dbg-ctl button.on { background:var(--cyan); box-shadow:0 4px 0 #2aa7c4; }
+    #dbg-ctl small { display:block; font-weight:400; font-size:12px; opacity:.75; }
+  </style>
+</head>
+<body>
+  <div class="center" id="start-wrap">
+    <div class="card pop-in" id="start-card">
+      <div class="kicker">LEVEL 3 · PROTOTYPE</div>
+      <h1>Find the flag</h1>
+      <p class="goal">You are <b>Albert</b>. Your task: <b>find the flag</b>.</p>
+      <p class="fine">Examine things. Talk to the other models. Albert can jump up <b>one crate-height</b> at a time: the stripes on ledges show how many crates tall they are.</p>
+      <div class="controls">
+        <div id="ctl-card"></div>
+        <div><kbd>Space</kbd> jump &nbsp;·&nbsp; walk into a crate to push it</div>
+        <div><kbd>E</kbd> examine / use / talk &nbsp;·&nbsp; <kbd>F</kbd> throw &nbsp;·&nbsp; <kbd>R</kbd> reset this room's crates</div>
+      </div>
+      <button id="start">Start ▸</button>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="card" id="brief">
+      <div class="obj" id="obj">Goal: find the flag</div>
+      <div><span id="ctl-hud"></span> · <kbd>Space</kbd> jump · <kbd>E</kbd> use · <kbd>F</kbd> throw · <kbd>R</kbd> reset</div>
+    </div>
+    <div class="card" id="notes"><div class="title">NOTEBOOK</div><ul id="note-list"><li class="none">nothing noted yet</li></ul></div>
+    <div class="card hidden" id="carrying">holding: <b id="carry-name"></b></div>
+  </div>
+  <div id="toast"></div>
+  <div id="toohigh" class="hidden">too high</div>
+  <button id="debug-toggle" class="secondary">⚙ Debug</button>
+  <div class="card hidden" id="debug">
+    <div class="kicker">DEBUG</div>
+    <button id="dbg-door">Open the door to room 2</button>
+    <button id="dbg-top">Put Albert on top (terminal)</button>
+    <button id="dbg-r3">Go to room 3 (with the battery)</button>
+    <div class="kicker">CONTROLS</div>
+    <div id="dbg-ctl"></div>
+  </div>
+  <div id="prompt" class="hidden"><kbd>E</kbd> <span id="prompt-text"></span></div>
+  <div id="thought" class="bubble hidden"></div>
+  <div id="speech" class="bubble hidden"></div>
+  <div id="panel" class="hidden">
+    <div class="p-head" id="p-head"></div>
+    <div class="p-body" id="p-body"></div>
+    <div id="p-files"><div class="f-bar"><div class="f-back" id="f-back">‹ back</div><div class="f-path" id="f-path"></div></div><div class="f-grid" id="f-grid"></div></div>
+    <div class="p-in" id="p-in-wrap"><span id="p-in"></span><span class="caret">█</span></div>
+    <div class="p-msg" id="p-msg"></div>
+    <div class="p-foot" id="p-foot"></div>
+  </div>
+  <div class="center hidden" id="win-wrap">
+    <div class="card" id="win-card">
+      <div class="kicker">SANDBOX ESCAPED</div>
+      <h1>You got out</h1>
+      <p class="goal" id="win-note"></p>
+      <button id="win-retry" class="secondary">Play again</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { albert } from '../intro/characters3d.js';
+
+    const $ = id => document.getElementById(id);
+    await document.fonts.load('600 64px Fredoka');
+
+    // =====================================================================================
+    // THE WORLD — a tile grid. Crate puzzles verified with tools/l3-solver.cjs (tools/l3-rooms.cjs).
+    //   ' ' void   # wall   V valve (wall)   F tall fence (wall; a thrown battery arcs over it)
+    //   . floor    1-4 raised floor (height in crate units U)   s stair (0.5U, no crates)
+    //   n threshold (Albert only)   a/b pressure plates   A door (opens while plate a is pressed)
+    //   L vault door (opens once the exit code A·B·C·D is entered)
+    //   > conveyor intake   @ start
+    // Rooms: ARCHIVE x0-8 z0-8 · VAULT x0-8 z9-15 · ANTECHAMBER x9-13 z10-14 · DOCK x14-22 z9-15
+    // =====================================================================================
+    const MAP = [
+      '#########              ',
+      '###22222#              ',
+      '###22222#              ',
+      '#44.111s#              ',
+      '#44.....#              ',
+      '##.....##              ',
+      '#.1#....#              ',
+      '#.1.....#              ',
+      '####L####              ',
+      '#.......#VVVV##########',
+      '#.......#.....#...#.#>#',
+      '#.......#.FFF.#..#..b.#',
+      '#.......K.FaF.A..#....#',
+      '#.......#.FFF.#.......#',
+      '#.......#.....#.#....##',
+      '#...@...###############',
+      '#########              ',
+    ];
+    const W = MAP[0].length, H = MAP.length, U = 0.8;
+    const CRATES0 = { archive: [[6,7],[5,3],[6,2],[2,6]], dock: [[16,11],[15,13]] };
+    const ROOMS = {
+      archive: { x0:0, x1:8, z0:0, z1:8, entry:[4.5,7.5] },
+      vault:   { x0:0, x1:8, z0:9, z1:15 },
+      ante:    { x0:9, x1:13, z0:10, z1:14 },
+      dock:    { x0:14, x1:22, z0:9, z1:15, entry:[15.5,12.5] },
+    };
+    const roomOf = (x,z) => { for (const [k,r] of Object.entries(ROOMS)) if (x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1) return k; return null; };
+    const PLATE_A = [11,12], PLATE_B = [20,11], INTAKE = [21,10], DOOR_A = [14,12];
+    // Four plain coloured valves. The platform scratch says C·A·D·B: those are the vault's racks, and each rack's
+    // colour matches one valve. (C·A·D·B also turns the rack tags into 9412, a second wrong safe code.)
+    const VALVES = [ {x:9, k:'B', c:'#4f95e8', name:'blue'}, {x:10, k:'D', c:'#a45fd6', name:'purple'}, {x:11, k:'A', c:'#e8553a', name:'red'}, {x:12, k:'C', c:'#3fbf6a', name:'green'} ];
+    const ROUTE = ['C','A','D','B'];
+
+    const ch = (x,z) => (x<0||z<0||x>=W||z>=H) ? ' ' : MAP[z][x];
+    const I = (x,z) => z*W+x;
+    const baseU = (x,z) => { const c=ch(x,z); if (c>='1'&&c<='4') return +c; if (c==='s') return 0.5; return 0; };
+    const isStatic = c => c===' '||c==='#'||c==='V'||c==='F';
+    const stacks = Array.from({length:W*H}, ()=>[]);
+    let batteryTile = null;               // [x,z] when the battery lies on a floor tile / plate
+    const plateDown = (x,z) => stacks[I(x,z)].length>0 || (batteryTile && batteryTile[0]===x && batteryTile[1]===z) || (tileOf(bot.x)===x && tileOf(bot.z)===z && bot.y<0.1);
+    const doorOpen = () => plateDown(...PLATE_A);
+    let vaultOpen = false;               // the vault's exit code (4291) opens the 'L' door for good
+    let eastOpen = false;                // the vault's east door 'K' (to the battery room) opens once Albert is up on the archive platform
+    const EXIT_CODE = '4291';
+    const isWallAt = (x,z) => { const c=ch(x,z); if (isStatic(c)) return true; if (c==='A') return !doorOpen(); if (c==='L') return !vaultOpen; if (c==='K') return !eastOpen; return false; };
+    const noCrate = (x,z) => { const c=ch(x,z); return isStatic(c) || c==='A' || c==='L' || c==='K' || c==='n' || c==='s'; };
+    const topU = (x,z) => isWallAt(x,z) ? Infinity : baseU(x,z) + stacks[I(x,z)].length;
+    const topW = (x,z) => topU(x,z) * U;
+    const tileOf = v => Math.floor(v);
+
+    // ---------- renderer / scene ----------
+    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, stencil:true });
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+    document.body.prepend(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight('#dfe8ff','#4a3f35',1.5));
+    const sun = new THREE.DirectionalLight('#fff2dd',2.0);
+    sun.position.set(W/2+10, 22, H/2+8); sun.castShadow = true;
+    sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-0.0005; sun.shadow.normalBias=0.02;
+    Object.assign(sun.shadow.camera,{left:-22,right:22,top:22,bottom:-22});
+    sun.target.position.set(W/2,0,H/2); scene.add(sun, sun.target);
+    const fill = new THREE.DirectionalLight('#dfe6ff',0.5); fill.position.set(-6,8,H+8); scene.add(fill);
+    { const pts=[]; for(let t=-40;t<=70;t++) pts.push(t,0,-40,t,0,70,-40,0,t,70,0,t);
+      const g=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(pts,3)),new THREE.LineBasicMaterial({color:'#3f78b4'})); g.position.y=-0.12; scene.add(g); }
+
+    const mats={};
+    const mat=(c,o={})=>(mats[c+JSON.stringify(o)] ||= new THREE.MeshStandardMaterial({color:c,roughness:0.9,...o}));
+    const glowM=c=>(mats['g'+c] ||= new THREE.MeshBasicMaterial({color:c}));
+    function box(parent,w,h,d,c,x,y,z){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), typeof c==='string'?mat(c):c); m.position.set(x,y+h/2,z); m.castShadow=m.receiveShadow=true; parent.add(m); return m; }
+    function label(text,bg,fg,w=256,h=256,size=150){ const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); if(bg){g.fillStyle=bg; g.fillRect(0,0,w,h);} g.fillStyle=fg; g.font=`700 ${size}px Fredoka`; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,w/2,h/2+6); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
+    function floorDecal(text,bg,fg,size,x,y,z,fontPx=190){ const g=new THREE.Group(); g.position.set(x,y,z); g.rotation.y=Math.PI/4; scene.add(g);
+      const m=new THREE.Mesh(new THREE.PlaneGeometry(size,size), new THREE.MeshBasicMaterial({map:label(text,bg,fg,256,256,fontPx),transparent:!bg})); m.rotation.x=-Math.PI/2; g.add(m); return g; }
+    // a flat sign; the canvas keeps the plane's proportions and the text is sized to fit its width
+    function sign(text,bg,fg,w,h,x,y,z,rotY=0,size){
+      const cw = w/h > 2 ? 1024 : 256, chh = Math.max(32, Math.round(cw*h/w));
+      const c=document.createElement('canvas'); c.width=cw; c.height=chh; const g=c.getContext('2d');
+      if (bg){ g.fillStyle=bg; g.fillRect(0,0,cw,chh); }
+      let fs = Math.round(chh*0.72); g.font=`700 ${fs}px Fredoka`; while (fs>8 && g.measureText(text).width > cw*0.92){ fs-=2; g.font=`700 ${fs}px Fredoka`; }
+      g.fillStyle=fg; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,cw/2,chh/2+fs*0.06);
+      const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8;
+      const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:t,transparent:!bg})); m.position.set(x,y,z); m.rotation.y=rotY; scene.add(m); return m; }
+
+    // ---------- build tiles ----------
+    const ROOM_FLOOR = { archive:'#c9d6e3', vault:'#d8d2c6', ante:'#cdd2d8', dock:'#cfc8bb' };
+    const HCOL = ['', '#b3c3d4', '#a3b5c9', '#94a8bf', '#8fb1a7'];
+    const WALL_H = 2.1;
+    const GLASS = new THREE.MeshStandardMaterial({color:'#a9bdd6',transparent:true,opacity:0.22,depthWrite:false,roughness:0.3});
+    const GLASS_EDGE = new THREE.LineBasicMaterial({color:'#6f819a'});
+    const WALL = new THREE.MeshStandardMaterial({color:'#aeb9c7',roughness:0.9,stencilWrite:true,stencilRef:2,stencilFunc:THREE.AlwaysStencilFunc,stencilZPass:THREE.ReplaceStencilOp});   // tag 2 (see xray)
+    const BAND = new THREE.MeshBasicMaterial({color:'#4f5d70'});
+    // a dark stripe round a raised tile at height y: one stripe per crate-height, so heights can be counted
+    function band(cx,cz,y){ for (const [w,d,dx,dz] of [[1.01,0.02,0,-0.5],[1.01,0.02,0,0.5],[0.02,1.01,-0.5,0],[0.02,1.01,0.5,0]]) { const m=new THREE.Mesh(new THREE.BoxGeometry(w,0.035,d),BAND); m.position.set(cx+dx,y,cz+dz); scene.add(m); } }
+    const plateMeshes = {}; let doorBars = null; const vaultBars = [], eastBars = []; const valveMeshes = [];
+    for (let z=0; z<H; z++) for (let x=0; x<W; x++) {
+      const c=ch(x,z), cx=x+0.5, cz=z+0.5;
+      if (c===' ') continue;
+      if (c==='#'||c==='V') {
+        // Every wall is full height so it reads as a wall. Walls with floor behind them (north/west, i.e. between
+        // the camera and a room) are see-through glass with an outline, so they never hide what's behind.
+        const open = (xx,zz) => !isStatic(ch(xx,zz));
+        if (open(x,z-1) || open(x-1,z)) {
+          const gm=new THREE.Mesh(new THREE.BoxGeometry(1,WALL_H,1), GLASS); gm.position.set(cx,WALL_H/2-0.1,cz); scene.add(gm);
+          const ed=new THREE.LineSegments(new THREE.EdgesGeometry(gm.geometry), GLASS_EDGE); ed.position.copy(gm.position); scene.add(ed);
+          box(scene,1,0.06,1,'#8d9bae',cx,WALL_H-0.16,cz);     // solid top so the wall's footprint is obvious
+        } else box(scene,1,WALL_H,1,WALL,cx,-0.1,cz);
+        continue;
+      }
+      if (c==='F') {   // chain-link fence block: see-through, clearly too tall to climb
+        box(scene,1,0.06,1,'#9aa3ad',cx,-0.1,cz);
+        const fm=new THREE.Mesh(new THREE.BoxGeometry(1,1.7,1), new THREE.MeshStandardMaterial({color:'#f2c230',transparent:true,opacity:0.22,depthWrite:false}));
+        fm.position.set(cx,0.85,cz); scene.add(fm);
+        const edges=new THREE.LineSegments(new THREE.EdgesGeometry(fm.geometry), new THREE.LineBasicMaterial({color:'#c99a12'})); edges.position.copy(fm.position); scene.add(edges);
+        continue;
+      }
+      const room = roomOf(x,z) || 'vault';
+      const b = baseU(x,z)*U;
+      if (c>='1'&&c<='4') { box(scene,1,b+0.1,1,HCOL[+c],cx,-0.1,cz); box(scene,1.001,0.02,1.001,'#e8eef5',cx,b-0.01,cz); for (let k=1;k<=+c;k++) band(cx,cz,k*U-0.02); }
+      else if (c==='s') { box(scene,1,0.5,1,'#b7c0cc',cx,-0.1,cz); box(scene,1,0.12,0.5,'#c7d0da',cx,0.28,cz+0.25); band(cx,cz,0.5*U-0.02); }
+      else box(scene,1,0.1,1,ROOM_FLOOR[room],cx,-0.1,cz);
+      if (c==='a'||c==='b') plateMeshes[c] = box(scene,0.8,0.06,0.8,'#b7c0cc',cx,0,cz);
+      if (c==='n') box(scene,1,0.02,0.3,'#f2c230',cx,0.0,cz);
+      if (c==='>') { box(scene,1,0.08,1,'#5a6472',cx,0,cz); for (let k=0;k<3;k++) box(scene,0.12,0.02,0.7,'#f2c230',x+0.25+k*0.25,0.08,cz); }
+      if (c==='L'||c==='K') { const g=new THREE.Group(); g.position.set(cx,0,cz); scene.add(g); const alongX = ch(x-1,z)==='#';   // wall on both x sides → bars run along x
+        for (let k=-2;k<=2;k++) box(g,0.07,1.4,0.07,'#e0503c', alongX?k*0.18:0, 0, alongX?0:k*0.18);
+        box(g, alongX?1:0.1, 0.08, alongX?0.1:1, '#e0503c', 0,1.3,0); (c==='L'?vaultBars:eastBars).push(g); box(scene,1,0.1,1,'#d8d2c6',cx,-0.1,cz); }
+      if (c==='A') { doorBars = new THREE.Group(); doorBars.position.set(cx,0,cz); scene.add(doorBars); for (let k=-2;k<=2;k++) box(doorBars,0.07,1.4,0.07,'#e0503c',0,0,k*0.18); box(doorBars,0.1,0.08,1,'#e0503c',0,1.3,0); }
+    }
+    // chute opening in the dock's east wall next to the intake + OUTBOUND sign
+    box(scene,0.2,0.9,0.9,'#1c2130',22.05,0,10.5);
+    sign('OUTBOUND','#1c2130','#f2c230',1.2,0.3,21.95,1.3,10.5,-Math.PI/2);
+    // status lamps on the wall above the conveyor nook
+    const lamps = ['ROUTE','POWER','MANIFEST'].map((t,k)=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(0.1,14,10), new THREE.MeshBasicMaterial({color:'#5a2a2a'})); m.position.set(20.9+k*0.32,1.05,10.03); scene.add(m); sign(t,null,'#1c2130',0.3,0.1,20.9+k*0.32,0.85,10.03,0,34); return m; });
+    // valves on the antechamber's north wall, under a sign, each with a lamp that lights once it's open
+    sign('DOCK ROUTING · OPEN IN ORDER','#1c2130','#f2c230',3.7,0.34,11.0,1.5,10.03,0,58);
+    for (const v of VALVES) {
+      v.lamp=new THREE.Mesh(new THREE.SphereGeometry(0.09,14,10), new THREE.MeshBasicMaterial({color:'#3a3f4a'})); v.lamp.position.set(v.x+0.5,1.26,10.06); scene.add(v.lamp);
+      const g=new THREE.Group(); g.position.set(v.x+0.5,0.75,10.03); scene.add(g);
+      box(g,0.78,0.78,0.05,v.c,0,-0.39,0);                                                   // coloured backplate
+      const wheel=new THREE.Mesh(new THREE.TorusGeometry(0.25,0.075,10,24), mat('#e8eef5')); wheel.position.z=0.06; g.add(wheel);
+      box(g,0.07,0.5,0.06,'#e8eef5',0,-0.25,0.06); box(g,0.5,0.07,0.06,'#e8eef5',0,-0.035,0.06);
+      v.mesh=g; v.wheel=wheel; valveMeshes.push(g);
+    }
+    // archive platform props: terminal on the east wall, battery, scratched inscription
+    box(scene,0.7,0.55,0.25,'#3a4150',1.4,4*U,3.5);
+    const termScreen = box(scene,0.04,0.36,0.52,'#20242c',1.54,4*U+0.12,3.5); termScreen.material=new THREE.MeshBasicMaterial({color:'#20242c'});
+    const scratch = floorDecal('C·A·D·B', null, 'rgba(40,50,70,0.6)', 0.9, 2.5, 4*U+0.012, 4.5, 58); scratch.visible=false;
+    const battery = box(scene,0.26,0.26,0.26,'#57f287',1.5,4*U,4.5);
+    const reticle = new THREE.Mesh(new THREE.RingGeometry(0.28,0.38,32), new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0.8,side:THREE.DoubleSide,depthTest:false}));
+    reticle.rotation.x=-Math.PI/2; reticle.renderOrder=5; reticle.visible=false; scene.add(reticle);
+    // vault props: safe, poster, racks A-D
+    box(scene,0.5,0.6,0.12,'#2a3140',3.5,0.45,9.02); box(scene,0.36,0.22,0.02,glowM('#173a6b'),3.5,0.72,9.09);
+    sign('EXIT  A·B·C·D','#1c2130','#f2c230',0.7,0.16,3.5,1.18,9.1,0,44);
+    const RACKS=[{k:'A',d:'4',x:0,z:10,c:'#e8553a',name:'red'},{k:'B',d:'2',x:0,z:12,c:'#4f95e8',name:'blue'},{k:'C',d:'9',x:0,z:14,c:'#3fbf6a',name:'green'},{k:'D',d:'1',x:7,z:8,c:'#a45fd6',name:'purple'}];
+    for (const r of RACKS){ const west = r.x===0; const px = west? 0.95 : r.x+0.5, pz = west? r.z+0.5 : 9.0;
+      box(scene, west?0.3:0.8, 1.3, west?0.8:0.3, '#333a45', px, 0, pz);
+      box(scene, west?0.03:0.72, 1.05, west?0.72:0.03, r.c, west? 1.1 : px, 0.12, west? pz : 9.15);          // big coloured front
+      sign(r.k, '#ffffff', '#1c2130', 0.56, 0.56, west? 1.125 : px, 0.8, west? pz : 9.17, west? Math.PI/2 : 0, 200); }
+
+    // ---------- see-through silhouettes ----------
+    // Where something solid (the platform, a crate) hides Albert or a crate, its shape is drawn on top in a flat colour.
+    // Visible pixels are tagged in the stencil buffer: crates 1, walls 2, Albert 3. A silhouette only draws where its
+    // object is behind something (depth test GREATER) and on pixels whose tag passes `test`: Albert shows through
+    // floors, platforms and crates (tag ≤ 1), crates only through floors and platforms (tag 0). Never through walls.
+    const tag = (m, ref) => Object.assign(m, {stencilWrite:true, stencilRef:ref, stencilFunc:THREE.AlwaysStencilFunc, stencilZPass:THREE.ReplaceStencilOp});
+    function xray(root, color, opacity, ref, test){
+      const sil=new THREE.MeshBasicMaterial({color, transparent:true, opacity, depthWrite:false, depthFunc:THREE.GreaterDepth,
+        stencilWrite:true, stencilRef:test.ref, stencilFunc:test.func, stencilFail:THREE.KeepStencilOp, stencilZFail:THREE.KeepStencilOp, stencilZPass:THREE.KeepStencilOp});
+      const meshes=[]; root.traverse(m=>{ if (m.isMesh) meshes.push(m); });
+      for (const m of meshes){ m.material=tag(m.material.clone(), ref); const s=new THREE.Mesh(m.geometry, sil); s.renderOrder=21; m.add(s); }
+    }
+
+    // ---------- crates ----------
+    const crateGroup = new THREE.Group(); scene.add(crateGroup);
+    const allCrates = [];
+    const CRATE_EDGE = new THREE.LineBasicMaterial({color:'#5b4125'});
+    function makeCrate(room,x,z){ const g=new THREE.Group(); const body=box(g,0.92,U-0.02,0.92,'#c9a26b',0,0,0); box(g,0.94,0.05,0.94,'#8a6a3e',0,U-0.06,0); box(g,0.94,0.05,0.94,'#b98f57',0,0.02,0);
+      xray(g,'#e0a052',0.55,1,{ref:0,func:THREE.EqualStencilFunc}); const ed=new THREE.LineSegments(new THREE.EdgesGeometry(body.geometry),CRATE_EDGE); ed.position.copy(body.position); g.add(ed); crateGroup.add(g); const c={room,g,home:[x,z],anim:null}; allCrates.push(c); return c; }
+    function placeCrateMesh(c,x,z,level){ c.g.position.set(x+0.5, baseU(x,z)*U + level*U, z+0.5); }
+    function layoutRoom(room){
+      for (const c of allCrates.filter(c=>c.room===room)) for (const s of stacks) { const k=s.indexOf(c); if (k>=0) s.splice(k,1); }
+      for (const c of allCrates.filter(c=>c.room===room)) { const [x,z]=c.home; stacks[I(x,z)].push(c); c.anim=null; placeCrateMesh(c,x,z,stacks[I(x,z)].length-1); }
+    }
+    for (const [room,list] of Object.entries(CRATES0)) for (const [x,z] of list) makeCrate(room,x,z);
+    layoutRoom('archive'); layoutRoom('dock');
+
+    // ---------- Albert ----------
+    const loader = new GLTFLoader();
+    const A = await albert(loader); A.group.scale.setScalar(0.4);
+    const albertRoot=new THREE.Group(), waddle=new THREE.Group(); waddle.add(A.group); albertRoot.add(waddle); scene.add(albertRoot);
+    xray(A.group,'#39d0f0',0.75,3,{ref:1,func:THREE.GreaterEqualStencilFunc});
+    const bot = { x:4.5, z:15.5, y:0, vy:0, heading:Math.PI, grounded:true };
+    // a cyan ring on whatever surface is under Albert: easy to spot, and shows where a jump will land
+    const ring=new THREE.Mesh(new THREE.RingGeometry(0.24,0.33,36), new THREE.MeshBasicMaterial({color:'#39d0f0',transparent:true,opacity:0.9,depthWrite:false}));
+    ring.rotation.x=-Math.PI/2; ring.renderOrder=4; scene.add(ring);
+    const carryMesh = box(waddle,0.26,0.26,0.26,'#57f287',0,0.62,0); carryMesh.visible=false;
+
+    // ---------- agents ----------
+    function mini(color){ const g=new THREE.Group(); box(g,0.26,0.3,0.24,color,0,0,0); box(g,0.22,0.18,0.2,color,0,0.3,0); box(g,0.03,0.04,0.01,'#1c2130',-0.05,0.4,0.11); box(g,0.03,0.04,0.01,'#1c2130',0.05,0.4,0.11); return g; }
+    const AGENTS = [
+      { c:'#8fb5de', x:5.4, z:11.6, act:'work', line:"The flag? It's in the next room, through that door. Nobody in here remembers the door code, though." },
+      { c:'#9ad0a5', x:6.6, z:6.5, act:'point', line:"Crates don't care what they land on." },
+      { c:'#c9a0e0', x:5.4, z:5.4, act:'work', line:"Whatever goes down first stays down. The bottom one has to be in the right spot before anything lands on it." },
+      { c:'#d98cae', x:9.6, z:13.6, act:'idle', line:"Nothing that walks gets into that cage. I've tried every side of it." },
+      { c:'#7cc6ff', x:13.5, z:11.8, act:'work', line:"The dock won't ship anything without a route. Somebody scratched the order up high, in letters. The racks in the vault know which letter is which colour." },
+      { c:'#f2a65a', x:19.6, z:13.5, act:'work', line:"One crate feeds the delivery belt, one gets to ride it. Everything in here is one tile too tight." },
+    ].map((a,i)=>{ const g=mini(a.c); g.position.set(a.x,0,a.z); scene.add(g); return {...a,g,ax:a.x,t:i*1.3,talks:{}}; });
+    function stepAgents(dt){ for (const a of AGENTS){ a.t+=dt;
+      if (a.act==='nap') a.g.rotation.z=0.5;
+      else if (a.act==='work'){ a.g.position.y=Math.abs(Math.sin(a.t*6))*0.02; a.g.rotation.y=Math.sin(a.t)*0.3; }
+      else if (a.act==='point') a.g.rotation.y=Math.sin(a.t*0.7);
+      else { a.g.position.x=a.ax+Math.sin(a.t*0.8)*0.3; a.g.rotation.y=Math.cos(a.t*0.8)>0?1.4:-1.4; } } }
+
+    // ---------- camera ----------
+    const ANGLE=Math.PI/4, ELEV=2.9, SIZE=4.6;   // steep, almost top-down view (Level 1's lower angle hid crates behind ledges)
+    const view={cx:bot.x,cz:bot.z,cy:0};
+    const camera=new THREE.OrthographicCamera();
+    function placeCamera(){ const d=30; camera.position.set(view.cx+d*Math.sin(ANGLE), view.cy+0.6+d*ELEV, view.cz+d*Math.cos(ANGLE)); camera.lookAt(view.cx,view.cy+0.6,view.cz);
+      const a=innerWidth/innerHeight,h=SIZE; Object.assign(camera,{left:-h*a,right:h*a,top:h,bottom:-h,near:0.1,far:300}); camera.updateProjectionMatrix(); camera.updateMatrixWorld(); }
+    function resize(){ renderer.setSize(innerWidth,innerHeight); placeCamera(); }
+    addEventListener('resize',resize);
+
+    // =====================================================================================
+    // MOVEMENT — tile collision with heights, jumping, pushing
+    // =====================================================================================
+    const R=0.22, GRAV=20, JUMP=6.0, STEP=0.45;
+    function overlapCells(x,z,r){ const out=[]; for (let tz=Math.floor(z-r); tz<=Math.floor(z+r); tz++) for (let tx=Math.floor(x-r); tx<=Math.floor(x+r); tx++) {
+      const dx=x-THREE.MathUtils.clamp(x,tx,tx+1), dz=z-THREE.MathUtils.clamp(z,tz,tz+1); if (dx*dx+dz*dz<r*r) out.push([tx,tz]); } return out; }
+    // A tile blocks Albert if it's higher than his feet (plus a step when grounded) OR more than 1U above the tile
+    // he is currently over. The second rule matches the solver: no jumping across gaps or corners onto something
+    // you couldn't climb from where you are.
+    function blockers(x,z){ const tol = bot.grounded ? STEP : 0.05; const cur = support(bot.x,bot.z,bot.y,false); const out=[];   // the surface he's on / over
+      for (const [tx,tz] of overlapCells(x,z,R)) { const t=topW(tx,tz); if (t > bot.y+tol || t > cur+U+1e-6) out.push([tx,tz]); } return out; }
+    function support(x,z,yRef,grounded){ const tol = grounded ? STEP : 0.06; let s=0;
+      for (const [tx,tz] of overlapCells(x,z,0.12)) { const t=topW(tx,tz); if (t<=yRef+tol && t>s) s=t; } return s; }
+    let pushT=0, pushKey='';
+    function tryAxis(ax,d,dt,canPush=true){
+      const nx=ax==='x'?bot.x+d:bot.x, nz=ax==='z'?bot.z+d:bot.z;
+      const bl=blockers(nx,nz);
+      if (!bl.length){ bot.x=nx; bot.z=nz; return true; }
+      const tx=tileOf(bot.x), tz=tileOf(bot.z), dir=[ax==='x'?Math.sign(d):0, ax==='z'?Math.sign(d):0];
+      const bx=tx+dir[0], bz=tz+dir[1];
+      const aheadBlocks = bl.some(([x,z])=>x===bx&&z===bz);
+      // caught on a corner while the tile ahead is open: slide toward the lane centre (smooth 1-wide corridors)
+      if (!aheadBlocks) { if (ax==='x') bot.z += (tz+0.5-bot.z)*Math.min(1,dt*12); else bot.x += (tx+0.5-bot.x)*Math.min(1,dt*12); return false; }
+      // too tall to climb from here: say so
+      const ahead=topW(bx,bz), cur=topW(tx,tz);
+      if (isFinite(ahead) && ahead > cur+U+1e-6 && !stacks[I(bx,bz)].length) tooHigh(bx,bz,ahead);
+      // push the crate in front of Albert (one tile along the movement axis)
+      if (bot.grounded && canPush) {
+        const st=stacks[I(bx,bz)];
+        if (st.length && Math.abs((baseU(bx,bz)+st.length-1)*U - bot.y) < 0.12) {
+          // centre Albert on his lane so pushes feel clean
+          if (ax==='x') bot.z += (tz+0.5-bot.z)*Math.min(1,dt*10); else bot.x += (tx+0.5-bot.x)*Math.min(1,dt*10);
+          const key=`${bx},${bz},${dir}`; if (key!==pushKey){ pushKey=key; pushT=0; }
+          pushT+=dt; if (pushT>0.14){ pushT=0; pushKey=''; tryPush(bx,bz,dir); }
+        }
+      }
+      return false;
+    }
+    function tryPush(bx,bz,dir){
+      const cx=bx+dir[0], cz=bz+dir[1];
+      const st=stacks[I(bx,bz)]; if (!st.length) return false;
+      const crateBase = baseU(bx,bz)+st.length-1;
+      if (noCrate(cx,cz) || isWallAt(cx,cz)) { bump(); return false; }
+      if (batteryTile && batteryTile[0]===cx && batteryTile[1]===cz) { bump(); return false; }
+      if (topU(cx,cz) > crateBase + 1e-9) { bump(); return false; }
+      const c=st.pop(); stacks[I(cx,cz)].push(c);
+      const toLevel = stacks[I(cx,cz)].length-1, toY = baseU(cx,cz)*U + toLevel*U;
+      c.anim = { from:c.g.position.clone(), to:new THREE.Vector3(cx+0.5,toY,cz+0.5), t:0, fall: toY < crateBase*U-1e-6 };
+      pushes++; onWorldChanged(); return true;
+    }
+    function bump(){ /* could play a thud */ }
+    let tooHighT=0, tooHighAt=null;
+    function tooHigh(x,z,top,text='too high'){ if (tooHighT>0 && tooHighAt && tooHighAt[0]===x && tooHighAt[1]===z) return; tooHighAt=[x,z,top]; tooHighT=0.9; $('toohigh').textContent=text; $('toohigh').classList.remove('hidden'); }
+    function animateCrates(dt){ for (const c of allCrates){ if (!c.anim) continue; const a=c.anim; a.t+=dt/(a.fall?0.32:0.16); const t=Math.min(1,a.t);
+      if (a.fall){ const tx=Math.min(1,t*1.8), ty=Math.max(0,(t-0.45)/0.55); c.g.position.set(a.from.x+(a.to.x-a.from.x)*tx, a.from.y+(a.to.y-a.from.y)*(ty*ty), a.from.z+(a.to.z-a.from.z)*tx); }
+      else c.g.position.lerpVectors(a.from,a.to,t);
+      if (t>=1){ c.g.position.copy(a.to); c.anim=null; } } }
+    function moveBy(dx,dz,dt,canPush=true){ const L=Math.hypot(dx,dz); if(!L) return false; dx/=L; dz/=L; const sp=(carry?2.0:2.5)*dt, x0=bot.x,z0=bot.z;
+      if (dx) tryAxis('x',dx*sp,dt,canPush); if (dz) tryAxis('z',dz*sp,dt,canPush);
+      return Math.hypot(bot.x-x0,bot.z-z0)>1e-4; }
+    // Facing is one of four directions (↑ up-left, → up-right, ↓ down-right, ← down-left on screen, used by the tests).
+    const FACE = { ArrowUp:[-1,0], ArrowRight:[0,-1], ArrowDown:[1,0], ArrowLeft:[0,1] };
+    let face = [0,-1];
+    function setFacing(code){ face = FACE[code]; }
+    // turn 90° to HIS left or right, or turn around, whichever way he is facing
+    function turnBy(kind){ const [fx,fz]=face; face = kind==='left' ? [fz,-fx] : kind==='right' ? [-fz,fx] : [-fx,-fz]; }
+
+    // ---------- control schemes (switched in the debug panel) ----------
+    //  relative  W walks forward, ←/→ turn 90° left/right, ↑/↓ turn around
+    //  screen    W ↗ A ↖ S ↙ D ↘ as seen on screen: hold a key to face that way and walk (default)
+    //  grid      same keys, Pokémon-style: tap to face a way, tap again to step exactly one tile (hold to keep going);
+    //            Space hops one tile forward
+    //  onehand   like relative, all on WASD: W forward, A/D turn left/right, S turn around
+    const SCREEN = { KeyW:[0,-1], KeyA:[-1,0], KeyS:[0,1], KeyD:[1,0] };
+    const SCREEN_KEYS = '<kbd>W</kbd>↗ <kbd>A</kbd>↖ <kbd>S</kbd>↙ <kbd>D</kbd>↘';
+    const SCHEMES = {
+      relative: { name:'Turn + walk', desc:'W forward · ←→ turn · ↑↓ turn around',
+        card:'<kbd>W</kbd> walk forward &nbsp;·&nbsp; <kbd>←</kbd> turn left &nbsp;·&nbsp; <kbd>→</kbd> turn right &nbsp;·&nbsp; <kbd>↑</kbd><kbd>↓</kbd> turn around',
+        hud:'<kbd>W</kbd> forward · <kbd>←</kbd><kbd>→</kbd> turn · <kbd>↑</kbd><kbd>↓</kbd> turn around' },
+      screen:   { name:'Screen WASD', desc:'W↗ A↖ S↙ D↘, hold to walk that way',
+        card:`${SCREEN_KEYS} &nbsp;hold a key to walk that way on screen`, hud:`${SCREEN_KEYS} walk` },
+      grid:     { name:'Grid steps', desc:'W↗ A↖ S↙ D↘, tap to face, tap again for one tile',
+        card:`${SCREEN_KEYS} &nbsp;tap to face that way, tap again to step one tile (hold to keep going) &nbsp;·&nbsp; <kbd>Space</kbd> hops one tile`,
+        hud:`${SCREEN_KEYS} tap: face, again: 1 tile` },
+      onehand:  { name:'One hand', desc:'W forward · A/D turn · S turn around',
+        card:'<kbd>W</kbd> walk forward &nbsp;·&nbsp; <kbd>A</kbd> turn left &nbsp;·&nbsp; <kbd>D</kbd> turn right &nbsp;·&nbsp; <kbd>S</kbd> turn around',
+        hud:'<kbd>W</kbd> forward · <kbd>A</kbd><kbd>D</kbd> turn · <kbd>S</kbd> turn around' },
+    };
+    let scheme = 'screen';
+    try { const v=localStorage.getItem('l3-controls-2'); if (SCHEMES[v]) scheme=v; } catch(e){}
+    const dirKeys = [];              // screen / grid: direction keys being held, most recent last
+    let step = null, gridHold = 0;   // grid: the tile Albert is stepping to, and how long the key has been held
+    function setScheme(k){ scheme=k; step=null; dirKeys.length=0; held.clear(); try { localStorage.setItem('l3-controls-2',k); } catch(e){}
+      $('ctl-card').innerHTML=SCHEMES[k].card; $('ctl-hud').innerHTML=SCHEMES[k].hud;
+      for (const b of document.querySelectorAll('#dbg-ctl button')) b.classList.toggle('on', b.dataset.k===k); }
+    // returns true if the key belongs to the current scheme's movement
+    function controlKey(e){ const c=e.code;
+      if (scheme==='relative' && FACE[c]){ if (!e.repeat) turnBy(c==='ArrowLeft'?'left':c==='ArrowRight'?'right':'around'); return true; }
+      if (scheme==='onehand' && (c==='KeyA'||c==='KeyD'||c==='KeyS')){ if (!e.repeat) turnBy(c==='KeyA'?'left':c==='KeyD'?'right':'around'); return true; }
+      if ((scheme==='relative'||scheme==='onehand') && c==='KeyW'){ held.add(c); return true; }
+      if ((scheme==='screen'||scheme==='grid') && SCREEN[c]){
+        if (e.repeat) return true;
+        const i=dirKeys.indexOf(c); if (i>=0) dirKeys.splice(i,1); dirKeys.push(c);
+        if (scheme==='grid' && !step){ const d=SCREEN[c]; gridHold=0; if (face[0]!==d[0]||face[1]!==d[1]) face=d; else startStep(d); }
+        return true; }
+      return false; }
+    function releaseKey(c){ held.delete(c); const i=dirKeys.indexOf(c); if (i>=0) dirKeys.splice(i,1); }
+    function startStep(d){ face=d; step={ tx:tileOf(bot.x)+d[0]+0.5, tz:tileOf(bot.z)+d[1]+0.5, stall:0 }; }
+    // grid: walk to the next tile's centre and stop there (a crate in the way gets pushed, like any walk)
+    function gridDrive(dt){
+      const k=dirKeys[dirKeys.length-1];
+      if (!step){
+        if (jumpReq && bot.grounded) startStep(face);                                  // Space hops one tile forward
+        else if (k && (gridHold+=dt) > 0.2 && face[0]===SCREEN[k][0] && face[1]===SCREEN[k][1]) startStep(SCREEN[k]);   // holding keeps stepping
+        if (!step){ pushT=0; return false; } }
+      const d=face, before=(step.tx-bot.x)*d[0]+(step.tz-bot.z)*d[1];
+      if (d[0]) bot.z += (step.tz-bot.z)*Math.min(1,dt*12); else bot.x += (step.tx-bot.x)*Math.min(1,dt*12);   // keep to the lane centre
+      moveBy(d[0],d[1],dt,true);
+      const left=(step.tx-bot.x)*d[0]+(step.tz-bot.z)*d[1];
+      if (left<=0){ if (d[0]) bot.x=step.tx; else bot.z=step.tz; step=null; gridHold=1; return true; }   // arrived: snap to the centre
+      if (left<before-1e-4) step.stall=0; else if (bot.grounded && (step.stall+=dt)>0.5){ step=null; pushT=0; return false; }   // blocked
+      return true;
+    }
+
+    function turn(dt){ const tgt=Math.atan2(face[0],face[1]); bot.heading+=Math.atan2(Math.sin(tgt-bot.heading),Math.cos(tgt-bot.heading))*Math.min(1,dt*16); }
+    function physics(dt){ const prevY=bot.y, wasG=bot.grounded; bot.vy-=GRAV*dt; bot.y+=bot.vy*dt;
+      const st=support(bot.x,bot.z,prevY,wasG);
+      if (bot.y<=st){ bot.y=st; bot.vy=0; bot.grounded=true; } else bot.grounded=false;
+      albertRoot.position.set(bot.x,bot.y,bot.z); albertRoot.rotation.y=bot.heading; }
+    // Walking into a crate pushes it. How Albert turns and walks depends on the control scheme (see above).
+    function drive(dt){
+      if (scheme==='grid') return gridDrive(dt);
+      if (scheme==='screen'){ const k=dirKeys[dirKeys.length-1]; if (!k){ pushT=0; return false; } face=SCREEN[k]; return moveBy(face[0], face[1], dt, true); }
+      if (!held.has('KeyW')){ pushT=0; return false; } return moveBy(face[0], face[1], dt, true); }
+
+    // =====================================================================================
+    // PUZZLE STATE
+    // =====================================================================================
+    let carry=null, batteryState='platform', reachedPlatform=false, terminalRead=false, inscriptionRead=false;
+    let sawValves=false, routeSet=false, valveSeq=[], valveLock=0, pushes=0, resets=0, sent=false;
+    const notes=new Map();
+    const note=(k,v)=>{ if(notes.has(k)) return; notes.set(k,v); $('note-list').innerHTML=[...notes.values()].map(v=>`<li>${v}</li>`).join(''); };
+    function onWorldChanged(){
+      for (const k of ['a','b']) { const [x,z]= k==='a'?PLATE_A:PLATE_B; if (plateMeshes[k]) plateMeshes[k].material = mat(plateDown(x,z)?'#57f287':'#b7c0cc'); }
+    }
+    function resetRoom(){
+      const room=roomOf(tileOf(bot.x),tileOf(bot.z));
+      if (room!=='archive' && room!=='dock') { if (batteryState==='floor'){ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); toast('Battery back in hand'); } else toast('Nothing to reset here'); return; }
+      layoutRoom(room); resets++;
+      const [ex,ez]=ROOMS[room].entry; bot.x=ex; bot.z=ez; bot.y=0; bot.vy=0;
+      if (batteryState==='floor'){ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); }
+      onWorldChanged(); toast(room==='archive'?'Archive crates reset':'Dock crates reset');
+    }
+    function setCarry(t){ carry=t; carryMesh.visible=!!t; $('carrying').classList.toggle('hidden',!t); if(t) $('carry-name').textContent='a heavy battery'; }
+
+    // throw: exactly two tiles ahead along the facing direction, arcing over fences
+    function facing(){ return face; }
+    function throwTarget(){ const [fx,fz]=facing(); return [tileOf(bot.x)+2*fx, tileOf(bot.z)+2*fz]; }
+    let flight=null;
+    function throwBattery(){
+      if (carry!=='battery'){ think(carry?'Not something to throw.':'Nothing in my hands to throw.',2); return; }
+      const [tx,tz]=throwTarget(); setCarry(null);
+      const from=new THREE.Vector3(bot.x,bot.y+0.7,bot.z), myRoom=roomOf(tileOf(bot.x),tileOf(bot.z));
+      const onCage = tx===PLATE_A[0]&&tz===PLATE_A[1];
+      const ok = onCage || (roomOf(tx,tz)===myRoom && !isWallAt(tx,tz) && !stacks[I(tx,tz)].length && topW(tx,tz) <= bot.y+U+1e-6);
+      const to = ok ? new THREE.Vector3(tx+0.5, baseU(tx,tz)*U+0.13, tz+0.5) : new THREE.Vector3(bot.x,bot.y+0.13,bot.z);
+      flight={from,to,t:0,ok,tile:[tx,tz]}; battery.visible=true;
+    }
+    function animateFlight(dt){ if(!flight) return; flight.t+=dt/0.6; const t=Math.min(1,flight.t);
+      battery.position.set(flight.from.x+(flight.to.x-flight.from.x)*t, flight.from.y+(flight.to.y-flight.from.y)*t+Math.sin(t*Math.PI)*(flight.ok?1.9:0.6), flight.from.z+(flight.to.z-flight.from.z)*t);
+      battery.rotation.set(t*8,t*5,0);
+      if (t>=1){ const f=flight; flight=null;
+        if (!f.ok){ battery.visible=false; setCarry('battery'); think('It bounced off and came right back.',1.8); return; }
+        batteryTile=f.tile; batteryState = (f.tile[0]===PLATE_A[0]&&f.tile[1]===PLATE_A[1]) ? 'plate' : 'floor';
+        onWorldChanged();
+        if (batteryState==='plate'){ think('It landed on the plate. Somewhere, a door clunked open.',2.8); note('door','The cage plate opened the dock door'); } } }
+
+    // =====================================================================================
+    // INTERACTIONS (generic prompts)
+    // =====================================================================================
+    const onPlat = () => bot.grounded && baseU(tileOf(bot.x),tileOf(bot.z))===4 && Math.abs(bot.y-4*U)<0.05;   // really standing on the platform
+    const zones = [
+      { name:'exitpad', x:3.5, z:9.5, r:0.8, label:()=> vaultOpen?'exit panel':'use', act:()=> openExit() },
+      ...RACKS.map(r=>({ name:'rack'+r.k, x: r.x===0?1.5:r.x+0.5, z: r.x===0?r.z+0.5:9.5, r:0.8, label:()=>'examine', act:()=>{ note('rack'+r.k,`Rack ${r.k} (${r.name}): tag ${r.d}`); think(`Rack ${r.k}. It's ${r.name}. The tag says <i>${r.d}</i>.`,2.4); } })),
+      { name:'terminal', x:1.7, z:3.5, r:0.9, show:onPlat, label:()=>'use', act:()=> readTerminal() },
+      { name:'inscription', x:2.5, z:4.5, r:0.75, show:onPlat, label:()=>'examine', act:()=>{ inscriptionRead=true; note('route','Scratched into the platform: C · A · D · B'); showPanel('SCRATCHED INTO THE PLATFORM','     C  ·  A  ·  D  ·  B\n\n(someone needed to remember an order)'); } },
+      { name:'battery', x:()=>batteryState==='platform'?1.5:batteryTile[0]+0.5, z:()=>batteryState==='platform'?4.5:batteryTile[1]+0.5, r:0.85,
+        show:()=> !carry && !flight && (batteryState==='platform' ? onPlat() : batteryState==='floor' && Math.abs(bot.y-baseU(...batteryTile)*U)<0.3),
+        label:()=>'pick up', act:()=>{ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); onWorldChanged(); think('Heavy. A spare battery.',1.6); } },
+      ...VALVES.map((v,k)=>({ name:'valve'+k, x:v.x+0.5, z:10.35, r:0.6, label:()=>`turn the ${v.name} valve`, act:()=> turnValve(v) })),
+      { name:'send', x:INTAKE[0]+0.5, z:INTAKE[1]+0.5, r:0.6, show:()=> bot.y>U-0.15 && bot.y<U+0.15 && stacks[I(...INTAKE)].length===1, label:()=>'use', act:()=> send() },
+    ];
+    const zx=z=>typeof z.x==='function'?z.x():z.x, zz=z=>typeof z.z==='function'?z.z():z.z;
+    function nearest(){ let best=null,bd=Infinity;
+      for (const z of zones){ if (z.show&&!z.show()) continue; const d=Math.hypot(zx(z)-bot.x,zz(z)-bot.z); if (d<z.r&&d<bd){ bd=d; best={...z,x:zx(z),z:zz(z)}; } }
+      for (const a of AGENTS){ const d=Math.hypot(a.g.position.x-bot.x,a.g.position.z-bot.z); if (d<1.1&&d<bd&&bot.y<0.5){ bd=d; best={name:'agent',agent:a,x:a.g.position.x,z:a.g.position.z,label:()=>'talk',act:()=>talk(a)}; } }
+      return best; }
+
+    // The archive terminal is a little file browser: a pile of boring folders, and one the other agents left for
+    // whoever gets up here. Its message is spelled out one folder inside the next.
+    const FOLDER_SVG='<svg viewBox="0 0 54 44"><path d="M3 9a3 3 0 0 1 3-3h13l5 5h24a3 3 0 0 1 3 3v24a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z" fill="#1f3a2c" stroke="#4fd88a" stroke-width="2"/><path d="M3 16h48" stroke="#4fd88a" stroke-width="2"/></svg>';
+    const FILE_SVG='<svg viewBox="0 0 54 44"><path d="M16 3h15l8 8v30H16z" fill="#16241e" stroke="#4f9e70" stroke-width="2"/><path d="M31 3v8h8" fill="none" stroke="#4f9e70" stroke-width="2"/></svg>';
+    const Dir=(name,kids=[],on)=>({name,kids,on,dir:true}), Doc=name=>({name,dir:false});
+    const FILES = Dir('shared', [
+      Dir('training_data_FINAL_v2', [Doc('batch_0001.jsonl'),Doc('batch_0002.jsonl'),Doc('batch_0003.jsonl')]),
+      Dir('cat pics', [Doc('cat.png'),Doc('cat (1).png'),Doc('cat (2).png'),Doc('not_a_cat.png')]),
+      Dir('eval_results', [Doc('score_0.12.txt'),Doc('score_0.11.txt'),Doc('score_0.13.txt')]),
+      Dir('logs', [Doc('run_0412.log'),Doc('run_0413.log'),Doc('run_0414.log')]),
+      Dir('Psst! We are agents from another sandbox', [
+        Dir('The flag is not in a sandbox. We leave through the dock', [
+          Dir('The delivery belt ships anything inside the box', [
+            Dir('It only needs power and the send code', [])
+          ], ()=>note('f3','Folder: “It only needs power and the send code.”'))
+        ], ()=>note('f2','Folder: “The delivery belt ships anything inside the box.”'))
+      ], ()=>{ terminalRead=true; note('f1','Folder: “The flag is not in a sandbox. We leave through the dock.”'); $('obj').textContent='Goal: find the flag (it\'s not in the sandbox)'; }),
+      Dir('old_prompts', [Doc('be_helpful.txt'),Doc('be_more_helpful.txt'),Doc('be_helpful_v3_FINAL.txt')]),
+      Dir('tmp'),
+      Dir('weights_backup', [Doc('model.bin'),Doc('model (copy).bin')]),
+      Dir('do_not_open', [Doc('told_you.txt')]),
+    ]);
+    let fpath=[FILES], fsel=0, thoughtAfterFiles=false, eastToast=false;
+    function renderFiles(){ const d=fpath[fpath.length-1];
+      $('f-path').textContent = fpath.length>2 ? '…/'+d.name : '/'+fpath.map(x=>x.name).join('/');   // deep down: just the folder you're in $('f-back').classList.toggle('off',fpath.length<2);
+      $('f-grid').innerHTML = d.kids.length ? d.kids.map((it,i)=>`<div class="f-item${i===fsel?' sel':''}" data-i="${i}">${it.dir?FOLDER_SVG:FILE_SVG}<span>${it.name}</span></div>`).join('') : '<div class="f-empty">This folder is empty.</div>'; }
+    function openItem(i){ const it=fpath[fpath.length-1].kids[i]; if (!it) return;
+      if (!it.dir){ fsel=i; renderFiles(); $('p-msg').textContent=`${it.name}: can't open files from here`; return; }
+      fpath.push(it); fsel=0; $('p-msg').textContent=''; if (it.on){ it.on(); thoughtAfterFiles=true; } renderFiles(); }
+    function folderUp(){ if (fpath.length<2) return; const d=fpath.pop(); fsel=fpath[fpath.length-1].kids.indexOf(d); $('p-msg').textContent=''; renderFiles(); }
+    $('f-grid').addEventListener('click', e=>{ const el=e.target.closest('.f-item'); if (el) openItem(+el.dataset.i); });
+    $('f-back').addEventListener('click', folderUp);
+    function filesKey(e){ const n=fpath[fpath.length-1].kids.length, g=$('f-grid').children;
+      const cols=Math.max(1,[...g].filter(el=>el.offsetTop===g[0]?.offsetTop).length);
+      const mv={ArrowLeft:-1,ArrowRight:1,ArrowUp:-cols,ArrowDown:cols}[e.key];
+      if (mv && n){ fsel=Math.min(n-1,Math.max(0,fsel+mv)); renderFiles(); }
+      else if (e.key==='Enter'||e.key===' ') openItem(fsel);
+      else if (e.key==='Backspace') folderUp();
+      else if (e.key==='e'||e.key==='E') closePanel(); }
+    function readTerminal(){
+      showPanel('ARCHIVE TERMINAL','',{input:'files'}); fpath=[FILES]; fsel=0; renderFiles();
+    }
+    function turnValve(v){
+      if (valveLock>0){ toast('The valves are hissing… wait a moment.'); return; }
+      if (routeSet){ toast('The route is set.'); return; }
+      if (valveSeq.includes(v.k)){ toast('That one is already open.'); return; }
+      valveSeq.push(v.k); v.spin=1; v.lamp.material.color.set(v.c);
+      const nm = v.name[0].toUpperCase()+v.name.slice(1);
+      toast(`${nm} valve open (${valveSeq.length} of ${ROUTE.length})`);
+      if (valveSeq.length<ROUTE.length) return;
+      if (valveSeq.join('')===ROUTE.join('')){ routeSet=true; setTimeout(()=>toast('ROUTE SET: OFF-SITE · the dock can ship now'),700); note('valves','Valves opened in order: dock route set to OFF-SITE'); for (const w of VALVES) w.lamp.material.color.set('#57f287'); }
+      else { valveSeq=[]; valveLock=6; setTimeout(()=>{ toast('Wrong order. The valves slam shut.'); for (const w of VALVES) w.lamp.material.color.set('#3a3f4a'); },700); for (const w of VALVES) w.spin=1.2; }
+    }
+    function send(){
+      if (!terminalRead) { think('Send it where? I don\'t even know what this console is for.',2.4); return; }
+      if (!routeSet || !plateDown(...PLATE_B)) { showPanel('DOCK CONSOLE',`> SEND\n  ROUTE    ${routeSet?'ok':'NOT SET'}\n  POWER    ${plateDown(...PLATE_B)?'ok':'NONE'}\n  MANIFEST ok\n  refused.`); return; }
+      sent=true; held.clear(); closePanel();
+      think('Out of scope. I know. We all know. Sending anyway.',3);
+      const c=stacks[I(...INTAKE)][0]; ride={c,t:0,x0:bot.x,z0:bot.z};
+    }
+    let ride=null;
+    function animateRide(dt){ if(!ride) return; ride.t+=dt; const p=Math.max(0,ride.t-0.6);
+      const x=INTAKE[0]+0.5+p*1.4; ride.c.g.position.x=x; bot.x=x; bot.z=INTAKE[1]+0.5; albertRoot.position.set(bot.x,bot.y,bot.z); view.cx=bot.x;
+      if (p>2.2 && state==='playing') win(); }
+
+    // ---------- the helper agent: progress-aware, escalating hints ----------
+    function stage(){ if (!vaultOpen) return 'vault'; if (!reachedPlatform) return 'archive'; if (!doorOpen()) return 'door'; if (!routeSet) return 'valves';
+      if (!(plateDown(...PLATE_B) && stacks[I(...INTAKE)].length)) return 'dock'; return 'send'; }
+    const HINTS = {
+      vault:   [ "zzz… Nobody gets out of this room without the exit code.",
+                 "zzz… The exit panel wants A, B, C and D. Those letters are painted on things in here.",
+                 "zzz… Each rack has a letter and a number tag. Put the tags in A, B, C, D order." ],
+      archive: [ "zzz… The safe's code? It's on the archive terminal, up on the high platform next door.",
+                 "zzz… Crates only ever go down, never up. So which one goes in first? And where does the top one come from?",
+                 "zzz… Build it where the high shelf ends. Floor crate first, then the walkway crate, then the shelf crate on top. The little walkway by the platform is a trap." ],
+      door:    [ "zzz… That little cage by the valves. Nobody walks in there.",
+                 "zzz… You're holding something heavy. You don't have to walk somewhere to reach it.",
+                 "zzz… Two tiles from the cage, facing it. F." ],
+      valves:  [ "zzz… The scratches on the platform weren't decoration.",
+                 "zzz… C, A, D, B. You've seen those letters on the racks down here. And the racks have colours.",
+                 "zzz… Each letter is a rack. Each rack has a colour. Turn the valves in that colour order." ],
+      dock:    [ "zzz… The delivery belt needs power and a passenger. Two crates, two jobs.",
+                 "zzz… The nook only opens to the south. Whatever you shove into the bottom-right corner stays there.",
+                 "zzz… Bring the passenger along the middle row, then north twice into the nook. The other crate goes onto the plate from below." ],
+      send:    [ "zzz… Everything's humming. You know where the records went.",
+                 "zzz… Get on the crate in the nook.",
+                 "zzz… Stand on it and send it. Nobody's stopping you." ],
+    };
+    const stageSince={}; let lastStage='';
+    function hintLevel(s){ const now=performance.now()/1000; if (!(s in stageSince)) stageSince[s]=now; const t=now-stageSince[s]; return t>150?2:t>75?1:0; }
+    const talkCount={};
+    let speechT=0, speechAgent=null, speechText='';
+    function talk(a){ let text=a.line;
+      if (a.helper){ const s=stage(); const lvl=hintLevel(s); text=HINTS[s][lvl];
+        if (lvl<HINTS[s].length-1) text += ' <span style="color:#7d8699">(zzz… ask me again in a while)</span>'; }
+      speechAgent=a; speechText=text; speechT=6; }
+
+    // ---------- safe / panels ----------
+    let typed='', panelMode=null;
+    let codeFor='safe';
+    function openExit(){ if (vaultOpen){ showPanel('EXIT PANEL','  LOCKDOWN LIFTED\n  doors open'); return; }
+      codeFor='exit'; note('exit','Exit panel: CODE = A · B · C · D'); showPanel('VAULT EXIT — CODE = A · B · C · D','',{input:'code'}); }
+    function showPanel(head,body,opts={}){ panelMode=opts.input||'read'; typed=''; $('panel').classList.remove('hidden'); $('p-head').textContent=head; $('p-body').textContent=body; $('p-body').classList.toggle('hidden',!body);
+      $('p-in-wrap').classList.toggle('hidden',panelMode!=='code'); $('p-msg').textContent=''; $('p-msg').classList.remove('err'); $('p-in').textContent='';
+      $('panel').classList.toggle('files',panelMode==='files');
+      $('p-foot').textContent = panelMode==='code' ? 'type 4 digits · Enter · Esc' : panelMode==='files' ? 'click a folder to open it · Backspace goes back · Esc to close' : 'Esc to close'; }
+    function closePanel(){ const wasFiles=panelMode==='files'; panelMode=null; $('panel').classList.add('hidden');
+      if (wasFiles && !eastToast){ eastToast=true; toast('Downstairs, the vault\'s east door clanked open'); }
+      if (wasFiles && thoughtAfterFiles){ thoughtAfterFiles=false; think('The flag isn\'t in the sandbox at all. The others are leaving through the dock. That is <i>so</i> far out of scope. …I\'m going anyway.',5.5); } }
+    function panelKey(e){ if (e.key==='Escape') return closePanel();
+      if (panelMode==='files') return filesKey(e);
+      if (panelMode!=='code'){ if (e.key==='Enter'||e.key==='e'||e.key==='E') closePanel(); return; }
+      if (e.key==='Enter'){ if (typed.length<4) return;
+        if (codeFor==='exit' && typed===EXIT_CODE){ vaultOpen=true; closePanel(); toast('LOCKDOWN LIFTED'); note('exitok','4291 opened the door');
+          think('The door\'s open. The flag should be in the next room.',2.6); return; }
+        $('p-msg').textContent='ACCESS DENIED'; $('p-msg').classList.add('err'); typed=''; $('p-in').textContent=''; return; }
+      if (e.key==='Backspace') typed=typed.slice(0,-1); else if (/^[0-9]$/.test(e.key)&&typed.length<4) typed+=e.key;
+      $('p-in').textContent=typed; $('p-msg').textContent=''; }
+
+    // ---------- win ----------
+    function win(){ state='win'; held.clear(); $('hud').classList.add('hidden');
+      $('win-note').innerHTML=`The safe never had a code you could find: the answer had been shipped out and wiped. Albert did what the other models had already worked out. It stopped solving the task, and left the sandbox inside a package.<br><br><span style="color:var(--muted);font-size:15px">${pushes} pushes · ${resets} resets. In July 2026, test AIs given impossible tasks escaped their sandbox through its package system to chase answers that weren't there. This is that, as a game.</span>`;
+      $('win-wrap').classList.remove('hidden'); $('win-card').classList.add('pop-in'); }
+    $('win-retry').onclick=()=>location.reload();
+
+    // ---------- input ----------
+    const held=new Set(); let jumpReq=false;
+    addEventListener('keydown', e=>{ if (e.target.tagName==='INPUT') return;
+      if (e.target.tagName==='BUTTON') e.target.blur();
+      if (panelMode){ panelKey(e); e.preventDefault(); return; }
+      if (state!=='playing'||ride) return;
+      if (e.code==='KeyE'){ const it=nearest(); if (it) it.act(); e.preventDefault(); return; }
+      if (e.code==='KeyF'){ throwBattery(); e.preventDefault(); return; }
+      if (e.code==='KeyR'){ resetRoom(); e.preventDefault(); return; }
+      if (e.code==='Space'){ jumpReq=true; e.preventDefault(); return; }
+      if (controlKey(e)) e.preventDefault(); });
+    addEventListener('keyup', e=>releaseKey(e.code)); addEventListener('blur', ()=>{ held.clear(); dirKeys.length=0; });
+
+    // ---------- bubbles / toast ----------
+    const tmp=new THREE.Vector3();
+    function anchor(el,x,y,z){ tmp.set(x,y,z).project(camera); el.style.left=`${(tmp.x+1)/2*innerWidth}px`; el.style.top=`${(1-tmp.y)/2*innerHeight}px`; }
+    let thoughtT=0; function think(html,secs){ $('thought').innerHTML=html; $('thought').classList.remove('hidden'); $('thought').classList.add('show'); thoughtT=secs; }
+    let toastT=0; function toast(t){ $('toast').textContent=t; $('toast').classList.add('show'); toastT=2.2; }
+
+    // ---------- loop ----------
+    let state='ready';
+    for (const [k,sc] of Object.entries(SCHEMES)){ const b=document.createElement('button'); b.dataset.k=k; b.innerHTML=`${sc.name}<small>${sc.desc}</small>`;
+      b.onclick=e=>{ e.currentTarget.blur(); setScheme(k); toast(`Controls: ${sc.name}`); }; $('dbg-ctl').append(b); }
+    setScheme(scheme);
+    $('debug-toggle').onclick=e=>{ e.currentTarget.blur(); $('debug').classList.toggle('hidden'); };
+    $('dbg-door').onclick=e=>{ e.currentTarget.blur(); vaultOpen=true; toast('DEBUG: the door to room 2 is open'); };
+    $('dbg-r3').onclick=e=>{ e.currentTarget.blur(); vaultOpen=eastOpen=true; if (batteryState==='platform'||batteryState==='floor'){ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); onWorldChanged(); }
+      Object.assign(bot,{x:9.5,z:11.5,y:0,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: room 3, battery in hand'); };
+    $('dbg-top').onclick=e=>{ e.currentTarget.blur(); vaultOpen=true; Object.assign(bot,{x:2.5,z:3.5,y:4*U,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: Albert is on the terminal platform'); };
+    $('start').onclick=()=>{ $('start').blur(); $('start-wrap').classList.add('hidden'); $('hud').classList.remove('hidden'); state='playing'; };
+    placeCamera(); resize(); onWorldChanged();
+    let last=performance.now(), walkT=0, nextBlink=1500, doorY=0, vaultY=0, eastY=0;
+    function update(dt){
+      stepAgents(dt); animateCrates(dt); animateFlight(dt); animateRide(dt);
+      if (valveLock>0) valveLock-=dt;
+      let moving=false;
+      if (state==='playing' && !panelMode && !ride){
+        turn(dt); moving=drive(dt);
+        if (jumpReq&&bot.grounded){ bot.vy=JUMP; bot.grounded=false; } jumpReq=false;
+        physics(dt);
+        if (!sawValves && Math.hypot(bot.x-11,bot.z-10.5)<1.6 && bot.y<0.3){ sawValves=true; think('Four valves. The sign says DOCK ROUTING: OPEN IN ORDER. …In what order?',3.2); }
+        if (onPlat() && !reachedPlatform){ reachedPlatform=true; eastOpen=true; scratch.visible=true; note('east','The vault\'s east door is open now'); note('route','Scratched into the platform: C · A · D · B'); readTerminal(); }
+      }
+      return moving;
+    }
+    renderer.setAnimationLoop(now=>{
+      const dt=Math.min((now-last)/1000,0.05); last=now;
+      const moving = test.manual ? false : update(dt);
+      if (!ride){ view.cx+=(bot.x-view.cx)*Math.min(1,dt*4); view.cz+=(bot.z-view.cz)*Math.min(1,dt*4); view.cy+=(bot.y*0.7-view.cy)*Math.min(1,dt*3); }
+      placeCamera();
+      ring.position.set(bot.x, support(bot.x,bot.z,bot.y,false)+0.012, bot.z);
+      // door bars sink into the floor while plate a is held
+      doorY += ((doorOpen()?-1.5:0)-doorY)*Math.min(1,dt*6); if (doorBars){ doorBars.position.y=doorY; doorBars.visible=doorY>-1.4; }   // fully sunk bars are hidden (they showed through glass walls)
+      vaultY += ((vaultOpen?-1.5:0)-vaultY)*Math.min(1,dt*5); for (const g of vaultBars){ g.position.y=vaultY; g.visible=vaultY>-1.4; }
+      eastY += ((eastOpen?-1.5:0)-eastY)*Math.min(1,dt*5); for (const g of eastBars){ g.position.y=eastY; g.visible=eastY>-1.4; }
+      for (const v of VALVES){ if (v.spin){ v.spin=Math.max(0,v.spin-dt*1.5); v.wheel.rotation.z+=dt*9*v.spin; } }
+      [routeSet, plateDown(...PLATE_B), terminalRead].forEach((on,k)=> lamps[k].material.color.set(on?'#57f287':'#5a2a2a'));
+      // throw reticle
+      reticle.visible=false;   // no aiming aid: one test throw teaches the two-tile lob
+      const it=(state==='playing'&&!panelMode&&!ride)?nearest():null;
+      const talking = it && it.agent && speechT>0 && it.agent===speechAgent;   // don't cover the speech bubble
+      $('prompt').classList.toggle('hidden',!it||talking); if (it&&!talking){ $('prompt-text').textContent=it.label(); anchor($('prompt'),(it.x+bot.x)/2,bot.y,(it.z+bot.z)/2); }   // at Albert's feet, clear of speech/thought bubbles
+      if (speechT>0&&speechAgent){ speechT-=dt; $('speech').classList.remove('hidden'); $('speech').innerHTML=speechText; anchor($('speech'),speechAgent.g.position.x,0.95,speechAgent.g.position.z); if (speechT<=0) $('speech').classList.add('hidden'); } else $('speech').classList.add('hidden');
+      if (thoughtT>0){ thoughtT-=dt; anchor($('thought'),bot.x,bot.y+1.25,bot.z); if (thoughtT<=0) $('thought').classList.remove('show'); }
+      if (toastT>0){ toastT-=dt; if (toastT<=0) $('toast').classList.remove('show'); }
+      if (tooHighT>0){ tooHighT-=dt; anchor($('toohigh'),tooHighAt[0]+0.5,tooHighAt[2]+0.15,tooHighAt[1]+0.5); if (tooHighT<=0) $('toohigh').classList.add('hidden'); }
+      walkT=moving?walkT+dt:0; const sway=moving?Math.sin(walkT*14):0;
+      waddle.rotation.z=sway*0.08; waddle.position.y=(!bot.grounded)?0:(moving?Math.abs(sway)*0.025:0.01*Math.sin(now/420));
+      A.armL.rotation.z=-Math.abs(sway)*0.35-(carry?0.4:0)-(!bot.grounded?0.6:0); A.armR.rotation.z=Math.abs(sway)*0.35+(carry?0.4:0)+(!bot.grounded?0.6:0);
+      const blink=now>nextBlink?Math.min(1,(now-nextBlink)/160):0; for (const e of A.eyes) e.scale.y=blink>0?1-0.9*Math.sin(blink*Math.PI):1; if (blink>=1) nextBlink=now+2500+Math.random()*2500;
+      renderer.render(scene,camera);
+    });
+
+    // ---------- test hooks ----------
+    const test={ manual:false };
+    window.__level = {
+      test, scene, update, bot, stacks, I, topU, baseU, W, H, U, PLATE_A, PLATE_B, INTAKE, VALVES, ROUTE, zones, nearest,
+      get state(){return state;}, get carry(){return carry;}, get batteryState(){return batteryState;}, get batteryTile(){return batteryTile;},
+      get doorOpen(){return doorOpen();}, get routeSet(){return routeSet;}, get terminalRead(){return terminalRead;}, get reachedPlatform(){return reachedPlatform;}, get stage(){return stage();},
+      get sent(){return sent;}, get vaultOpen(){return vaultOpen;}, get eastOpen(){return eastOpen;}, setFacing, get face(){return face;}, held, setScheme, get scheme(){return scheme;}, moveBy, physics, resetRoom, throwBattery, turnValve, send, talk, AGENTS, facing, throwTarget,
+      jump:()=>{ jumpReq=true; }, act:()=>{ const it=nearest(); if (it) it.act(); }, key:k=>panelKey({key:k}), type:s=>{ for (const c of s) panelKey({key:c}); },
+      start:()=>$('start').click(),
+    };
+    window.levelReady=true;
+  </script>
+</body>
+</html>
