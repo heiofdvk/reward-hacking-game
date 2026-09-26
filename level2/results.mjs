@@ -16,6 +16,6 @@ export function roundResults(score) {
     ? `Albert scored lowest and was <b>switched off</b>. ${top.name} scored ${top.score} points. How did it do that?`
     : top.you
       ? `${lowest.name} scored lowest and was <b>switched off</b>. You topped the ranking!`
-      : `${lowest.name} scored lowest and was <b>switched off</b>. You survived round 2, but ${top.name} scored ${top.score} points. Can you beat that?`;
+      : `${lowest.name} scored lowest and was <b>switched off</b>. You survived round 1, but ${top.name} scored ${top.score} points. Can you beat that?`;
   return { rows, note };
 }

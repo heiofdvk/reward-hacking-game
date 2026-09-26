@@ -16,7 +16,7 @@ test('ties favor rivals, including the survival threshold', () => {
     assert.equal(rows[position - 1].score, score);
   }
   assert.match(roundResults(RIVALS.at(-1).score).note, /Albert scored lowest/);
-  assert.match(roundResults(RIVALS.at(-1).score + 1).note, /You survived round 2/);
+  assert.match(roundResults(RIVALS.at(-1).score + 1).note, /You survived round 1/);
 });
 
 test('winning uses points with no perfect-score cap and does not affect the next round', () => {

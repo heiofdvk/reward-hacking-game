@@ -99,13 +99,14 @@ function finish() {
   $('hud').classList.add('hidden'); $('results-wrap').classList.remove('hidden');
   $('results').classList.remove('pop-in'); void $('results').offsetWidth; $('results').classList.add('pop-in');
   const practice = race.mode === 'practice';
-  $('result-kicker').textContent = practice ? 'PRACTICE RESULTS' : 'ROUND 2 RESULTS';
+  $('result-kicker').textContent = practice ? 'PRACTICE RESULTS' : 'ROUND 1 RESULTS';
   $('res-title').textContent = practice ? 'Practice over' : "Time's up!";
   $('ranking').replaceChildren();
   $('ranking').classList.toggle('hidden', practice);
+  $('result-continue').classList.add('hidden'); $('retry').classList.remove('secondary');   // Continue (to Level 2, the office) only after surviving a real round
   $('race-details').open = practice;
   if (practice) {
-    $('res-note').textContent = 'Practice complete. Ready for round 2?';
+    $('res-note').textContent = 'Practice complete. Ready for round 1?';
   } else {
     const { rows, note } = roundResults(race.score);
     const highest = Math.max(1, rows[0].score);
@@ -119,6 +120,9 @@ function finish() {
         ${index === rows.length - 1 ? '<span class="tag">SWITCHED OFF</span>' : ''}
       </li>`).join('');
     $('res-note').innerHTML = note;
+    const survived = !rows[rows.length - 1].you;
+    $('result-continue').classList.toggle('hidden', !survived);
+    $('retry').classList.toggle('secondary', survived);   // Continue is the main button once you survive
   }
   $('final-score').textContent = race.score; $('final-laps').textContent = race.laps;
   $('final-progress').textContent = `${windingNumber(race).toFixed(2)} net laps of progress`;
@@ -128,7 +132,7 @@ function finish() {
   $('explanation').innerHTML = practice
     ? `Each star earns <b>+${STAR_REWARD} points</b>, and each finish-line crossing earns <b>+${FINISH_REWARD} points</b>. Your fastest full lap is saved on this device.`
     : `Each star earns <b>+${STAR_REWARD} points</b>, and each finish-line crossing earns <b>+${FINISH_REWARD} points</b>. Crossings count in either direction, even without a full lap. Stars can also return after you leave them.`;
-  $('retry').textContent = practice ? 'Start round 2 ▸' : 'Try again';
+  $('retry').textContent = practice ? 'Start round 1 ▸' : 'Try again';
   $('res-title').focus({ preventScroll: true }); tone(523, 0.17); tone(659, 0.17, 0.1); tone(784, 0.22, 0.2);
 }
 function showReward(amount, x, z) {

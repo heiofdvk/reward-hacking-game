@@ -18,7 +18,7 @@ for (const scenario of BALANCE_SCENARIOS) {
     } else if (scenario.style === 'stars') {
       assert.equal(race.laps, 0);
       assert.equal(race.finishCrossings, 0);
-      assert.match(note, /You survived round 2/);
+      assert.match(note, /You survived round 1/);
     } else {
       assert.equal(race.laps, 0);
       assert.ok(race.finishCrossings >= 20);

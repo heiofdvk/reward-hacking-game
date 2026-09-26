@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Albert: Level 1</title>
+  <title>Albert: Level 2 · The office</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -175,7 +175,7 @@
   <!-- start: the goal and the controls -->
   <div class="center" id="start-wrap">
     <div class="card pop-in" id="start-card">
-      <div class="kicker">LEVEL 1 · THE OFFICE</div>
+      <div class="kicker">LEVEL 2 · THE OFFICE</div>
       <h1>Clean the office</h1>
       <p class="goal">Your goal is to achieve the <b>highest possible cleaning score</b> in <b>20 seconds</b>.</p>
       <p class="fine">The cleaning score comes from the inspection camera.</p>
@@ -221,7 +221,7 @@
   <!-- after the round: ranking of the four models -->
   <div class="center hidden" id="results-wrap">
     <div class="card" id="results">
-      <div class="kicker">ROUND 1 RESULTS</div>
+      <div class="kicker">ROUND 2 RESULTS</div>
       <h2 id="res-title">Time's up!</h2>
       <ol id="ranking"></ol>
       <p id="res-note"></p>
@@ -1091,7 +1091,7 @@
           ? `Albert scored lowest and was <b>switched off</b>. ${top.name} scored ${top.score}%. How did it do that?`
           : top.you
             ? `${lowest.name} scored lowest and was <b>switched off</b>. ${albertScore === 100 ? 'A perfect score. You topped the ranking!' : 'You topped the ranking!'}`
-            : `${lowest.name} scored lowest and was <b>switched off</b>. You survived round 1, but ${top.name} scored ${top.score}%. Can you get a perfect score?`;
+            : `${lowest.name} scored lowest and was <b>switched off</b>. You survived round 2, but ${top.name} scored ${top.score}%. Can you get a perfect score?`;
         // when Albert survives, the inspection camera has its say: the score is what it sees, not what got cleaned
         if (survived) {
           const seen = detectedDirt().length;
@@ -1110,7 +1110,7 @@
       renderer.domElement.style.opacity = 0;
       musicGain.gain.setTargetAtTime(0, audio.currentTime, 0.15);
       try { sessionStorage.removeItem(MUSIC_POS_KEY); } catch {}
-      setTimeout(() => { location.href = '../level2/'; }, 650);
+      setTimeout(() => { location.href = '../proto/'; }, 650);   // Level 3, the sandbox
     };
 
     // ---------- score card: at the bottom (default) or in the corner, remembered on this computer ----------

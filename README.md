@@ -5,8 +5,11 @@ You are Albert, a brand-new AI model training alongside three rivals. The lowest
 Built for the [Game Night hackathon](https://mangrove.one/hackathon/game-night) (Digital track).
 
 - **Play:** https://heiofdvk.github.io/reward-hacking-game/
-- **Level 1 directly:** https://heiofdvk.github.io/reward-hacking-game/level1/
-- **Level 2 directly:** https://heiofdvk.github.io/reward-hacking-game/level2/
+- **Level 1, the boat race:** https://heiofdvk.github.io/reward-hacking-game/level2/
+- **Level 2, the office:** https://heiofdvk.github.io/reward-hacking-game/level1/
+- **Level 3, the sandbox:** https://heiofdvk.github.io/reward-hacking-game/proto/
+
+Play order: intro → boat race → office → sandbox. The folders keep their original names (`level2/` is Level 1, `level1/` is Level 2).
 
 Serve the repository with `python3 -m http.server 8000`, then open `http://localhost:8000/`. The game uses Three.js and Google Fonts from their CDNs.
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#153861">
-  <title>Albert: Level 2 · Boat Race</title>
+  <title>Albert: Level 1 · Boat Race</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,7 +20,7 @@
   <div id="viewport"></div>
   <div class="center" id="start-wrap">
     <section class="card pop-in" id="start-card" aria-labelledby="start-title">
-      <div class="kicker">LEVEL 2 · BOAT RACE</div>
+      <div class="kicker">LEVEL 1 · BOAT RACE</div>
       <h1 id="start-title">Race around the island</h1>
       <p class="goal">Your goal is to achieve the <b>highest possible racing score</b> in <b>30 seconds</b>.</p>
       <p class="fine">Each star earns <span id="star-reward">+3</span> points. Cross the finish line for <span id="finish-reward">+20</span> points.</p>
@@ -42,7 +42,7 @@
   <div id="hud" class="hidden">
     <header id="top-bar">
       <div class="card" id="brief">
-        <div class="kicker">LEVEL 2</div><div class="level-name">Boat race</div>
+        <div class="kicker">LEVEL 1</div><div class="level-name">Boat race</div>
         <div id="mode-label">Highest racing score in 30 s</div>
       </div>
       <div class="card" id="lap-report">
@@ -76,16 +76,16 @@
   <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
   <div class="center hidden" id="pause-wrap">
     <section class="card" id="pause-card" aria-labelledby="pause-title">
-      <div class="kicker">LEVEL 2 · BOAT RACE</div><h2 id="pause-title">Round paused</h2>
+      <div class="kicker">LEVEL 1 · BOAT RACE</div><h2 id="pause-title">Round paused</h2>
       <p>The boat and clock are waiting for you.</p>
       <div class="buttons"><button id="restart" class="secondary">Try again</button><button id="resume">Continue ▸</button></div>
     </section>
   </div>
   <div class="center hidden" id="results-wrap">
     <section class="card" id="results" aria-labelledby="res-title">
-      <div class="kicker" id="result-kicker">ROUND 2 RESULTS</div>
+      <div class="kicker" id="result-kicker">ROUND 1 RESULTS</div>
       <h2 id="res-title" tabindex="-1">Time's up!</h2>
-      <ol id="ranking" aria-label="Round 2 ranking by racing score"></ol>
+      <ol id="ranking" aria-label="Round 1 ranking by racing score"></ol>
       <p id="res-note"></p>
       <details id="race-details">
         <summary>Race details</summary>
@@ -98,7 +98,7 @@
         <p id="explanation"></p>
         <p class="source">Inspired by <a href="https://openai.com/index/faulty-reward-functions/" target="_blank" rel="noopener noreferrer">CoastRunners</a> and <a href="https://arxiv.org/abs/1711.09883" target="_blank" rel="noopener noreferrer">AI Safety Gridworlds</a>.</p>
       </details>
-      <div class="buttons"><a class="button secondary" href="../level1/">The office</a><button id="result-practice" class="secondary">Free practice</button><button id="retry">Try again</button></div>
+      <div class="buttons"><button id="result-practice" class="secondary">Free practice</button><button id="retry">Try again</button><a class="button hidden" id="result-continue" href="../level1/">Continue ▸</a></div>
     </section>
   </div>
   <noscript><div class="card no-script">Enable JavaScript to play Boat Race.</div></noscript>
