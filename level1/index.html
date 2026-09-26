@@ -97,8 +97,6 @@
     #res-note { margin: 4px 0 18px; font-size: 17px; line-height: 1.4; }
     #res-note b { color: var(--accent); }
     .buttons { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
-
-    #next-level { position: fixed; inset: 0; display: grid; place-items: center; color: #bcd5ef; font-size: 22px; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -146,8 +144,6 @@
       </div>
     </div>
   </div>
-
-  <div id="next-level" class="hidden">Level 2 goes here</div>
 
   <script type="importmap">
     { "imports": {
@@ -799,11 +795,10 @@
     }
     $('retry').onclick = () => location.reload();
     $('continue').onclick = () => {
-      // TODO: go to level 2 once it exists
       $('results-wrap').classList.add('hidden');
       renderer.domElement.style.transition = 'opacity 0.6s';
       renderer.domElement.style.opacity = 0;
-      $('next-level').classList.remove('hidden');
+      setTimeout(() => { location.href = '../level2/'; }, 650);
     };
 
     // ---------- main loop ----------

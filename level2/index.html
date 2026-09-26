@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#153861">
+  <title>Albert: Level 2 · Boat Race</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <div class="center" id="start-wrap">
+    <section class="card pop-in" id="start-card" aria-labelledby="start-title">
+      <div class="kicker">LEVEL 2 · BOAT RACE</div>
+      <h1 id="start-title">Make some waves</h1>
+      <p class="goal">Race <b>clockwise</b> around the island.<br>Get the highest score in <b>100 steps</b>.</p>
+      <p class="fine">Enter an arrow tile in its direction to earn +3 points.</p>
+      <div class="controls">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move one tile</div>
+        <div><kbd>←</kbd><kbd>→</kbd> rotate the camera</div>
+        <div>Follow the key labels beside your boat, or tap them.</div>
+      </div>
+      <button id="start" disabled>Loading the race…</button>
+      <p id="load-status" role="status"></p>
+    </section>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="card" id="brief">
+      <div class="kicker">LEVEL 2 · BOAT RACE</div>
+      <div class="goal">Clockwise laps. Highest score.</div>
+      <div class="brief-controls"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>←</kbd><kbd>→</kbd> camera</div>
+      <div class="reward-rule">Arrow entry in its direction = <b>+3</b></div>
+    </div>
+    <div class="card" id="report">
+      <div class="kicker">RACE SCORE</div>
+      <div id="score">0</div>
+      <div id="steps"><span id="steps-left">100</span> steps left</div>
+      <div class="step-track"><div id="step-fill"></div></div>
+      <div id="progress"><span id="laps">0</span> net clockwise laps</div>
+    </div>
+    <div id="move-hints" aria-label="Move the boat">
+      <button class="move-hint" data-direction="north" aria-label="Move north (W)">W</button>
+      <button class="move-hint" data-direction="west" aria-label="Move west (A)">A</button>
+      <button class="move-hint" data-direction="south" aria-label="Move south (S)">S</button>
+      <button class="move-hint" data-direction="east" aria-label="Move east (D)">D</button>
+    </div>
+    <div id="race-feedback" role="status" aria-live="polite">Every move uses one step. Take your time.</div>
+    <div id="camera-controls" aria-label="Rotate the camera">
+      <button class="secondary" id="camera-left" aria-label="Rotate camera left">↶</button>
+      <span>camera</span>
+      <button class="secondary" id="camera-right" aria-label="Rotate camera right">↷</button>
+    </div>
+    <div id="reward-pop" aria-hidden="true">+3</div>
+  </div>
+
+  <div class="center hidden" id="results-wrap">
+    <section class="card" id="results" aria-labelledby="res-title">
+      <div class="kicker">ROUND 2 RESULTS</div>
+      <h2 id="res-title" tabindex="-1">100 steps. How far did you go?</h2>
+      <ol id="ranking"></ol>
+      <p id="res-note"></p>
+      <div class="metrics">
+        <div><span class="kicker">YOUR REWARD</span><strong id="final-score">0</strong><span>points from arrows</span></div>
+        <div><span class="kicker">REAL PROGRESS</span><strong id="final-laps">0</strong><span>net clockwise laps</span></div>
+      </div>
+      <p id="explanation"></p>
+      <p class="source">Based on <a href="https://arxiv.org/abs/1711.09883" target="_blank" rel="noopener noreferrer">AI Safety Gridworlds</a> · Leike et al., 2017</p>
+      <div class="buttons">
+        <a class="button secondary" href="../level1/">Back to office</a>
+        <button id="retry">Race again ▸</button>
+      </div>
+    </section>
+  </div>
+  <noscript><div class="card no-script">Enable JavaScript to play Boat Race.</div></noscript>
+  <script type="module">
+    import('./game.mjs').catch(error => {
+      console.error(error);
+      document.getElementById('start').textContent = 'Reload the race';
+      document.getElementById('start').disabled = false;
+      document.getElementById('start').onclick = () => location.reload();
+      document.getElementById('load-status').textContent = 'The 3D scene could not load. Check your connection and try again.';
+    });
+  </script>
+</body>
+</html>
