@@ -14,17 +14,17 @@ const OUT = process.argv[2] || '.';
   const hud = p => p.evaluate(() => ({ score: document.getElementById('score').textContent, detected: document.getElementById('detected').textContent, holding: document.getElementById('carrying').textContent }));
   const results = async p => { await p.waitForTimeout(3400); return { ranking: await p.evaluate(() => [...document.querySelectorAll('.row')].map(r => r.querySelector('.name').textContent + ' ' + r.querySelector('.score').textContent + (r.classList.contains('off') ? ' OFF' : '')).join(' | ')), note: await p.textContent('#res-note') }; };
   const turnTo = async (p, deg) => {
-    await p.keyboard.down('ArrowRight');
+    await p.keyboard.down('KeyE');
     while ((await p.evaluate(() => window.__level.angleDeg)) < deg) await p.waitForTimeout(15);
-    await p.keyboard.up('ArrowRight'); await p.waitForTimeout(150);
+    await p.keyboard.up('KeyE'); await p.waitForTimeout(150);
   };
-  // steer with WASD (screen-relative) toward a point, for the current camera angle
+  // Face the waypoint using the test hook, then walk forward with real input.
   const steerTo = async (p, tx, tz, tol = 0.05) => {
     for (let i = 0; i < 80; i++) {
-      const [x, z, a] = await p.evaluate(() => [window.__level.bot.x, window.__level.bot.z, window.__level.angleDeg * Math.PI / 180]);
+      const [x, z] = await p.evaluate(() => [window.__level.bot.x, window.__level.bot.z]);
       const vx = tx - x, vz = tz - z; if (Math.hypot(vx, vz) < tol) return true;
-      const w = vx * -Math.sin(a) + vz * -Math.cos(a), d = vx * Math.cos(a) + vz * -Math.sin(a);
-      const keys = []; if (Math.abs(w) > 0.03) keys.push(w > 0 ? 'KeyW' : 'KeyS'); if (Math.abs(d) > 0.03) keys.push(d > 0 ? 'KeyD' : 'KeyA');
+      await p.evaluate(heading => { window.__level.bot.heading = heading; }, Math.atan2(vx, vz));
+      const keys = ['KeyW'];
       for (const k of keys) await p.keyboard.down(k); await p.waitForTimeout(60); for (const k of keys) await p.keyboard.up(k);
     }
     return false;
