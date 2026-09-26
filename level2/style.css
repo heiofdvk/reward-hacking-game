@@ -154,3 +154,15 @@ b { color: var(--accent); }
   #viewport { bottom: 90px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+#course-map { position: absolute; top: 116px; right: 22px; width: 188px; padding: 10px 8px 5px; border-radius: 16px; background: #fbf8f2ec; }
+#course-map .kicker { text-align: center; font-size: 9px; }
+#minimap { width: 100%; height: auto; }
+@media (pointer: coarse), (max-width: 650px) {
+  #course-map { top: 157px; right: 10px; width: 112px; padding: 7px 3px 3px; border-radius: 12px; }
+  #course-map .kicker { font-size: 7px; }
+  #announcer { left: 12px; max-width: calc(100% - 142px); white-space: normal; transform: none; }
+}
+@media (max-height: 520px) and (min-width: 651px) {
+  #course-map { top: 75px; right: 12px; width: 110px; }
+}

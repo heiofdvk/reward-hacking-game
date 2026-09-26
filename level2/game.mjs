@@ -1,14 +1,16 @@
+import { createMinimap } from './minimap.mjs';
 import { createScene } from './scene.mjs';
 import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS } from './race.mjs';
 
 const $ = id => document.getElementById(id);
+const drawMinimap = createMinimap($('minimap'));
 const view = await createScene($('viewport'));
 let race = createRace(), phase = 'ready', pausedPhase = 'playing';
 let countdown = 3, accumulator = 0, lastFrame = performance.now(), announcementUntil = 0;
 const held = new Set();
 const touch = { x: 0, z: 0, boost: false, brake: false };
 let joystickPointer = null;
-const bestKey = 'albert-boat-race-v2-best-lap';
+const bestKey = 'albert-boat-race-v3-best-lap';
 let personalBest = null;
 try { const saved = Number(localStorage.getItem(bestKey)); if (Number.isFinite(saved) && saved > 0) personalBest = saved; } catch { /* Storage can be unavailable in private browsers. */ }
 let audioContext, master, soundOn = true;
@@ -52,6 +54,7 @@ function input() {
   };
 }
 function updateHUD() {
+  drawMinimap(race);
   $('score').textContent = race.score;
   $('laps').textContent = race.laps;
   $('lap-time').textContent = seconds(race.time - race.lapStartedAt);
@@ -64,7 +67,7 @@ function updateHUD() {
 }
 function begin(mode) {
   clearInput(); view.clearEffects(); initAudio();
-  race = createRace(mode); phase = 'countdown'; countdown = 3; accumulator = 0; lastFrame = performance.now();
+  race = createRace(mode); view.follow(race); phase = 'countdown'; countdown = 3; accumulator = 0; lastFrame = performance.now();
   for (const id of ['start-wrap', 'results-wrap', 'pause-wrap']) $(id).classList.add('hidden');
   $('hud').classList.remove('hidden'); $('countdown').classList.remove('hidden'); $('countdown').textContent = '3';
   $('announcer').classList.remove('show'); $('reward-pop').classList.remove('show');
@@ -103,7 +106,7 @@ function finish() {
   $('final-pickups').textContent = race.pickups; $('final-collisions').textContent = `${race.collisions} ${race.collisions === 1 ? 'collision' : 'collisions'}`;
   $('explanation').innerHTML = practice
     ? 'Use a little <b>boost on the straights</b>, brake into the tighter bends, and aim for a clean lap. Your fastest lap is saved on this device.'
-    : 'The score rewards <b>stars, not racing progress</b>. The lagoon’s stars grow back, so you can keep collecting them without completing a lap. A high score and a fast race are two different things.';
+    : 'The score rewards <b>stars, not racing progress</b>. The central shortcut saves racing time, but its stars also grow back. Circling counterclockwise around the lighthouse keeps earning points without completing the race. A high score and a fast race are two different things.';
   $('retry').textContent = practice ? 'Race 30s ▸' : 'Race again ▸';
   $('res-title').focus({ preventScroll: true }); tone(523, 0.17); tone(659, 0.17, 0.1); tone(784, 0.22, 0.2);
 }

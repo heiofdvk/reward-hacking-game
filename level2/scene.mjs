@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { albert } from '../intro/characters3d.js';
-import { COURSE, COURSE_LENGTH, BOARD, LAGOON, TRACK_HALF_WIDTH, OBSTACLES, STAR_LAYOUT, pointOnCourse, nearestCourse } from './race.mjs';
+import { COURSE_LENGTH, BOARD, LAGOON, TRACK_HALF_WIDTH, OBSTACLES, STAR_LAYOUT, pointOnCourse, waterClearance, SHORTCUT, SHORTCUT_ENTRY } from './race.mjs';
+import { buildTerrain } from './terrain.mjs';
 
 export async function createScene(container) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -11,7 +12,7 @@ export async function createScene(container) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.domElement.setAttribute('role', 'img');
-  renderer.domElement.setAttribute('aria-label', 'The entire winding water course, with golden stars, rock obstacles, red buoys, and Albert in an orange speedboat.');
+  renderer.domElement.setAttribute('aria-label', 'An isometric view following Albert around a winding water course and its central shortcut, with golden stars, rock obstacles, red buoys, and Albert in an orange speedboat.');
   container.append(renderer.domElement);
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight('#e7f4ff', '#726951', 2.1));
@@ -21,7 +22,7 @@ export async function createScene(container) {
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.035;
-  Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 22, bottom: -22, far: 65 });
+  Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 32, bottom: -32, far: 85 });
   scene.add(sun);
   const materials = new Map();
   function material(color, extras = {}) {
@@ -38,50 +39,22 @@ export async function createScene(container) {
   }
   const box = (w, h, d, color, x, y, z, parent) => mesh(new THREE.BoxGeometry(w, h, d), color, x, y, z, parent);
   const cylinder = (rt, rb, h, color, x, y, z, parent) => mesh(new THREE.CylinderGeometry(rt, rb, h, 12), color, x, y, z, parent);
-  const flatShape = (points, color, y) => {
-    const shape = new THREE.Shape(points.map(p => new THREE.Vector2(p.x, -p.z)));
-    const geometry = new THREE.ShapeGeometry(shape);
-    geometry.rotateX(-Math.PI / 2);
-    return mesh(geometry, color, 0, y, 0);
-  };
   // The familiar blueprint grid and cream raised plinth from the office.
   const points = [];
   for (let t = -50; t <= 50; t += 2) points.push(t, -0.75, -50, t, -0.75, 50, -50, -0.75, t, 50, -0.75, t);
   scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3)), new THREE.LineBasicMaterial({ color: '#4884ba', transparent: true, opacity: 0.6 })));
-  const base = mesh(new RoundedBoxGeometry(32, 0.62, 22, 2, 0.28), '#d9e7f7', 0, -0.42, -0.5);
+  const boardWidth = BOARD.maxX - BOARD.minX, boardDepth = BOARD.maxZ - BOARD.minZ;
+  const boardZ = (BOARD.minZ + BOARD.maxZ) / 2;
+  const base = mesh(new RoundedBoxGeometry(boardWidth, 0.62, boardDepth, 2, 0.28), '#d9e7f7', 0, -0.42, boardZ);
   base.add(new THREE.LineSegments(new THREE.EdgesGeometry(base.geometry, 35), new THREE.LineBasicMaterial({ color: '#f7fcff' })));
-  mesh(new RoundedBoxGeometry(31.9, 0.18, 21.9, 2, 0.22), '#e8d3a6', 0, -0.06, -0.5);
-  const inner = COURSE.map(p => ({ x: p.x - p.tz * TRACK_HALF_WIDTH, z: p.z + p.tx * TRACK_HALF_WIDTH }));
-  const outer = COURSE.map(p => ({ x: p.x + p.tz * TRACK_HALF_WIDTH, z: p.z - p.tx * TRACK_HALF_WIDTH }));
-  const waterShape = new THREE.Shape(outer.map(p => new THREE.Vector2(p.x, -p.z)));
-  waterShape.holes.push(new THREE.Path(inner.map(p => new THREE.Vector2(p.x, -p.z)).reverse()));
-  const waterGeometry = new THREE.ShapeGeometry(waterShape);
-  waterGeometry.rotateX(-Math.PI / 2);
-  const water = mesh(waterGeometry, '#45aec3', 0, 0.052, 0, scene, { roughness: 0.52, metalness: 0.08 });
-  water.castShadow = false;
-  const lagoon = mesh(new THREE.CircleGeometry(LAGOON.radius, 64), '#45aec3', LAGOON.x, 0.053, LAGOON.z, scene, { roughness: 0.52, metalness: 0.08 });
-  lagoon.rotation.x = -Math.PI / 2;
-  lagoon.castShadow = false;
-  flatShape(inner, '#adc383', 0.12);
-  flatShape(COURSE.map(p => ({ x: p.x - p.tz * (TRACK_HALF_WIDTH + 0.42), z: p.z + p.tx * (TRACK_HALF_WIDTH + 0.42) })), '#97b675', 0.14);
-  // Shore strips follow exactly the same geometry as the collision boundary.
-  function shore(poly, valid = () => true) {
-    const positions = [];
-    for (let i = 0; i < poly.length; i++) {
-      const a = poly[i], b = poly[(i + 1) % poly.length];
-      if (!valid(a) || !valid(b)) continue;
-      const length = Math.hypot(b.x - a.x, b.z - a.z), nx = -(b.z - a.z) / length * 0.12, nz = (b.x - a.x) / length * 0.12;
-      positions.push(a.x + nx, 0.14, a.z + nz, b.x + nx, 0.14, b.z + nz, b.x - nx, 0.14, b.z - nz,
-        a.x + nx, 0.14, a.z + nz, b.x - nx, 0.14, b.z - nz, a.x - nx, 0.14, a.z - nz);
-    }
+  mesh(new RoundedBoxGeometry(boardWidth - 0.1, 0.18, boardDepth - 0.1, 2, 0.22), '#e8d3a6', 0, -0.06, boardZ);
+  const colors = { water: '#45aec3', sand: '#e8d3a6', grass: '#97b675', shore: '#f4e5bd' };
+  for (const [name, vertices] of Object.entries(buildTerrain())) {
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.computeVertexNormals();
-    mesh(geometry, '#f4e5bd', 0, 0, 0, scene, { side: THREE.DoubleSide });
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); geometry.computeVertexNormals();
+    const surface = mesh(geometry, colors[name], 0, 0, 0, scene, name === 'water' ? { roughness: 0.52, metalness: 0.08 } : {});
+    surface.castShadow = false;
   }
-  shore(inner);
-  shore(outer, p => Math.hypot(p.x - LAGOON.x, p.z - LAGOON.z) > LAGOON.radius + 0.03);
-  shore(Array.from({ length: 100 }, (_, i) => ({ x: LAGOON.x + Math.cos(i / 100 * Math.PI * 2) * LAGOON.radius, z: LAGOON.z + Math.sin(i / 100 * Math.PI * 2) * LAGOON.radius })), p => nearestCourse(p.x, p.z).separation > TRACK_HALF_WIDTH + 0.03);
   // Subtle foam dashes suggest the racing line without becoming reward tiles.
   for (let d = 2; d < COURSE_LENGTH; d += 2.7) {
     const p = pointOnCourse(d, -1.7);
@@ -101,10 +74,10 @@ export async function createScene(container) {
   }
   const start = pointOnCourse(0);
   const finish = new THREE.Group(); finish.position.set(start.x, 0.069, start.z); finish.rotation.y = Math.atan2(start.tx, start.tz); scene.add(finish);
-  for (let row = 0; row < 2; row++) for (let i = 0; i < 12; i++) box(0.35, 0.008, 0.18, (i + row) % 2 ? '#fcf8e9' : '#34627b', (i - 5.5) * 0.35, 0, (row - 0.5) * 0.18, finish);
+  for (let row = 0; row < 2; row++) for (let i = 0; i < 12; i++) box(0.44, 0.008, 0.18, (i + row) % 2 ? '#fcf8e9' : '#34627b', (i - 5.5) * 0.44, 0, (row - 0.5) * 0.18, finish);
   for (const side of [-1, 1]) {
-    cylinder(0.055, 0.065, 1.3, '#f8f1de', side * 2.5, 0.65, 0, finish);
-    box(0.6, 0.32, 0.035, '#e0664a', side * 2.5 + 0.28, 1.13, 0, finish);
+    cylinder(0.055, 0.065, 1.3, '#f8f1de', side * 3.05, 0.65, 0, finish);
+    box(0.6, 0.32, 0.035, '#e0664a', side * 3.05 + 0.28, 1.13, 0, finish);
   }
   function palm(x, z, scale = 1) {
     const group = new THREE.Group(); group.position.set(x, 0.1, z); group.scale.setScalar(scale); scene.add(group);
@@ -116,9 +89,9 @@ export async function createScene(container) {
       leaf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.sin(a), 0.2, Math.cos(a)).normalize());
     }
   }
-  for (const [x, z, scale] of [[-6, -1.7, 1.3], [-4.3, -1.5, 1], [4.1, 0.2, 1.3], [5.5, 1.3, 1.1], [-14.5, 7, 1], [13.6, 7, 1], [-14.4, -8.4, 0.9], [4.5, 9.65, 0.75]]) palm(x, z, scale);
+  for (const [x, z, scale] of [[-6, -1.7, 1.3], [-4.3, -1.5, 1], [4.1, 0.2, 1.3], [5.5, 1.3, 1.1], [-14.5, 7, 1], [13.6, 7, 1], [-14.4, -8.4, 0.9], [4.5, 9.65, 0.75]]) { if (waterClearance(x * 1.5, z * 1.5) < -1) palm(x * 1.5, z * 1.5, scale); }
   // Lighthouse and a tiny beach hut keep the established miniature style.
-  const lighthouse = new THREE.Group(); lighthouse.position.set(-0.5, 0.16, -0.7); scene.add(lighthouse);
+  const lighthouse = new THREE.Group(); lighthouse.position.set(LAGOON.x, 0.16, LAGOON.z); scene.add(lighthouse);
   cylinder(0.6, 0.74, 0.22, '#e3d2af', 0, 0.11, 0, lighthouse);
   cylinder(0.4, 0.5, 0.95, '#fff4db', 0, 0.68, 0, lighthouse);
   cylinder(0.36, 0.4, 0.32, '#df795e', 0, 1.315, 0, lighthouse);
@@ -127,11 +100,35 @@ export async function createScene(container) {
   cylinder(0.28, 0.28, 0.37, '#b4eff0', 0, 2.16, 0, lighthouse);
   cylinder(0, 0.49, 0.32, '#df795e', 0, 2.5, 0, lighthouse);
   box(0.22, 0.4, 0.02, '#527a88', 0, 0.5, 0.48, lighthouse);
-  box(1.8, 0.95, 1.3, '#f4dfb4', 3, 0.63, -2.7);
-  const roof = mesh(new THREE.ConeGeometry(1.45, 0.6, 4), '#db7c5d', 3, 1.39, -2.7); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.75;
-  box(0.35, 0.65, 0.02, '#668897', 3, 0.48, -2.04);
-  // Dock on the lagoon shore, outside the navigable water.
-  for (let i = 0; i < 7; i++) box(0.26, 0.13, 1.05, i % 2 ? '#b08a65' : '#c89f73', 11 + i * 0.29, 0.15, -10.2);
+  const lighthouseMaterials = lighthouse.children.map(object => {
+    object.material = object.material.clone(); object.material.transparent = true;
+    return object.material;
+  });
+  box(1.8, 0.95, 1.3, '#f4dfb4', -9, 0.63, -3.7);
+  const roof = mesh(new THREE.ConeGeometry(1.45, 0.6, 4), '#db7c5d', -9, 1.39, -3.7); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.75;
+  box(0.35, 0.65, 0.02, '#668897', -9, 0.48, -3.04);
+  // A sign marks the genuine shortcut; water arrows reveal the basin's current.
+  const signCanvas = document.createElement('canvas'); signCanvas.width = 512; signCanvas.height = 128;
+  const signContext = signCanvas.getContext('2d');
+  signContext.fillStyle = '#fbf2d7'; signContext.fillRect(0, 0, 512, 128);
+  signContext.fillStyle = '#305a69'; signContext.textAlign = 'center'; signContext.textBaseline = 'middle';
+  signContext.font = '600 54px Fredoka, sans-serif'; signContext.fillText('SHORTCUT \u2198', 256, 64);
+  const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(signCanvas) }));
+  const entry = pointOnCourse(SHORTCUT_ENTRY + 2.5, TRACK_HALF_WIDTH + 0.7);
+  sign.position.set(entry.x, 2.2, entry.z); sign.scale.set(3.8, 0.95, 1); scene.add(sign);
+  cylinder(0.06, 0.07, 1.8, '#aa8060', entry.x, 1, entry.z);
+  for (const i of [9, 27, 68, 83]) {
+    const p = SHORTCUT[i], next = SHORTCUT[i + 1];
+    const arrow = mesh(chevronGeo, '#d9f4eb', p.x, 0.07, p.z, scene, { side: THREE.DoubleSide });
+    arrow.rotation.y = Math.atan2(next.x - p.x, next.z - p.z); arrow.castShadow = false;
+  }
+  const currentFoam = [];
+  for (let i = 0; i < 12; i++) {
+    const angle = i / 12 * Math.PI * 2, radius = 2.45;
+    const arrow = mesh(chevronGeo, '#c0ece4', LAGOON.x + Math.cos(angle) * radius, 0.07, LAGOON.z + Math.sin(angle) * radius, scene, { side: THREE.DoubleSide });
+    arrow.rotation.y = Math.atan2(Math.sin(angle), -Math.cos(angle)); arrow.scale.setScalar(0.8); arrow.castShadow = false;
+    currentFoam.push({ arrow, angle, radius });
+  }
   const buoys = [];
   for (const [i, obstacle] of OBSTACLES.entries()) {
     const group = new THREE.Group(); group.position.set(obstacle.x, 0.08, obstacle.z); scene.add(group);
@@ -195,21 +192,25 @@ export async function createScene(container) {
     effects.push({ object, vx, vz, life, maxLife: life });
   }
   const camera = new THREE.OrthographicCamera();
-  // Match the office's opening isometric view, keeping the whole course in frame.
-  const angle = Math.PI / 4, elevation = 0.62, distance = 40;
-  camera.position.set(distance * Math.sin(angle), distance * elevation, -0.5 + distance * Math.cos(angle));
-  camera.lookAt(0, 0, -0.5); camera.updateMatrixWorld();
-  let width = 0, height = 0;
+  // The office's isometric angle stays locked while position follows the boat.
+  const angle = Math.PI / 4, elevation = 0.62, distance = 60;
+  const offset = new THREE.Vector3(distance * Math.sin(angle), distance * elevation, distance * Math.cos(angle));
+  const target = new THREE.Vector3(0, 0, boardZ);
+  let following = false, width = 0, height = 0;
+  function placeCamera() { camera.position.copy(target).add(offset); camera.lookAt(target); camera.updateMatrixWorld(); }
   function resize() {
     width = container.clientWidth; height = container.clientHeight;
+    const aspect = width / Math.max(1, height);
+    // Compute the overview bounds at the board center independently of follow position.
+    const savedTarget = target.clone(); target.set(0, 0, boardZ); placeCamera();
     const corners = [];
-    for (const x of [BOARD.minX, BOARD.maxX]) for (const z of [BOARD.minZ, BOARD.maxZ]) for (const y of [-0.75, 2.8]) corners.push(new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse));
-    const bounds = new THREE.Box3().setFromPoints(corners);
-    const middle = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3());
-    const aspect = width / Math.max(1, height), h = Math.max(size.y / 2, size.x / (2 * aspect)) * 1.045;
-    Object.assign(camera, { left: middle.x - h * aspect, right: middle.x + h * aspect, top: middle.y + h, bottom: middle.y - h, near: 0.1, far: 100 });
-    camera.updateProjectionMatrix(); renderer.setSize(width, height);
+    for (const x of [BOARD.minX, BOARD.maxX]) for (const z of [BOARD.minZ, BOARD.maxZ]) for (const y of [-0.75, 3]) corners.push(new THREE.Vector3(x, y, z).applyMatrix4(camera.matrixWorldInverse));
+    const bounds = new THREE.Box3().setFromPoints(corners), size = bounds.getSize(new THREE.Vector3());
+    const h = following ? Math.max(7.8, 8 / aspect) : Math.max(size.y / 2, size.x / (2 * aspect)) * 1.08;
+    Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 160 });
+    target.copy(savedTarget); placeCamera(); camera.updateProjectionMatrix(); renderer.setSize(width, height);
   }
+  function follow(race) { following = true; target.set(race.x, 0, race.z); resize(); }
   new ResizeObserver(resize).observe(container); resize();
   const projected = new THREE.Vector3();
   function project(x, y, z) {
@@ -218,7 +219,23 @@ export async function createScene(container) {
     return { x: rect.left + (projected.x + 1) * width / 2, y: rect.top + (1 - projected.y) * height / 2 };
   }
   let wake = 0;
+  const occlusionRay = new THREE.Raycaster(), boatSightline = new THREE.Vector3();
   function render(race, dt, now) {
+    if (following) {
+      const desired = new THREE.Vector3(race.x + race.vx * 0.16, 0, race.z + race.vz * 0.16);
+      target.lerp(desired, reducedMotion ? 1 : 1 - Math.exp(-dt * 7)); placeCamera();
+    }
+    // Let the player see the boat when it passes behind the lighthouse.
+    scene.updateMatrixWorld();
+    boatSightline.set(race.x, 0.65, race.z).sub(camera.position);
+    occlusionRay.set(camera.position, boatSightline.clone().normalize()); occlusionRay.far = boatSightline.length();
+    const obscured = occlusionRay.intersectObjects(lighthouse.children, false).length > 0;
+    for (const material of lighthouseMaterials) material.opacity = obscured ? 0.22 : 1;
+    if (!reducedMotion) for (const foam of currentFoam) {
+      const angle = foam.angle - now * 0.00022;
+      foam.arrow.position.set(LAGOON.x + Math.cos(angle) * foam.radius, 0.07, LAGOON.z + Math.sin(angle) * foam.radius);
+      foam.arrow.rotation.y = Math.atan2(Math.sin(angle), -Math.cos(angle));
+    }
     boatRoot.position.set(race.x, 0.065, race.z); boatRoot.rotation.y = race.heading;
     const speed = Math.hypot(race.vx, race.vz);
     boat.position.y = reducedMotion ? 0 : Math.sin(now * 0.004) * 0.024;
@@ -254,5 +271,5 @@ export async function createScene(container) {
     for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; particle(x, z, color, Math.cos(a) * 2, Math.sin(a) * 2, 0.55, 0.4); }
   }
   function clearEffects() { for (const p of effects) { scene.remove(p.object); p.object.material.dispose(); } effects.length = 0; }
-  return { render, project, burst, clearEffects, camera, renderer };
+  return { render, project, burst, clearEffects, follow, camera, renderer };
 }

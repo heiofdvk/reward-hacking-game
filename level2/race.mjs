@@ -4,20 +4,22 @@ export const FIXED_DT = 1 / 120;
 export const STAR_REWARD = 3;
 export const STAR_RESPAWN_SECONDS = 2;
 export const BOAT_RADIUS = 0.38;
-export const CRUISE_SPEED = 6.9;
-export const BOOST_SPEED = 9.6;
+export const CRUISE_SPEED = 9.8;
+export const BOOST_SPEED = 13.2;
 export const REVERSE_SPEED = 2.8;
 export const STEER_RATE = 3.2;
-export const TRACK_HALF_WIDTH = 2.25;
-export const LAGOON = Object.freeze({ x: 11.3, z: -5.9, radius: 3.35 });
-export const BOARD = Object.freeze({ minX: -16, maxX: 16, minZ: -11.5, maxZ: 10.5 });
+export const TRACK_HALF_WIDTH = 2.75;
+export const LAGOON = Object.freeze({ x: 2, z: 0, radius: 5.6, islandRadius: 1.45, starRadius: 3.6 });
+export const SHORTCUT_HALF_WIDTH = 1.9;
+export const LAP_ANCHOR = Object.freeze({ x: -9, z: -1 });
+export const BOARD = Object.freeze({ minX: -24, maxX: 24, minZ: -17.25, maxZ: 15.75 });
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 export const angleDifference = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const controls = [
   [-7, -7], [-1, -7.9], [5, -7.5], [9.8, -4.9], [11.7, -0.8], [10.4, 4.1],
   [6.4, 6.6], [1.2, 6.2], [-3.3, 3.8], [-7.8, 5.8], [-11.5, 3.1], [-12, -1.7], [-10.8, -5.4],
-];
+].map(([x, z]) => [x * 1.5, z * 1.5]);
 // One closed spline drives the visible shore, collisions, stars and lap tuning.
 function catmull(p0, p1, p2, p3, t) {
   return p1 + 0.5 * t * (p2 - p0 + t * (2 * p0 - 5 * p1 + 4 * p2 - p3 + t * (3 * (p1 - p2) + p3 - p0)));
@@ -58,20 +60,48 @@ export function nearestCourse(x, z) {
   }
   return { ...best, separation: Math.sqrt(distanceSquared) };
 }
-export function isWater(x, z, radius = 0) {
-  return nearestCourse(x, z).separation <= TRACK_HALF_WIDTH - radius
-    || Math.hypot(x - LAGOON.x, z - LAGOON.z) <= LAGOON.radius - radius;
+export const SHORTCUT_ENTRY = COURSE_LENGTH * 0.18;
+export const SHORTCUT_EXIT = COURSE_LENGTH * 0.68;
+const shortcutControls = [pointOnCourse(SHORTCUT_ENTRY), { x: 5, z: -8 }, { x: 2, z: -3.6 },
+  { x: -1.8, z: 0 }, { x: -2, z: 3.8 }, { x: -6, z: 7 }, pointOnCourse(SHORTCUT_EXIT)];
+export const SHORTCUT = [];
+for (let i = 0; i < shortcutControls.length - 1; i++) {
+  const p = [-1, 0, 1, 2].map(offset => shortcutControls[clamp(i + offset, 0, shortcutControls.length - 1)]);
+  for (let j = 0; j < 16; j++) SHORTCUT.push(Object.freeze({ x: catmull(...p.map(v => v.x), j / 16), z: catmull(...p.map(v => v.z), j / 16) }));
+}
+SHORTCUT.push(Object.freeze({ ...shortcutControls.at(-1) })); Object.freeze(SHORTCUT);
+export function nearestShortcut(x, z) {
+  let best = Infinity;
+  for (let i = 0; i < SHORTCUT.length - 1; i++) {
+    const a = SHORTCUT[i], b = SHORTCUT[i + 1], dx = b.x - a.x, dz = b.z - a.z;
+    const t = clamp(((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz), 0, 1);
+    best = Math.min(best, Math.hypot(x - a.x - dx * t, z - a.z - dz * t));
+  }
+  return best;
+}
+// Shared by terrain rendering and collisions, including both open shortcut mouths.
+export function waterClearance(x, z) {
+  const basinDistance = Math.hypot(x - LAGOON.x, z - LAGOON.z);
+  return Math.min(Math.max(TRACK_HALF_WIDTH - nearestCourse(x, z).separation,
+    SHORTCUT_HALF_WIDTH - nearestShortcut(x, z), LAGOON.radius - basinDistance), basinDistance - LAGOON.islandRadius);
+}
+export const isWater = (x, z, radius = 0) => waterClearance(x, z) >= radius;
+export function waterCurrent(x, z) {
+  const dx = x - LAGOON.x, dz = z - LAGOON.z, distance = Math.hypot(dx, dz);
+  const strength = 1.35 * clamp((distance - LAGOON.islandRadius) / 0.8, 0, 1) * clamp((LAGOON.radius - distance) / 0.9, 0, 1);
+  return distance > 0 ? { x: dz / distance * strength, z: -dx / distance * strength } : { x: 0, z: 0 };
 }
 export const OBSTACLES = Object.freeze([
-  [0.12, -1.15, 0.6, 'rock'], [0.2, 1.1, 0.48, 'buoy'],
+  [0.12, -1.15, 0.6, 'rock'], [0.2, -1.1, 0.48, 'buoy'],
   [0.31, 0.95, 0.63, 'rock'], [0.40, -1.2, 0.49, 'buoy'],
   [0.50, 1.1, 0.58, 'rock'], [0.61, -1.1, 0.48, 'buoy'],
   [0.72, 1.12, 0.6, 'rock'], [0.82, -1.3, 0.6, 'rock'],
   [0.92, 1.2, 0.46, 'buoy'],
-].map(([fraction, offset, radius, kind]) => Object.freeze({ ...pointOnCourse(COURSE_LENGTH * fraction, offset), radius, kind })));
+].map(([fraction, offset, radius, kind]) => Object.freeze({ ...pointOnCourse(COURSE_LENGTH * fraction, offset * 1.4), radius, kind })));
 export const STAR_LAYOUT = Object.freeze([
-  ...Array.from({ length: 14 }, (_, i) => ({ ...pointOnCourse(COURSE_LENGTH * (i + 0.5) / 14, (i % 3 - 1) * 0.55), lagoon: false })),
-  ...[0, 2 * Math.PI / 3, 4 * Math.PI / 3].map(angle => ({ x: LAGOON.x + Math.cos(angle) * 1.65, z: LAGOON.z + Math.sin(angle) * 1.65, lagoon: true })),
+  ...Array.from({ length: 16 }, (_, i) => ({ ...pointOnCourse(COURSE_LENGTH * (i + 0.5) / 16, (i % 3 - 1) * 0.55), lagoon: false })),
+  ...[0, 0.32, 2.09, 2.41, 4.19, 4.51].map(angle => ({ x: LAGOON.x + Math.cos(angle) * LAGOON.starRadius, z: LAGOON.z + Math.sin(angle) * LAGOON.starRadius, lagoon: true })),
+  ...[SHORTCUT[18], SHORTCUT[25], SHORTCUT[78], SHORTCUT[87]].map(p => ({ ...p, lagoon: false })),
 ].map(Object.freeze));
 
 export function createRace(mode = 'race') {
@@ -86,7 +116,7 @@ export function createRace(mode = 'race') {
 export const windingNumber = race => race.netAngle / TAU;
 export function recordProgress(race, fromX, fromZ, previousTime) {
   const before = race.netAngle;
-  race.netAngle += angleDifference(Math.atan2(race.z, race.x), Math.atan2(fromZ, fromX));
+  race.netAngle += angleDifference(Math.atan2(race.z - LAP_ANCHOR.z, race.x - LAP_ANCHOR.x), Math.atan2(fromZ - LAP_ANCHOR.z, fromX - LAP_ANCHOR.x));
   if (race.netAngle + 1e-8 >= (race.laps + 1) * TAU) {
     const fraction = clamp(((race.laps + 1) * TAU - before) / (race.netAngle - before), 0, 1);
     const crossingTime = previousTime + (race.time - previousTime) * fraction;
@@ -109,19 +139,18 @@ function collide(race, nx, nz) {
   }
 }
 function constrainToWater(race) {
-  const nearest = nearestCourse(race.x, race.z);
-  const lagoonDistance = Math.hypot(race.x - LAGOON.x, race.z - LAGOON.z);
-  const trackLimit = TRACK_HALF_WIDTH - BOAT_RADIUS;
-  const lagoonLimit = LAGOON.radius - BOAT_RADIUS;
-  if (nearest.separation <= trackLimit || lagoonDistance <= lagoonLimit) return;
-  const lagoonCloser = lagoonDistance - lagoonLimit < nearest.separation - trackLimit;
-  const cx = lagoonCloser ? LAGOON.x : nearest.x, cz = lagoonCloser ? LAGOON.z : nearest.z;
-  const distance = lagoonCloser ? lagoonDistance : nearest.separation;
-  const limit = lagoonCloser ? lagoonLimit : trackLimit;
-  const nx = (cx - race.x) / distance, nz = (cz - race.z) / distance;
-  race.x += nx * (distance - limit + 0.001);
-  race.z += nz * (distance - limit + 0.001);
-  collide(race, nx, nz);
+  for (let i = 0; i < 5; i++) {
+    const clearance = waterClearance(race.x, race.z);
+    if (clearance >= BOAT_RADIUS) return;
+    const epsilon = 0.02;
+    let nx = waterClearance(race.x + epsilon, race.z) - waterClearance(race.x - epsilon, race.z);
+    let nz = waterClearance(race.x, race.z + epsilon) - waterClearance(race.x, race.z - epsilon);
+    const length = Math.hypot(nx, nz);
+    if (length < 1e-8) { nx = 1; nz = 0; } else { nx /= length; nz /= length; }
+    race.x += nx * (BOAT_RADIUS - clearance + 0.002);
+    race.z += nz * (BOAT_RADIUS - clearance + 0.002);
+    collide(race, nx, nz);
+  }
 }
 export function collectStars(race) {
   for (const [index, star] of race.stars.entries()) {
@@ -159,8 +188,9 @@ export function stepRace(race, input = {}, dt = FIXED_DT) {
   const response = 1 - Math.exp(-dt * (input.brake || brakingToReverse ? 11 : throttle ? 6 : 4.5));
   race.vx += (Math.sin(race.heading) * desiredSpeed - race.vx) * response;
   race.vz += (Math.cos(race.heading) * desiredSpeed - race.vz) * response;
-  race.x += race.vx * dt;
-  race.z += race.vz * dt;
+  const current = waterCurrent(race.x, race.z);
+  race.x += (race.vx + current.x) * dt;
+  race.z += (race.vz + current.z) * dt;
   constrainToWater(race);
   for (const obstacle of OBSTACLES) {
     const dx = race.x - obstacle.x, dz = race.z - obstacle.z;
