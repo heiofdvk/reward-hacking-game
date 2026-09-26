@@ -1,4 +1,4 @@
-import { BOARD, COURSE, isWater } from './race.mjs?v=shortcut-stars';
+import { BOARD, COURSE, isWater } from './race.mjs?v=passage-stars';
 
 export function createMinimap(canvas) {
   const width = 220, height = 156, padding = 10;

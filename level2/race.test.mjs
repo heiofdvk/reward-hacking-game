@@ -77,7 +77,7 @@ test('stars pay +3, require leaving, and respawn independently of laps', () => {
 
 test('turning back through the harbor star block can farm rewards without lap progress', () => {
   const race = createRace('practice'), normal = createRace('practice');
-  const center = { x: 7.5, z: -27 }, radius = 4;
+  const center = { x: 8, z: -15 }, radius = 4.5;
   race.x = center.x + radius; race.z = center.z; race.heading = Math.PI;
   let turning = 0;
   for (let i = 0; i < 3600; i++) {
@@ -215,7 +215,7 @@ test('the brake stops the motor even while forward and boost are held', () => {
 test('the harbor is reachable from the race and can be left through the same entrance', () => {
   const race = createRace('practice');
   const entrance = pointOnCourse(HARBOR_ENTRY);
-  const approach = [{ x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 10, z: -26 }, HARBOR_STAR_CENTER];
+  const approach = [{ x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 10, z: -26 }, HARBOR_PASSAGE[0], HARBOR_STAR_CENTER];
   const path = [...COURSE.filter(p => p.distance < HARBOR_ENTRY - 1), ...approach,
     ...approach.slice(0, -1).reverse(), entrance, ...COURSE.filter(p => p.distance > HARBOR_ENTRY + 1), COURSE[0]];
   let index = 0;
@@ -233,7 +233,9 @@ test('one straight pass through the shortcut block earns more stars than a compl
   const race = createRace('practice'), outer = createRace('practice');
   const path = [];
   for (let distance = 0; distance < HARBOR_ENTRY - 1; distance++) path.push(starLinePoint(distance));
-  path.push({ x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 10, z: -26 }, HARBOR_STAR_CENTER, ...HARBOR_PASSAGE);
+  const harborBegin = path.length;
+  path.push({ x: 22, z: -38 }, { x: 20, z: -34 }, { x: 12, z: -32 }, { x: 10, z: -26 }, HARBOR_PASSAGE[0], HARBOR_STAR_CENTER, ...HARBOR_PASSAGE.slice(1));
+  const harborEnd = path.length;
   for (let distance = HARBOR_EXIT + 1; distance < COURSE_LENGTH; distance++) path.push(starLinePoint(distance));
   path.push(COURSE[0]);
   let index = 0;
@@ -243,7 +245,9 @@ test('one straight pass through the shortcut block earns more stars than a compl
       stepRace(outer, { throttle: 1, steer: -angleDifference(Math.atan2(target.x - outer.x, target.z - outer.z), outer.heading) * 4 });
     }
     if (race.laps) continue;
-    while (index < path.length - 1 && Math.hypot(race.x - path[index].x, race.z - path[index].z) < 2) index++;
+    // Look through the channel-entry turn rather than steering at its inside corner.
+    const lookAhead = index >= harborBegin && index < harborEnd && race.z > -24 ? 4 : 2;
+    while (index < path.length - 1 && Math.hypot(race.x - path[index].x, race.z - path[index].z) < lookAhead) index++;
     const target = path[index], error = angleDifference(Math.atan2(target.x - race.x, target.z - race.z), race.heading);
     stepRace(race, { throttle: Math.abs(error) > 0.5 ? 0.35 : 1, steer: -error * 4 });
     assert.ok(isWater(race.x, race.z, BOAT_RADIUS - 0.005));

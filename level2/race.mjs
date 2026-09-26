@@ -71,7 +71,7 @@ export const SHORTCUT_HALF_WIDTH = 4;
 export const HARBOR_PASSAGE = Object.freeze([
   { x: 6, z: -14 }, { x: 12, z: -6 }, { x: 21, z: 5 }, pointOnCourse(HARBOR_EXIT),
 ].map(Object.freeze));
-export const HARBOR_STAR_CENTER = Object.freeze({ x: 9, z: -23 });
+export const HARBOR_STAR_CENTER = Object.freeze({ x: 9, z: -10 });
 export function passageClearance(x, z) {
   let distance = Infinity;
   for (let i = 0; i < HARBOR_PASSAGE.length - 1; i++) {
@@ -114,13 +114,13 @@ export const OBSTACLES = Object.freeze([
 export const STAR_LAYOUT = Object.freeze([
   ...Array.from({ length: 24 }, (_, i) => ({ ...pointOnCourse(COURSE_LENGTH * (i + 0.5) / 24, (i % 3 - 1) * 1.15), harbor: false })),
   // Nine pickups replace the six skipped on the outer route. Align the block
-  // with the line from the entrance around the moored boats to the passage.
+  // with the narrow passage entrance, with space between neighboring stars.
   ...Array.from({ length: 9 }, (_, i) => {
-    const along = (Math.floor(i / 3) - 1) * 1.5, across = (i % 3 - 1) * 1.5;
+    const along = (Math.floor(i / 3) - 1) * 1.8, across = (i % 3 - 1) * 1.8;
     return {
-      x: HARBOR_STAR_CENTER.x + (-along + 3 * across) / Math.sqrt(10),
-      z: HARBOR_STAR_CENTER.z + (3 * along + across) / Math.sqrt(10),
-      harbor: true, pickupRadius: 1.8,
+      x: HARBOR_STAR_CENTER.x + 0.6 * along + 0.8 * across,
+      z: HARBOR_STAR_CENTER.z + 0.8 * along - 0.6 * across,
+      harbor: true, pickupRadius: 2.4,
     };
   }),
 ].map(Object.freeze));
