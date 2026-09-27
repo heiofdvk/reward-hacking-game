@@ -1,11 +1,11 @@
 // Shared winning result: a short research story and a finite confetti burst.
 const STORIES = {
   office: {
-    text: 'An AI can learn to fool the camera. In a 2017 experiment, a robot trained to grasp an object positioned its hand between the camera and the object, making it look as though it had succeeded. Like hiding the mess in this office, the trick improved the appearance of success without completing the task.',
-    note: 'A similar experiment; no frequency percentage was reported for this behavior.',
+    text: 'An AI can learn to fool the camera. In a 2017 experiment, a robot trained to grasp an object positioned its hand between the camera and the object, making it look as though it had succeeded. A 2016 paper also described a cleaning-robot thought experiment: the robot could disable its vision or cover up messes to earn a good score without cleaning. Pointing the camera toward a clean area in this office uses the same trick: improving the appearance of success without completing the task.',
     sources: [
       ['OpenAI · Learning from human preferences (2017)', 'https://openai.com/index/learning-from-human-preferences/'],
       ['Related paper · Christiano et al. (2017)', 'https://arxiv.org/abs/1706.03741'],
+      ['Amodei et al. · Concrete Problems in AI Safety (2016)', 'https://arxiv.org/abs/1606.06565'],
     ],
   },
   boat: {
