@@ -22,6 +22,11 @@
 .victory-sources { display: grid; gap: 8px; }
 .victory-sources a { font-size: 12px; line-height: 1.4; color: #176079; text-underline-offset: 3px; }
 .victory-sources a:focus-visible { outline: 3px solid #0b8fb3; outline-offset: 3px; border-radius: 2px; }
+.victory-video { margin: 18px 0 0; }
+.victory-video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 10px; background: #15212b; }
+.victory-video figcaption { margin-top: 8px; }
+.victory-video a { color: #176079; font-size: 12px; text-underline-offset: 3px; }
+.victory-video a:focus-visible { outline: 3px solid #0b8fb3; outline-offset: 3px; }
 .victory-confetti { position: fixed; inset: 0; z-index: 20; pointer-events: none; overflow: hidden; }
 .victory-confetti i {
   position: absolute; top: -20px; width: 9px; height: 15px; border-radius: 2px;

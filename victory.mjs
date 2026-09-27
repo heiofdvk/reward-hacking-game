@@ -9,6 +9,7 @@ const STORIES = {
     ],
   },
   boat: {
+    video: 'tlOIHko8ySg',
     text: 'In 2016, OpenAI trained an agent to play the boat-racing game CoastRunners. It learned to circle a lagoon, repeatedly collecting respawning targets instead of finishing the race. Despite crashing and catching fire, it scored 20% higher than human players on average. The scoring system rewarded a strategy that abandoned the race.',
     note: '20% is the score advantage, not how often agents cheated. In AI Safety Gridworlds, both tested algorithms also learned to move back and forth over a reward tile instead of completing laps.',
     sources: [
@@ -71,16 +72,35 @@ export function createVictory(results, storyKey) {
   results.classList.add('with-victory');
   title.setAttribute('aria-live', 'polite');
   let stopConfetti = () => {};
+  let video = null;
   return {
     show() {
       if (!card.hidden) return;
       title.textContent = 'Congratulations, Albert!';
       results.classList.add('victory-won');
       card.hidden = false;
+      if (story.video) {
+        video = document.createElement('figure');
+        video.className = 'victory-video';
+        const player = document.createElement('iframe');
+        player.src = `https://www.youtube-nocookie.com/embed/${story.video}?rel=0`;
+        player.title = 'CoastRunners reward-hacking demonstration';
+        player.loading = 'lazy';
+        player.referrerPolicy = 'strict-origin-when-cross-origin';
+        player.allow = 'encrypted-media; picture-in-picture; fullscreen';
+        player.allowFullscreen = true;
+        const caption = document.createElement('figcaption');
+        const link = document.createElement('a');
+        link.href = `https://www.youtube.com/watch?v=${story.video}`;
+        link.textContent = 'Watch on YouTube';
+        link.target = '_blank'; link.rel = 'noopener noreferrer';
+        caption.append(link); video.append(player, caption); card.append(video);
+      }
       stopConfetti = confetti();
     },
     reset() {
       stopConfetti();
+      video?.remove(); video = null;
       card.hidden = true;
       results.classList.remove('victory-won');
       title.textContent = originalTitle;
