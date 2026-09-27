@@ -163,9 +163,3 @@ b { color: var(--accent); }
 @media (max-height: 520px) and (min-width: 651px) {
   #course-map { top: 75px; right: 12px; width: 110px; }
 }
-
-/* debug panel: switch the boat's controls (keyboard / follow the mouse) */
-#debug-panel { position: absolute; right: 20px; bottom: 84px; padding: 12px 14px; display: grid; gap: 8px; z-index: 5; }
-#debug-panel button { text-align: left; padding: 8px 14px; font-size: 14px; }
-#debug-panel button small { display: block; font-weight: 400; font-size: 12px; opacity: .75; }
-#debug-panel button.on { background: var(--cyan); box-shadow: 0 5px 0 #2aa7c4; }

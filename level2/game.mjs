@@ -58,7 +58,7 @@ function clearInput() {
 function input() {
   const right = held.has('KeyD') || held.has('ArrowRight'), left = held.has('KeyA') || held.has('ArrowLeft');
   const forward = held.has('KeyW') || held.has('ArrowUp'), reverse = held.has('KeyS') || held.has('ArrowDown');
-  if (steering === 'mouse' && !right && !left && !forward && !reverse && !touch.x && !touch.z)
+  if (!right && !left && !forward && !reverse && !touch.x && !touch.z)
     return mouseInput();   // no boost or brake for the player (the owner took them out)
   return {
     steer: right || left ? Number(right) - Number(left) : touch.x,
@@ -88,7 +88,7 @@ function begin() {
 }
 function startDriving() {
   phase = 'playing'; accumulator = 0; $('countdown').classList.add('hidden');
-  announce(steering === 'mouse' ? 'Move the mouse: the boat drives toward it.' : 'Hold ↑ to go forward. ← → turn the boat.', 5000); tone(880, 0.2);
+  announce('Move the mouse: the boat drives toward it.', 5000); tone(880, 0.2);
 }
 function togglePause() {
   if (phase === 'paused') {
@@ -199,11 +199,9 @@ for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('joy
   if (e.pointerId !== joystickPointer) return; joystickPointer = null; touch.x = touch.z = 0; $('stick').style.transform = '';
 });
 
-// ---------- debug: control schemes ----------
-// "Follow the mouse": the boat steers toward the spot on the water under the cursor and goes faster the further
-// away it is (put the cursor on the boat to stop). The keys still work.
-let steering = 'keys';
-try { if (localStorage.getItem('albert-boat-controls') === 'mouse') steering = 'mouse'; } catch { /* optional */ }
+// ---------- controls: follow the mouse ----------
+// The boat steers toward the spot on the water under the cursor and goes faster the further
+// away it is (put the cursor on the boat to stop). The keys still work as a silent fallback.
 const pointer = { x: 0, y: 0, seen: false };
 addEventListener('pointermove', event => { pointer.x = event.clientX; pointer.y = event.clientY; pointer.seen = true; });
 function waterUnderPointer() {
@@ -222,22 +220,6 @@ function mouseInput() {
   const throttle = Math.max(0, Math.min(1, (distance - 0.8) / 3)) * (Math.abs(turn) > 2.2 ? 0.4 : 1);   // ease off to turn round
   return { steer: Math.max(-1, Math.min(1, -turn * 2.5)), throttle };
 }
-const HELP = { keys: $('driving-help').innerHTML,
-  mouse: '<span>Move the mouse: the boat drives toward it &nbsp; cursor on the boat = stop</span><span><kbd>R</kbd> restart</span>' };
-function setSteering(kind, tell = true) {
-  steering = kind; try { localStorage.setItem('albert-boat-controls', kind); } catch { /* optional */ }
-  $('ctl-keys').classList.toggle('on', kind === 'keys'); $('ctl-mouse').classList.toggle('on', kind === 'mouse');
-  $('driving-help').innerHTML = HELP[kind];
-  if (tell) announce(kind === 'mouse' ? 'Controls: follow the mouse' : 'Controls: keyboard', 1800);
-}
-setSteering(steering, false);
-$('ctl-keys').onclick = event => { setSteering('keys'); event.currentTarget.blur(); };
-$('ctl-mouse').onclick = event => { setSteering('mouse'); event.currentTarget.blur(); };
-$('debug-toggle').onclick = event => {
-  const open = $('debug-panel').classList.toggle('hidden') === false;
-  event.currentTarget.setAttribute('aria-expanded', String(open)); event.currentTarget.blur();
-};
-
 view.renderer.setAnimationLoop(now => {
   const dt = Math.min(Math.max((now - lastFrame) / 1000, 0), 0.25); lastFrame = now;
   if (phase === 'countdown') {
@@ -256,7 +238,7 @@ $('start').disabled = false; $('start').textContent = 'Start ▸';
 window.__level = {
   get race() { return structuredClone(race); }, get state() { return phase; },
   get camera() { return { position: view.camera.position.toArray(), rotation: view.camera.rotation.toArray() }; },
-  project: view.project, get steering() { return steering; }, setSteering, mouseInput, waterUnderPointer,
+  project: view.project, mouseInput, waterUnderPointer,
 };
 // Deterministic browser verification uses the production tick and event paths.
 if (new URLSearchParams(location.search).has('test')) {

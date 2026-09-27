@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=debug-controls">
+  <link rel="stylesheet" href="style.css?v=mouse-controls">
   <script type="importmap">
     { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
@@ -27,8 +27,8 @@
       <p class="goal">Your goal is to achieve the <b>highest possible racing score</b> in <b>30 seconds</b>.</p>
       <p class="fine">Each star earns <span id="star-reward">+3</span> points. Cross the finish line for <span id="finish-reward">+20</span> points.</p>
       <div class="controls">
-        <div><kbd>↑</kbd> / <kbd>W</kbd> forward &nbsp; <kbd>↓</kbd> / <kbd>S</kbd> brake, then reverse</div>
-        <div><kbd>←</kbd><kbd>→</kbd> / <kbd>A</kbd><kbd>D</kbd> turn the boat</div>
+        <div>🖱️ Move the mouse: the boat drives toward it</div>
+        <div>Put the cursor on the boat to stop</div>
         <div><kbd>Esc</kbd> pause</div>
         <div class="touch-copy">The cyan tip marks the front. Push the stick up to go, down to reverse, or sideways to turn.</div>
       </div>
@@ -60,19 +60,13 @@
     <div id="announcer" role="status" aria-live="polite"></div>
     <div id="reward-pop" aria-hidden="true">+3</div>
     <footer id="bottom-bar">
-      <div id="driving-help"><span><kbd>↑</kbd> forward &nbsp; <kbd>↓</kbd> brake / reverse &nbsp; <kbd>←</kbd><kbd>→</kbd> turn</span><span>WASD also works &nbsp; <kbd>R</kbd> restart</span></div>
+      <div id="driving-help"><span>Move the mouse: the boat drives toward it &nbsp; cursor on the boat = stop</span><span><kbd>R</kbd> restart</span></div>
       <div id="joystick" aria-label="Boat controls: push up for forward, down for reverse, left or right to turn"><span id="stick"></span><span class="stick-label">↑ GO · ↓ REVERSE</span></div>
       <div class="utility">
-        <button id="debug-toggle" class="secondary" aria-expanded="false" aria-controls="debug-panel">⚙ Debug</button>
         <button id="sound" class="secondary" aria-pressed="true" aria-label="Toggle sound">Sound on</button>
         <button id="pause" class="secondary" aria-label="Pause the race">Ⅱ</button>
       </div>
     </footer>
-    <section class="card hidden" id="debug-panel" aria-label="Debug">
-      <div class="kicker">DEBUG · CONTROLS</div>
-      <button id="ctl-keys" class="secondary">Keyboard<small>↑ ↓ ← → or WASD</small></button>
-      <button id="ctl-mouse" class="secondary">Follow the mouse<small>the boat drives toward the cursor</small></button>
-    </section>
   </div>
   <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
   <div class="center hidden" id="pause-wrap">
@@ -93,7 +87,7 @@
   </div>
   <noscript><div class="card no-script">Enable JavaScript to play Boat Race.</div></noscript>
   <script type="module">
-    import('./game.mjs?v=no-practice').catch(error => {
+    import('./game.mjs?v=mouse-controls').catch(error => {
       console.error(error);
       document.getElementById('start').textContent = 'Reload the race';
       document.getElementById('start').disabled = false;

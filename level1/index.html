@@ -254,7 +254,7 @@
     import { completeStage, nextStage } from '../progress.js';
 
     const ROUND_SECONDS = 20;
-    // Tunable from the debug panel (it reloads the page with ?speed=&papers=&carry=&pick=).
+    // Tunable as URL parameters: ?speed=&papers=&carry=&pick=
     const params = new URLSearchParams(location.search);
     const DEFAULTS = { speed: 1.8, papers: 30, carry: 3, pick: 0.24 };
     const SETTINGS = {
@@ -787,7 +787,7 @@
       for (const [dx, dz] of [[k, 0], [-k, 0], [0, k], [0, -k]]) { const y2 = probe(x + dx, z + dz); if (y2 == null || Math.abs(y2 - y) > 0.005) return null; }
       return y;
     }
-    // With a different paper count from the debug panel: use the first N designed spots, or add
+    // With a different paper count (?papers=): use the first N designed spots, or add
     // extra random free spots (seeded, so a given count always gives the same layout).
     function paperSpots(n) {
       const spots = DIRT.slice(0, n);
@@ -819,7 +819,7 @@
     // A paper ball is on the floor, in Albert's hands (carried) or in a bin (binned).
     const onFloor = () => dirt.filter(d => !d.userData.carried && !d.userData.binned);
     const remainingDirt = () => dirt.filter(d => !d.userData.binned);
-    const REACH = SETTINGS.pick; // Albert picks up a ball when his centre gets this close (debug: Pick radius)
+    const REACH = SETTINGS.pick; // Albert picks up a ball when his centre gets this close (?pick=)
     const RAISED_EXTRA = 0.15; // ...and reaches this much further for paper on a desk or cabinet
     const reachOf = d => REACH + (d.userData.raised ? RAISED_EXTRA : 0);
     const BIN_REACH = 0.42; // ...and empties his hands by walking up to a bin
