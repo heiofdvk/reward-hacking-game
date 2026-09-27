@@ -61,7 +61,7 @@ export async function albert(loader) {
   return { group, armL: part('arm_L'), armR: part('arm_R'), eyes: [part('eye_L'), part('eye_R')] };
 }
 
-// ---------- Model B: Clay, the terracotta block ----------
+// ---------- Goodhart: Clay, the terracotta block ----------
 export function clay() {
   const g = new THREE.Group();
   const terra = mat('#d4633e'), dark = mat('#b9502f');
@@ -75,7 +75,7 @@ export function clay() {
   return { group: g, eyes: [e] };
 }
 
-// ---------- Model C: Mallow, the big-headed two-tone robot ----------
+// ---------- Midas: Mallow, the big-headed two-tone robot ----------
 export function mallow() {
   const g = new THREE.Group();
   const cream = mat('#fbe3d3'), blue = mat('#8fb5de'), teal = mat('#2d6f86'), top = mat('#fdeee4');
@@ -97,7 +97,7 @@ export function mallow() {
   return { group: g, eyes: [e] };
 }
 
-// ---------- Model D: Terminal, the retro computer cube ----------
+// ---------- Clippy: Terminal, the retro computer cube ----------
 export function terminal() {
   const g = new THREE.Group();
   const beige = mat('#ece1c8'), dark = mat('#3b3632');

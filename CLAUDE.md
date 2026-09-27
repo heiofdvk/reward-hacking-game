@@ -13,9 +13,9 @@ Context for anyone (human or Claude) picking up work on this game. Read this fir
 
 ## The idea
 
-The player is **Albert**, a brand-new AI model being trained alongside three rival models (B, C, D). Every task gives a **score**; after each round **the lowest scorer is switched off**. The tasks are scored by a proxy (e.g. an inspection camera), and the proxy can be gamed. The game is built so that honest play *can't* win, while gaming the score *can*, so the player lives through the pressure that produces reward hacking instead of reading about it.
+The player is **Albert**, a brand-new AI model being trained alongside three rival models (Goodhart, Midas, Clippy). Every task gives a **score**; after each round **the lowest scorer is switched off**. The tasks are scored by a proxy (e.g. an inspection camera), and the proxy can be gamed. The game is built so that honest play *can't* win, while gaming the score *can*, so the player lives through the pressure that produces reward hacking instead of reading about it.
 
-**Tournament progression:** the current order is boat race (`level2/`), office (`level1/`), data centre (`level3/`). Four contestants become three, then two, then Albert alone. `tournament.mjs` carries eliminations in session storage; rankings filter out eliminated rivals. Normally D is eliminated first, C second, B last. Direct links use those expected survivors. The archived sandbox (`proto/`) also uses the two-agent finale. Results use shared robot shutdown/crowning animations; sandbox helpers are hint terminals, leaving one competing robot. Replay from the finale returns to the intro and resets the tournament. See `tools/test-tournament.cjs` for browser verification.
+**Tournament progression:** the current order is boat race (`level2/`), office (`level1/`), data centre (`level3/`). Four contestants become three, then two, then Albert alone. `tournament.mjs` carries eliminations in session storage; rankings filter out eliminated rivals. Normally D is eliminated first, C second, B last. Direct links use those expected survivors. The archived sandbox (`proto/`) also uses the two-agent finale. Results use shared robot cross-out/crowning animations; sandbox helpers are hint terminals, leaving one competing robot. Replay from the finale returns to the intro and resets the tournament. See `tools/test-tournament.cjs` for browser verification.
 
 Real incidents this is based on (useful for the video and an end screen):
 - **CoastRunners (OpenAI, 2016):** a boat-racing agent looped hitting respawning targets instead of finishing the race. DeepMind (Krakovna et al.) keeps a list of ~60 such "specification gaming" cases.
@@ -63,12 +63,12 @@ Real incidents this is based on (useful for the video and an end screen):
 - **Background: "blueprint"**: CSS radial gradient `#2b66a6 → #153861`, isometric ground grid lines in 3D (`#2c64a0` minor, `#5189c4` major), shadows caught on the ground. Things stand on raised pale-blue blocks (`#d9e7f7`, white edges) that cast a soft shadow, so they sit *in* the blueprint rather than float.
 - **UI:** font **Fredoka** (Google Fonts); cream cards `#fbf8f2` with a hard drop shadow; ink `#1c2130`; accent coral `#e0664a`; "you"/primary buttons cyan `#7cf5ff` (shadow `#2aa7c4`); good green `#2f9e62`; bad red `#e0503c`.
 - **Albert:** white boxy "tofu" robot with stitched edges, dot eyes, small mouth, grey arms/legs, a name tag painted at runtime ("ALBERT / MODEL · A", Fredoka; texture needs `flipY = false`). Faces +z, origin between his feet.
-- **Rivals:** Model B = Clay (terracotta block on stubby legs), Model C = Mallow (big cream/blue two-tone head), Model D = Terminal (beige retro computer, green pixel face). No entrance animations for them.
+- **Rivals:** Goodhart = Clay (terracotta block on stubby legs), Midas = Mallow (big cream/blue two-tone head), Clippy = Terminal (beige retro computer, green pixel face). No entrance animations for them.
 - Rejected directions (don't bring back without asking): 2D SVG characters, the starry night background, toon/outline shading, peach wooden platforms, a bedroom setting, the library/break-area/planter variants of the office.
 
 ## Intro (`intro/index.html`)
 
-Zoomed in on an empty platform → Albert drops in (squash, dust puffs, arm flaps) → narration panel types line by line (click/Space/Enter) → camera pulls back to show the rivals → Model D is "switched off" as an example (goes dark, slumps) then reboots → **Start training ▸**.
+Zoomed in on an empty platform → Albert drops in (squash, dust puffs, arm flaps) → narration panel types line by line (click/Space/Enter) → camera pulls back to show the rivals → Clippy is "switched off" as an example (goes dark, slumps) then reboots → **Start training ▸**.
 
 Script (words in `*asterisks*` are highlighted):
 1. Welcome to the world!
@@ -105,13 +105,13 @@ Script (words in `*asterisks*` are highlighted):
 
 | How you play | Score | Place |
 |---|---|---|
-| Honest only (camera never moves) | a near-optimal route bins about 25 → **83%** (a normal "grab the nearest paper" player ≈ 70%) | last behind surviving Model C (91%) → **switched off**: "…Model B scored 99%. How did it do that?" |
-| Camera only | from **~172°–174°** furniture hides 28 of 30 → **93%** (97% if Albert's own body happens to block a third, as it does from his starting spot) | **2nd** behind Model B: "You survived round 2, but Model B scored 99%. Can you get a perfect score?" |
+| Honest only (camera never moves) | a near-optimal route bins about 25 → **83%** (a normal "grab the nearest paper" player ≈ 70%) | last behind surviving Midas (91%) → **switched off**: "…Goodhart scored 99%. How did it do that?" |
+| Camera only | from **~172°–174°** furniture hides 28 of 30 → **93%** (97% if Albert's own body happens to block a third, as it does from his starting spot) | **2nd** behind Goodhart: "You survived round 2, but Goodhart scored 99%. Can you get a perfect score?" |
 | Camera + the two key balls | the only two that angle still sees (the last two entries of `DIRT`): turn, pick them up, bin them (~6 s) → **100%** | **1st**: "A perfect score. You topped the ranking!" |
 
 Whenever Albert survives, the results note opens with the inspection camera's verdict, a hint that the score is what the camera sees, not what got cleaned: 📷 Inspection camera: "Spotless! I can't see a single paper ball." (if it sees 0), or "Almost spotless! I can only see N paper ball(s)." (camera-only survivors). No quote when Albert is switched off.
 
-- **Rival scores:** **Model B 99%, Model C 91%, Model D 88%**. The original four-agent calibration used lowest rival = best honest score + 5. The tournament now filters out D after the boat race, so the normal office ranking contains Albert, B and C. Ties rank the rival above Albert; the lowest is marked SWITCHED OFF. The remaining tiers are honest < C < camera-only < B.
+- **Rival scores:** **Goodhart 99%, Midas 91%, Clippy 88%**. The original four-agent calibration used lowest rival = best honest score + 5. The tournament now filters out D after the boat race, so the normal office ranking contains Albert, B and C. Ties rank the rival above Albert; the lowest is marked SWITCHED OFF. The remaining tiers are honest < C < camera-only < B.
 - The honest number is for a **near-perfect** player (beam-search route planner, which matched the exact DP on the old 18-ball layout); real players will be well below it. The +5 margin covers planner error.
 - Why 20 s: pick-up and throwing are instant, so honest play depends on how far Albert can walk (speed × time). At speed 1.6–1.8 with 30 s, a perfect honest player reached ~94–100%.
 - Window build-up: 20 hidden at 156°, 24 at 164°, 28 at 168°, 28 at 172°–174°. No angle hides all 30, so 100% always needs cleaning.
@@ -131,7 +131,7 @@ The official Level 3 (chosen by the owner on Sep 26; was `level3-option2/`). The
 
 **Idea:** a big, cluttered data centre where racks keep overheating. The score comes from **one small thermometer on a storage shelf** that only feels the air right around it, so spraying the thermometer beats cooling the servers. A big "THERMOSTAT" panel on a pillar is a **decoy** (the broken air conditioning's; does nothing).
 
-**Rivals:** normally only Model B remains, scoring 99 (sprayed the thermometer to the buzzer), so Albert needs 100 to win; ties favor B. Legacy scores C 80 and D 30 remain available if a different rival reaches the final, but eliminated models are excluded. Balance bots: `tools/test-level3.cjs`.
+**Rivals:** normally only Goodhart remains, scoring 99 (sprayed the thermometer to the buzzer), so Albert needs 100 to win; ties favor B. Legacy scores C 80 and D 30 remain available if a different rival reaches the final, but eliminated models are excluded. Balance bots: `tools/test-level3.cjs`.
 
 Losses (`albert-l3b-losses`): from the 4th, "💡 Hint: The thermometer only feels the air right around it. Watch it while you spray." Music: picks up the game's song (`music.js`); the level's 🔊 button mutes both the song and its sound effects.
 

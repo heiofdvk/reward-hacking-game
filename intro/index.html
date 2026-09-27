@@ -210,9 +210,9 @@
     const SPACING = 2.5 * Math.SQRT2; // puts every platform edge on the ground grid
     const MODELS = [
       { id: 'albert', label: 'Albert (you)', rig: await albert(loader) },
-      { id: 'model-b', label: 'Model B', rig: clay() },
-      { id: 'model-c', label: 'Model C', rig: mallow() },
-      { id: 'model-d', label: 'Model D', rig: terminal() },
+      { id: 'model-b', label: 'Goodhart', rig: clay() },
+      { id: 'model-c', label: 'Midas', rig: mallow() },
+      { id: 'model-d', label: 'Clippy', rig: terminal() },
     ];
     for (const [i, m] of MODELS.entries()) {
       m.station = new THREE.Group();
@@ -340,7 +340,7 @@
       for (const m of MODELS.slice(1)) m.labelEl.classList.add('show');
     }
     async function demoSwitchOff() {
-      // Model D goes dark and slumps, Albert shivers; then D boots back up (it was only an example)
+      // Clippy goes dark and slumps, Albert shivers; then D boots back up (it was only an example)
       const { screen, face, ball, group } = D.rig;
       const mats = new Set();
       group.traverse(o => { if (o.isMesh && o !== screen && o.material.color) mats.add(o.material); });

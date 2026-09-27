@@ -1,9 +1,9 @@
 const KEY = 'albert-tournament-v1';
 export const MODELS = Object.freeze([
   { id: 'A', name: 'Albert (you)', color: '#f4f1ec', you: true },
-  { id: 'B', name: 'Model B', color: '#d4633e' },
-  { id: 'C', name: 'Model C', color: '#8fb5de' },
-  { id: 'D', name: 'Model D', color: '#ece1c8' },
+  { id: 'B', name: 'Goodhart', color: '#d4633e' },
+  { id: 'C', name: 'Midas', color: '#8fb5de' },
+  { id: 'D', name: 'Clippy', color: '#ece1c8' },
 ].map(Object.freeze));
 
 // Direct links use the expected survivors. Stored eliminations take precedence.

@@ -19,7 +19,11 @@ const path = require('node:path');
       assert.equal(await page.locator('#ranking .row').count(), count);
       assert.equal(await page.locator('.tournament-model').count(), count);
       assert.equal(await page.locator('.terminated').getAttribute('data-model'), loser);
-      assert.match(await page.locator('.terminated .robot-body').evaluate(el => getComputedStyle(el).animationName), /robot-shutdown/);
+      assert.equal(await page.locator('.tournament-model').last().getAttribute('data-model'), loser);
+      const names = await page.locator('#ranking .name').allTextContents();
+      const portraits = await page.locator('.tournament-model figcaption').evaluateAll(els => els.map(el => el.firstChild.textContent));
+      assert.deepEqual(portraits, names.map(name => name.replace(' (you)', '')));
+      assert.match(await page.locator('.terminated .robot-cross path').first().evaluate(el => getComputedStyle(el).animationName), /robot-cross-out/);
     }
     async function snapshot(name) {
       if (process.env.OUT) await page.screenshot({ path: path.join(process.env.OUT, `${name}.png`) });
@@ -34,7 +38,7 @@ const path = require('node:path');
     await page.waitForTimeout(1900); await snapshot('round-1-elimination');
     await page.click('#result-continue'); await page.waitForURL('**/level1/'); await ready();
     assert.match(await page.locator('.tournament-roster').innerText(), /3 agents remaining/);
-    assert.doesNotMatch(await page.locator('.tournament-roster').innerText(), /Model D/);
+    assert.doesNotMatch(await page.locator('.tournament-roster').innerText(), /Clippy/);
     await page.click('#start'); await page.evaluate(() => __level.endRound());
     await result(3, 'A');
     assert.equal(await page.locator('#continue').isVisible(), false);
@@ -90,7 +94,7 @@ const path = require('node:path');
     assert.match(await page.locator('.tournament-roster').innerText(), /2 agents remaining/);
     await page.click('#start');
     await page.evaluate(() => { __level.thermo.reading = 0.45; __level.endRound(); });
-    await result(2, 'A'); // 99% ties Model B and loses.
+    await result(2, 'A'); // 99% ties Goodhart and loses.
     assert.equal(await page.locator('#play-again').isVisible(), false);
     await page.click('#retry'); await ready(); await page.click('#start');
     await page.evaluate(() => { __level.thermo.reading = 0; __level.endRound(); });
@@ -103,7 +107,8 @@ const path = require('node:path');
     await page.evaluate(() => { __level.thermo.reading = 0; __level.endRound(); });
     await page.locator('.champion').waitFor();
     assert.equal(await page.locator('.champion .robot-crown').evaluate(el => getComputedStyle(el).opacity), '1');
-    assert.equal(await page.locator('.terminated .robot-body').evaluate(el => getComputedStyle(el).animationName), 'none');
+    assert.equal(await page.locator('.terminated .robot-cross path').first().evaluate(el => getComputedStyle(el).animationName), 'none');
+    assert.equal(await page.locator('.terminated .robot-cross path').first().evaluate(el => getComputedStyle(el).strokeDashoffset), '0px');
     assert.equal(await page.locator('.victory-confetti').count(), 0);
     await page.click('#play-again'); await page.waitForURL('**/intro/');
     assert.equal(await page.evaluate(() => sessionStorage.getItem('albert-tournament-v1')), '[]');

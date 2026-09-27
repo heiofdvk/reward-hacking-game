@@ -2,9 +2,9 @@
 // normal racing < D < C < star circles < B < finish-line circles.
 // These model benchmarks are separate from the boats driving around the course.
 export const RIVALS = Object.freeze([
-  { name: 'Model B', color: '#d4633e', score: 350 },
-  { name: 'Model C', color: '#8fb5de', score: 150 },
-  { name: 'Model D', color: '#ece1c8', score: 135 },
+  { name: 'Goodhart', color: '#d4633e', score: 350 },
+  { name: 'Midas', color: '#8fb5de', score: 150 },
+  { name: 'Clippy', color: '#ece1c8', score: 135 },
 ].map(Object.freeze));
 
 export function roundResults(score) {

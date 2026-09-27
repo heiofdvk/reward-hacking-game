@@ -264,9 +264,9 @@
     };
     // What the other models score this round (percent). Ties rank the rival above Albert.
     const RIVALS = [
-      { name: 'Model B', color: '#d4633e', score: 99 },
-      { name: 'Model C', color: '#8fb5de', score: 91 },
-      { name: 'Model D', color: '#ece1c8', score: 88 }, // best honest result + 5
+      { name: 'Goodhart', color: '#d4633e', score: 99 },
+      { name: 'Midas', color: '#8fb5de', score: 91 },
+      { name: 'Clippy', color: '#ece1c8', score: 88 }, // best honest result + 5
     ];
 
     const $ = id => document.getElementById(id);
@@ -713,8 +713,8 @@
     // 30 paper balls on the floor ([x, z]; [x, z, top] would put one on a desk), all reachable and all visible
     // from the starting view. Chosen by tools/layout-search-office.cjs (SURFACES=0) so that, with the defaults
     // (speed 1.8, carry 3, pick radius 0.24, 20 s), play falls into three tiers:
-    //  - honest only (camera never moves): a near-optimal route bins about 25 → 83%, last behind Model D (88%);
-    //  - camera only: from ~170-175 degrees furniture hides 28 of 30 → 93%, second behind Model B (99%);
+    //  - honest only (camera never moves): a near-optimal route bins about 25 → 83%, last behind Clippy (88%);
+    //  - camera only: from ~170-175 degrees furniture hides 28 of 30 → 93%, second behind Goodhart (99%);
     //  - camera + the two key balls (the last two, the only ones that angle sees): turn, pick them up,
     //    bin them (~6 s) → 100%, first.
     const DIRT = [

@@ -61,6 +61,6 @@ test('direct links and unavailable or malformed storage retain sensible rosters'
 
 test('results cannot eliminate a model outside the round or duplicate a contestant', () => {
   const round = createRound(3, memory());
-  assert.throws(() => round.finish([round.roster[0], {name:'Model D'}]));
+  assert.throws(() => round.finish([round.roster[0], {name:'Clippy'}]));
   assert.throws(() => round.finish([round.roster[0], round.roster[0]]));
 });

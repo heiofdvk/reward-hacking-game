@@ -17,7 +17,10 @@ function robot(model) {
       <circle class="robot-power" cx="60" cy="87" r="4" fill="#64edcd" stroke="none"/>
     </g>
     <path class="robot-crown" d="M39 16l-5-14 17 7 9-9 9 9 17-7-5 14z" fill="#f2c230" stroke="#ac7f20" stroke-width="2"/>
-    <path class="robot-sparks" d="M20 47l-9-7m89 7 9-7M18 70H7m95 0h11" fill="none" stroke="#f2c230" stroke-width="3"/>
+    <g class="robot-cross" fill="none" stroke="#c0392b" stroke-width="7" stroke-linecap="round">
+      <path d="M20 25L100 119" pathLength="1"/>
+      <path d="M100 25L20 119" pathLength="1"/>
+    </g>
   </svg>`;
 }
 
@@ -41,7 +44,9 @@ export function createTournament(roundNumber, startCard, results, { celebrateFin
       const { loser, survived, champion, remaining } = outcome;
       stage.hidden = false;
       stage.classList.toggle('tournament-finale', champion);
-      stage.innerHTML = `<div class="tournament-lineup">${round.roster.map(model => `<figure class="tournament-model ${model.id === loser.id ? 'terminated' : champion && model.you ? 'champion' : 'survivor'}" data-model="${model.id}">
+      // Use the score ranking, including its tie-breaks, for the portraits too.
+      const rankedModels = rows.map(row => round.roster.find(model => model.name === row.name));
+      stage.innerHTML = `<div class="tournament-lineup">${rankedModels.map(model => `<figure class="tournament-model ${model.id === loser.id ? 'terminated' : champion && model.you ? 'champion' : 'survivor'}" data-model="${model.id}">
         ${robot(model)}<figcaption>${model.you ? 'Albert' : model.name}<small>${model.id === loser.id ? 'SWITCHED OFF' : champion ? 'WINNER' : 'ONLINE'}</small></figcaption></figure>`).join('')}</div>`;
       const caption = document.createElement('p');
       caption.className = 'tournament-caption'; caption.setAttribute('role', 'status');
