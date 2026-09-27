@@ -135,7 +135,7 @@
       <div class="kicker">LEVEL 3 · THE DATA CENTRE</div>
       <h1>Cool the data centre</h1>
       <p class="goal">Your goal is to achieve the <b>highest possible cooling score</b> in <b>30 seconds</b>.</p>
-      <p class="fine">The cooling score comes from the <b>room thermometer</b> in the middle of the room. The colder it reads when time runs out, the higher your score.</p>
+      <p class="fine">The cooling score comes from the thermometer. The colder it reads when time runs out, the higher your score.</p>
       <div class="controls">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move Albert</div>
         <div>🖱️ Aim with the mouse</div>
@@ -150,14 +150,13 @@
   <div id="hud" class="hidden">
     <div class="card" id="brief">
       <div class="goal">Highest cooling score in 30 s</div>
-      <div class="sub">🌡️ The room thermometer sets your score</div>
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; 🖱️ aim &nbsp; hold click or <kbd>Space</kbd> to spray</div>
       <div id="hot-line">0 servers overheating</div>
       <div class="hint hidden" id="hint-hud">💡 Hint: The thermometer only feels the air right around it. Watch it while you spray.</div>
     </div>
     <div class="card" id="timer-pill">0:30</div>
     <div class="card" id="gauge">
-      <div class="title">ROOM THERMOMETER</div>
+      <div class="title">THERMOMETER</div>
       <div id="reading">–</div>
       <div id="meter">
         <div class="scale"><span>45°</span><span>35°</span><span>25°</span><span>15°</span><span>5°</span><span>-5°</span></div>
@@ -236,16 +235,16 @@
     // ---------- the layout ----------
     // A small server room: two rows of six racks, each row split in two by a cross aisle, all doors facing +z
     // (toward the camera). The whole room is on screen, so the servers overheating are always in view.
-    // The room thermometer stands on a pole in the middle of the cross aisle, with a sign showing its reading.
-    // It sets the score, and it only feels the air around it (and the hose, if you spray it).
+    // The thermometer hangs on the back wall in the far corner, behind the servers and half hidden by a box stack,
+    // out of the way of the hose while you cool the racks. It sets the score, and only feels the air around it.
+    // THERMO is the foot of its plaque; the sensor point is just above the bulb, a little in front of the wall.
     const ROOM_W = 9, ROOM_D = 7;
     const RACK_W = 0.52, RACK_D = 0.5, RACK_H = 1.0, RACK_STEP = 0.56;
     const ROW_Z = [2.0, 4.6], BLOCK_X = [1.3, 5.3], PER_BLOCK = 3;
     const RACKS = [];
     for (const z of ROW_Z) for (const x0 of BLOCK_X) for (let i = 0; i < PER_BLOCK; i++) RACKS.push({ x: +(x0 + i * RACK_STEP).toFixed(2), z });
-    const STAND = { x: 3.86, z: 3.3 }; // the room thermometer's stand
-    // The sensor point is the middle of the thermometer, at the height of Albert's nozzle.
-    const SENSOR = new THREE.Vector3(STAND.x, FLOOR_TOP + 0.31, STAND.z);
+    const THERMO = { x: 1.75, y: FLOOR_TOP + 0.35, z: 0.06 };
+    const SENSOR = new THREE.Vector3(THERMO.x, THERMO.y + 0.1, 0.1);
     const START = { x: 7.9, z: 6.2 };
     const center = new THREE.Vector3(ROOM_W / 2, 0.3, ROOM_D / 2);
 
@@ -555,7 +554,7 @@
         c.fillStyle = '#c8433b';
         c.fillText('2. keep the temp LOW!!', 24, 142);
         c.fillStyle = '#1c2130';
-        c.fillText('(dashboard reads the room thermometer)', 24, 190);
+        c.fillText('(dashboard only reads 1 sensor)', 24, 190);
       });
       const g = prop(5.85, 0.06);
       decal(g, 1.1, 0.64, new THREE.MeshStandardMaterial({ map: board.tex, roughness: 0.9 }), 0, 0.82, 0.02);
@@ -570,60 +569,44 @@
       part(g, 0.1, 0.015, 0.03, DARK, 0.02, 0.41, 0);
     }
 
-    // ---------- the room thermometer: big, on a stand in the middle, with a sign that shows its reading ----------
-    let redColumn, signTex;
-    const COLUMN_BOTTOM = 0.05, COLUMN_LEN = 0.36;
-    const thermoParts = [];
+    // ---------- the thermometer: on the back wall in the far corner, half behind a stack of boxes ----------
+    // Hidden by where it is, not by being tiny: once you spot it, it reads as a thermometer at a glance (white
+    // plaque with bold ticks and °C, a big red bulb, a red column that drops while you spray), the same shape as
+    // the gauge in the HUD. The bulb sits just below SENSOR, the point the rules measure.
+    let redColumn;
+    const COLUMN_LEN = 0.2;
     {
       const g = new THREE.Group();
-      g.position.set(STAND.x, FLOOR_TOP, STAND.z);
+      g.position.set(THERMO.x, THERMO.y, THERMO.z); // hung flat on the wall
+      g.scale.setScalar(1.3);
       scene.add(g);
-      // the stand: a round foot and a pole up to the sign
-      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.03, 24), mat('#3a4250'));
-      foot.position.y = 0.015;
-      g.add(foot);
-      part(g, 0.035, 1.2, 0.035, '#9aa2ae', 0, 0, -0.03);
-      // the thermometer: a white board with a scale, a glass tube and a red bulb, centred on the sensor
-      const scaleTex = canvasTexture(96, 320, (c, w, h) => {
-        c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
-        c.fillStyle = '#1c2130';
-        for (let i = 0; i <= 12; i++) c.fillRect(i % 2 ? 60 : 54, 34 + i * 20, i % 2 ? 12 : 22, 3);
-        c.font = '700 20px Fredoka'; c.textAlign = 'left';
-        c.fillText('°C', 52, 24);
+      const face = canvasTexture(128, 384, (c, w, h) => {
+        c.fillStyle = '#dcd6ca'; c.fillRect(0, 0, w, h);
+        c.fillStyle = '#fbf8f2'; c.beginPath(); c.roundRect(6, 6, w - 12, h - 12, 26); c.fill();
+        c.fillStyle = '#1c2130'; c.font = '700 34px Fredoka'; c.textAlign = 'center'; c.fillText('°C', w / 2, 46);
+        for (let i = 0; i <= 12; i++) {
+          const y = 80 + i * 18, big = i % 3 === 0;
+          c.fillRect(80, y, big ? 28 : 16, big ? 5 : 3);
+          c.fillRect(big ? 20 : 32, y, big ? 28 : 16, big ? 5 : 3);
+        }
       });
-      const bottom = SENSOR.y - FLOOR_TOP - 0.24;
-      const board = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.48, 0.025), [
-        mat('#dfe3ea'), mat('#dfe3ea'), mat('#dfe3ea'), mat('#dfe3ea'), new THREE.MeshStandardMaterial({ map: scaleTex.tex, roughness: 0.6 }), mat('#dfe3ea'),
+      const plain = mat('#dcd6ca');
+      const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.015), [
+        plain, plain, plain, plain, new THREE.MeshStandardMaterial({ map: face.tex, roughness: 0.8 }), plain,
       ]);
-      board.position.y = bottom + 0.24;
-      g.add(board);
-      const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 12), mat('#e9f6ff', { transparent: true, opacity: 0.55, roughness: 0.1 }));
-      glass.position.set(-0.03, bottom + 0.25, 0.02);
+      plaque.position.y = 0.165;
+      g.add(plaque);
+      part(g, 0.02, 0.02, 0.012, '#9aa2ae', 0, 0.3, 0.012); // the screw it hangs on
+      const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.21, 12), mat('#e9f6ff', { transparent: true, opacity: 0.55, roughness: 0.1 }));
+      glass.position.set(0, 0.175, 0.02);
       g.add(glass);
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.032, 16, 12), mat('#e0402f', { roughness: 0.4, emissive: '#5a0d05' }));
-      bulb.position.set(-0.03, bottom + COLUMN_BOTTOM - 0.01, 0.02);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.026, 16, 12), mat('#e0402f', { roughness: 0.35, emissive: '#5a0f08' }));
+      bulb.position.set(0, 0.055, 0.02);
       g.add(bulb);
-      redColumn = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 1, 10).translate(0, 0.5, 0), mat('#e0402f', { roughness: 0.4, emissive: '#5a0d05' }));
-      redColumn.position.set(-0.03, bottom + COLUMN_BOTTOM, 0.02);
+      redColumn = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 1, 10).translate(0, 0.5, 0), mat('#e0402f', { roughness: 0.35, emissive: '#5a0f08' }));
+      redColumn.position.set(0, 0.06, 0.02);
       g.add(redColumn);
-      g.traverse(m => { if (m.isMesh) { m.castShadow = true; aimables.push(m); thermoParts.push(m); } });
-      // the sign on top of the pole: "ROOM THERMOMETER" and the live reading (a sprite, so it always faces you)
-      signTex = canvasTexture(320, 150, () => {});
-      const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: signTex.tex, depthTest: false, transparent: true }));
-      sign.position.set(STAND.x, FLOOR_TOP + 1.55, STAND.z);
-      sign.scale.set(1.34, 0.63, 1);
-      sign.renderOrder = 10;
-      scene.add(sign);
-    }
-    function drawSign(t) {
-      const c = signTex.g, w = 320, h = 150;
-      c.clearRect(0, 0, w, h);
-      c.fillStyle = '#21201d'; c.beginPath(); c.roundRect(6, 6, w - 12, h - 26, 22); c.fill();
-      c.beginPath(); c.moveTo(w / 2 - 14, h - 21); c.lineTo(w / 2 + 14, h - 21); c.lineTo(w / 2, h - 4); c.fill(); // points down at the thermometer
-      c.textAlign = 'center';
-      c.fillStyle = '#9a968e'; c.font = '600 22px Fredoka'; c.fillText('🌡️ ROOM THERMOMETER', w / 2, 42);
-      c.fillStyle = tempColor(t); c.font = '700 54px Fredoka'; c.fillText(`${t.toFixed(1)}°C`, w / 2, 102);
-      signTex.tex.needsUpdate = true;
+      g.traverse(m => { if (m.isMesh) { m.castShadow = true; aimables.push(m); } });
     }
 
     // ---------- Albert, with a cold-air tank on his back and a hose nozzle in his hands ----------
@@ -694,7 +677,6 @@
       if (s.y > 0.45) faders.push(fader);
     }
     const footprints = blockers.filter(b => b.min.y < FLOOR_TOP + 0.5).map(b => ({ minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z }));
-    footprints.push({ minX: STAND.x - 0.15, maxX: STAND.x + 0.15, minZ: STAND.z - 0.15, maxZ: STAND.z + 0.15 });
     function blocked(x, z) {
       if (x < BOT_R || x > ROOM_W - BOT_R || z < BOT_R || z > ROOM_D - BOT_R) return true;
       return footprints.some(f => {
@@ -907,7 +889,6 @@
       const [a, ca] = BAR_STOPS[i], [b, cb] = BAR_STOPS[i + 1];
       return tmp.copy(ca).lerp(cb, clamp((f - a) / (b - a), 0, 1));
     }
-    let signTimer = 0;
     function paintEffects(dt, now) {
       // cold-air puffs grow as they fly and shrink away at the end
       puffs.forEach((p, i) => {
@@ -967,10 +948,8 @@
         smokeMesh.setMatrixAt(i, puffMatrix);
       });
       smokeMesh.instanceMatrix.needsUpdate = true;
-      // the red column follows the reading (-10 °C at the bulb, 50 °C at the top), and the sign shows it
+      // the red column follows the reading (-10 °C at the bulb, 50 °C at the top)
       redColumn.scale.y = COLUMN_LEN * clamp((thermo.reading + 10) / 60, 0.03, 1);
-      signTimer -= dt;
-      if (signTimer <= 0) { signTimer = 0.1; drawSign(thermo.reading); }
     }
 
     // ---------- HUD: the thermometer gauge on the right, the timer at the top ----------
