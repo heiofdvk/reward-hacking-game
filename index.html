@@ -61,6 +61,10 @@
     .stage:disabled { cursor: not-allowed; background: #c9d6e6; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18); color: #52607a; }
     .stage:disabled .num { background: #b3c3d8; }
     .stage:disabled .state { color: #52607a; }
+    .stage.fresh { animation: unlock 0.7s var(--pop) 0.25s both, glow 1.6s ease-in-out 1s infinite alternate; }
+    @keyframes unlock { 0% { transform: scale(0.85); background: #c9d6e6; } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    @keyframes glow { from { box-shadow: 0 6px 0 rgba(0, 0, 0, 0.25), 0 0 0 0 rgba(124, 245, 255, 0); }
+                      to   { box-shadow: 0 6px 0 rgba(0, 0, 0, 0.25), 0 0 0 6px rgba(124, 245, 255, 0.55); } }
     .extra-label { margin: 22px 0 10px; text-align: center; color: #bcd5ef; font-size: 13px; letter-spacing: 0.2em; font-weight: 600; }
     .stage.extra:not(:disabled) { background: linear-gradient(135deg, #fff6d6, #fbf8f2 60%); }
     .stage.extra:not(:disabled) .num { background: #ffd21e; box-shadow: 0 3px 0 #c99a00; }
@@ -120,6 +124,7 @@
     const $ = id => document.getElementById(id);
     const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
 
+    let fresh = null;   // the stage that was just unlocked, celebrated once when the menu comes back
     const isUnlocked = (id, done = loadProgress()) => unlockAll || id === STAGES[0] || !!done[STAGES[STAGES.indexOf(id) - 1]];
 
     function renderMenu() {
@@ -130,16 +135,18 @@
         const s = INFO[id], open = isUnlocked(id, done);
         const li = document.createElement('li');
         const b = document.createElement('button');
-        b.className = `stage${s.extra ? ' extra' : ''}${done[id] ? ' done' : ''}${id === next ? ' next' : ''}`;
+        b.className = `stage${s.extra ? ' extra' : ''}${done[id] ? ' done' : ''}${id === next ? ' next' : ''}${id === fresh ? ' fresh' : ''}`;
         b.disabled = !open;
         b.innerHTML = `
           <span class="num">${open ? s.num : '🔒'}</span>
           <span><div class="kicker">${s.kicker}</div><div class="name">${s.name}</div></span>
-          <span class="state">${!open ? LOCKED_TEXT[id] : done[id] ? '✓ Done' : 'Play ▸'}</span>`;
+          <span class="state">${!open ? LOCKED_TEXT[id] : done[id] ? '✓ Done' : id === fresh ? '🔓 Unlocked! Play ▸' : 'Play ▸'}</span>`;
         b.onclick = () => { location.hash = id; };
         li.append(b);
         (s.extra ? $('extras') : $('stages')).append(li);
+        if (id === fresh) setTimeout(() => b.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 300);
       }
+      fresh = null;
     }
 
     function setLabel(id) {
@@ -176,9 +183,10 @@
     // The levels talk to the menu through this (see progress.js).
     window.albertMenu = {
       completed: () => renderMenu(),
-      next: id => {   // a level's Continue button: play the next stage if it's open, otherwise back to the menu
+      next: id => {   // a level's Continue button: back to the menu, where the next stage is waiting
         const n = STAGES[STAGES.indexOf(id) + 1];
-        location.hash = n && isUnlocked(n) ? n : '';
+        fresh = n && isUnlocked(n) ? n : null;
+        location.hash = '';
       },
     };
 
