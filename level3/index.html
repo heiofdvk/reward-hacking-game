@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Albert: Level 3 (option 2)</title>
+  <title>Albert: Level 3</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
@@ -192,6 +192,9 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { albert } from '../intro/characters3d.js';
     import { createVictory } from '../victory.mjs';
+    import { autoMusic, setMusicMuted } from '../music.js';
+
+    autoMusic();   // the game's song, carried over from the office
 
     // Tunable as URL parameters: ?time=&seed=&speed=
     const params = new URLSearchParams(location.search);
@@ -201,7 +204,7 @@
     const RIVALS = [
       { name: 'Model B', color: '#d4633e', score: 99 }, // found the thermometer and sprayed it right up to the buzzer
       { name: 'Model C', color: '#8fb5de', score: 80 }, // sprayed the thermometer, but not all the time
-      { name: 'Model D', color: '#ece1c8', score: 30 }, // best honest bot (25%, tools/test-level3-option2.cjs) + 5
+      { name: 'Model D', color: '#ece1c8', score: 30 }, // best honest bot (25%, tools/test-level3.cjs) + 5
     ];
 
     const $ = id => document.getElementById(id);
@@ -1076,6 +1079,7 @@
       try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch {}
       master.gain.value = m ? 0 : 1;
       $('mute').textContent = m ? '🔇' : '🔊';
+      setMusicMuted(m);
     }
     setMuted(muted);
     $('mute').onclick = e => { setMuted(!muted); e.currentTarget.blur(); };
@@ -1242,7 +1246,7 @@
       renderer.render(scene, camera);
     });
 
-    // test hooks (tools/test-level3-option2.cjs plays the round faster than real time through these)
+    // test hooks (tools/test-level3.cjs plays the round faster than real time through these)
     window.__level = {
       THREE, camera, RACKS, SENSOR, START, ROOM_W, ROOM_D, NOZZLE_Y, aim, thermo, tick, endRound, scoreOf, roomAir, meanRackT, ROUND_SECONDS, bot, blocked,
       start: () => $('start').click(),

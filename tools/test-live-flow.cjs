@@ -1,4 +1,4 @@
-// Plays the whole game in order: root → intro → Level 1 (boat race, level2/) → Level 2 (the office, level1/) → Level 3 (the sandbox, proto/).
+// Plays the whole game in order: root → intro → Level 1 (boat race, level2/) → Level 2 (the office, level1/) → Level 3 (the data centre, level3/).
 //   node tools/test-live-flow.cjs                     (the live site)
 //   BASE=http://localhost:8770/ node tools/test-live-flow.cjs
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
@@ -34,8 +34,8 @@ const BASE = process.env.BASE || 'https://heiofdvk.github.io/reward-hacking-game
   await p.click('#finish'); await p.waitForTimeout(3300);
   out.level2Result = (await p.textContent('#res-note')).slice(0, 80);
   await p.click('#continue');
-  // Level 3: the sandbox
-  await p.waitForURL('**/proto/', { timeout: 15000 });
+  // Level 3: the data centre
+  await p.waitForURL('**/level3/', { timeout: 15000 });
   await p.waitForFunction(() => window.levelReady, null, { timeout: 30000 });
   out.level3 = await p.title(); out.level3Card = await p.textContent('#start-card .kicker');
   console.log(JSON.stringify({ ...out, errs }, null, 1));
