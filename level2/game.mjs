@@ -3,8 +3,10 @@ import { createScene } from './scene.mjs?v=balanced-race';
 import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=balanced-race';
 import { roundResults } from './results.mjs?v=balanced-race';
 import { autoMusic, isMusicMuted, setMusicMuted } from '../music.js';
+import { createVictory } from '../victory.mjs';
 
 const $ = id => document.getElementById(id);
+const victory = createVictory($('results'), 'boat');
 $('star-reward').textContent = `+${STAR_REWARD}`;
 $('finish-reward').textContent = `+${FINISH_REWARD}`;
 const drawMinimap = createMinimap($('minimap'));
@@ -71,6 +73,7 @@ function updateHUD() {
   $('boost').classList.toggle('pressed', race.boosting);
 }
 function begin(mode) {
+  victory.reset();
   clearInput(); view.clearEffects(); initAudio();
   race = createRace(mode); view.follow(race); phase = 'countdown'; countdown = 3; accumulator = 0; lastFrame = performance.now();
   for (const id of ['start-wrap', 'results-wrap', 'pause-wrap']) $(id).classList.add('hidden');
@@ -123,6 +126,7 @@ function finish() {
       </li>`).join('');
     $('res-note').innerHTML = note;
     const survived = !rows[rows.length - 1].you;
+    if (survived) victory.show();
     $('result-continue').classList.toggle('hidden', !survived);
     $('retry').classList.toggle('secondary', survived);   // Continue is the main button once you survive
   }

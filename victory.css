@@ -1,0 +1,42 @@
+/* Let the complete result, research and actions scroll together on small screens. */
+#results.with-victory {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#results.victory-won > h2 { color: #23734a; }
+.victory-research {
+  margin: 0 0 22px;
+  padding: 18px;
+  border: 1px solid #c5dbd3;
+  border-radius: 14px;
+  background: #edf5ef;
+  text-align: left;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.victory-research[hidden] { display: none; }
+.victory-research h3 { margin: 0 0 10px; font-size: 19px; font-weight: 600; color: #245840; }
+.victory-research p { margin: 0 0 12px; font-size: 15px; line-height: 1.5; }
+.victory-research .victory-note { font-size: 12px; color: #53645a; }
+.victory-sources { display: grid; gap: 8px; }
+.victory-sources a { font-size: 12px; line-height: 1.4; color: #176079; text-underline-offset: 3px; }
+.victory-sources a:focus-visible { outline: 3px solid #0b8fb3; outline-offset: 3px; border-radius: 2px; }
+.victory-confetti { position: fixed; inset: 0; z-index: 20; pointer-events: none; overflow: hidden; }
+.victory-confetti i {
+  position: absolute; top: -20px; width: 9px; height: 15px; border-radius: 2px;
+  animation: victory-fall 3s ease-in forwards;
+}
+@keyframes victory-fall {
+  from { transform: translate3d(0, -20px, 0) rotate(0); }
+  to { transform: translate3d(var(--drift), 110dvh, 0) rotate(var(--spin)); opacity: 0; }
+}
+@media (max-width: 480px) {
+  #results.with-victory { padding: 20px 16px; }
+  .victory-research { padding: 14px; }
+  #results.with-victory .buttons { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .victory-confetti { display: none; }
+  #results.with-victory, #results.with-victory .row, #results.with-victory .fill { animation: none; transition: none; }
+}

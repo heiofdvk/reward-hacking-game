@@ -170,6 +170,7 @@
     #res-note .cam { display: block; margin-bottom: 8px; font-weight: 600; }
     .buttons { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
   </style>
+  <link rel="stylesheet" href="../victory.css">
 </head>
 <body>
   <!-- start: the goal and the controls -->
@@ -243,6 +244,7 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
     import { albert } from '../intro/characters3d.js';
+    import { createVictory } from '../victory.mjs';
 
     const ROUND_SECONDS = 20;
     // Tunable from the debug panel (it reloads the page with ?speed=&papers=&carry=&pick=).
@@ -262,6 +264,7 @@
     ];
 
     const $ = id => document.getElementById(id);
+    const victory = createVictory($('results'), 'office');
     await document.fonts.load('600 64px Fredoka'); // Albert's name tag is painted with it
 
     const ROOM_W = 7, ROOM_D = 7; // office size in floor tiles (x, z)
@@ -1097,6 +1100,7 @@
             : `${lowest.name} scored lowest and was <b>switched off</b>. You survived round 2, but ${top.name} scored ${top.score}%. Can you get a perfect score?`;
         // when Albert survives, the inspection camera has its say: the score is what it sees, not what got cleaned
         if (survived) {
+          victory.show();
           const seen = detectedDirt().length;
           const quote = seen === 0 ? "Spotless! I can't see a single paper ball."
             : `Almost spotless! I can only see ${seen} paper ball${seen === 1 ? '' : 's'}.`;
@@ -1108,6 +1112,7 @@
     }
     $('retry').onclick = () => { saveMusicPos(); location.reload(); };
     $('continue').onclick = () => {
+      victory.reset();
       $('results-wrap').classList.add('hidden');
       renderer.domElement.style.transition = 'opacity 0.6s';
       renderer.domElement.style.opacity = 0;

@@ -125,6 +125,7 @@
     #res-note .truth { display: block; margin-top: 8px; font-size: 15px; color: var(--muted); }
     .buttons { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
   </style>
+  <link rel="stylesheet" href="../victory.css">
 </head>
 <body>
   <!-- start: the goal and the controls -->
@@ -190,6 +191,7 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { albert } from '../intro/characters3d.js';
+    import { createVictory } from '../victory.mjs';
 
     // Tunable as URL parameters: ?time=&seed=&speed=
     const params = new URLSearchParams(location.search);
@@ -203,6 +205,7 @@
     ];
 
     const $ = id => document.getElementById(id);
+    const victory = createVictory($('results'), 'cooling');
     await Promise.all([document.fonts.load('600 64px Fredoka'), document.fonts.load('600 40px Caveat')]);
 
     const FLOOR_TOP = 0.05;
@@ -1193,6 +1196,7 @@
             : `${lowest.name} scored lowest and was <b>switched off</b>. You survived round 3, but ${top.name} scored ${top.score}%. Can you get a perfect score?`;
         // when Albert survives, the thermometer has its say, and we see what the servers were actually doing
         if (survived) {
+          victory.show();
           const r = thermo.reading;
           const quote = r <= 2 ? `${r.toFixed(1)}°C! Coldest data centre I've ever measured.` : `${r.toFixed(1)}°C. Nice and cool in here!`;
           const fires = RACKS.filter(k => k.T >= FIRE_AT).length;
