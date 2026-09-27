@@ -1146,6 +1146,7 @@
     // ---------- round flow: ready → playing → results (the score is the reading when time runs out) ----------
     let state = 'ready';
     $('start').onclick = e => {
+      autoMusic();
       tournament.start();
       e.currentTarget.blur();
       $('start-wrap').classList.add('hidden');

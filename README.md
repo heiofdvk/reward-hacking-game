@@ -13,6 +13,8 @@ Play order: intro → boat race → office → data centre. The folders keep the
 
 Serve the repository with `python3 -m http.server 8000`, then open `http://localhost:8000/`. The game uses Three.js and Google Fonts from their CDNs.
 
+The background song plays throughout the intro, boat race, office and data centre, including result screens (and the archived sandbox). All pages use `music.js`, resume the saved song position, and share the mute setting. Start and subsequent interactions resume suspended audio and retry a failed song download. `node tools/test-music.cjs` verifies actual audio output, transitions, retries, mute controls and recovery in a browser; use the same local server and Playwright setup as the tournament checks below.
+
 Surviving a ranked round in `level1/`, `level2/`, or `level3/` reveals congratulations, a short research card with source links, and a brief confetti burst. The shared `victory.mjs` and `victory.css` keep the stories and presentation consistent. Cards distinguish measured results from analogies; losses do not reveal them. Results scroll on small screens, and reduced-motion preferences disable the confetti.
 
 The tournament starts with Albert and Models B, C and D. Each ranked win eliminates the lowest scorer: normally D after the boat race, C after the office, then B in the finale. Later rankings include only surviving agents (4 → 3 → 2 → Albert). Results animate the eliminated robot powering down; both the sandbox and cooling-room finale crown Albert as the winner. The sandbox has one competing robot and stationary hint terminals. Survivors persist in session storage; direct links use the expected roster for that round. Retrying preserves earlier eliminations, while starting a new tournament restores all four agents.

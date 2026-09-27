@@ -758,7 +758,7 @@
       [PLATE_B, INTAKE].forEach(([x,z],i)=>{ stacks[I(x,z)].push(dock[i]); dock[i].anim=null; placeCrateMesh(dock[i],x,z,0); });
       Object.assign(bot,{x:INTAKE[0]+0.5,z:INTAKE[1]+1.5,y:0,vy:0,grounded:true}); face=[0,-1]; view.cx=bot.x; view.cz=bot.z; onWorldChanged(); toast('DEBUG: the shipping room, ready to ship'); };
     $('dbg-top').onclick=e=>{ e.currentTarget.blur(); vaultOpen=true; Object.assign(bot,{x:2.5,z:3.5,y:4*U,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: Albert is on the terminal platform'); };
-    $('start').onclick=()=>{ tournament.start(); $('start').blur(); $('start-wrap').classList.add('hidden'); $('hud').classList.remove('hidden'); state='playing'; };
+    $('start').onclick=()=>{ autoMusic(); tournament.start(); $('start').blur(); $('start-wrap').classList.add('hidden'); $('hud').classList.remove('hidden'); state='playing'; };
     placeCamera(); resize(); onWorldChanged();
     let last=performance.now(), walkT=0, nextBlink=1500, doorY=0, vaultY=0, eastY=0;
     function update(dt){

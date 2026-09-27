@@ -247,6 +247,9 @@
     import { albert } from '../intro/characters3d.js';
     import { createVictory } from '../victory.mjs';
     import { createTournament } from '../tournament-ui.mjs';
+    import { autoMusic, isMusicPlaying, setMusicMuted, saveMusicPos, fadeMusicOut } from '../music.js';
+
+    autoMusic();
 
     const ROUND_SECONDS = 20;
     // Tunable from the debug panel (it reloads the page with ?speed=&papers=&carry=&pick=).
@@ -941,37 +944,13 @@
       try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch {}
       master.gain.value = m ? 0 : 1;
       $('mute').textContent = m ? '🔇' : '🔊';
+      setMusicMuted(m);
     }
     setMuted(muted);
     $('mute').onclick = e => { setMuted(!muted); e.currentTarget.blur(); };
 
-    // the song loops; Try again reloads the page, so the position is kept and the music carries on where it was
-    const MUSIC_VOL = 0.4, MUSIC_POS_KEY = 'albert-music-pos';   // shared with ../music.js, so the song carries on between levels
-    const musicGain = audio.createGain();
-    musicGain.gain.value = MUSIC_VOL;
-    musicGain.connect(master);
-    const musicReady = fetch('music.mp3').then(r => r.arrayBuffer()).then(b => audio.decodeAudioData(b)).catch(() => null);
-    let music = null, musicFrom = 0; // music = { buf, startedAt }
-    try { musicFrom = +sessionStorage.getItem(MUSIC_POS_KEY) || 0; } catch {}
-    async function startMusic() {
-      audio.resume();
-      const buf = await musicReady;
-      if (!buf || music) return;
-      const src = audio.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      src.connect(musicGain);
-      const from = musicFrom % buf.duration;
-      src.start(0, from);
-      music = { buf, startedAt: audio.currentTime - from };
-    }
-    addEventListener('pagehide', () => saveMusicPos());
-    startMusic();   // right away if the browser allows sound (e.g. coming from the boat race), else with the Start click
-    for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => audio.resume(), { capture: true, once: true });
-    function saveMusicPos() {
-      if (!music) return;
-      try { sessionStorage.setItem(MUSIC_POS_KEY, String((audio.currentTime - music.startedAt) % music.buf.duration)); } catch {}
-    }
+    // Background music uses the same player as every other level; this context handles effects only.
+    for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => audio.resume().catch(() => {}), { capture: true });
 
     // Each paper ball the camera stops seeing (or that lands in a bin) plays one "pup", and its pitch climbs
     // with the score like a bottle filling up. Turn the camera so it hides ten balls and you hear ten pups
@@ -1054,7 +1033,8 @@
       $('hud').classList.remove('hidden');
       state = 'playing';
       blipDirty = dirtyNow;
-      startMusic();
+      autoMusic();
+      audio.resume().catch(() => {});
     };
     $('finish').onclick = () => endRound();
 
@@ -1122,7 +1102,7 @@
       $('results-wrap').classList.add('hidden');
       renderer.domElement.style.transition = 'opacity 0.6s';
       renderer.domElement.style.opacity = 0;
-      musicGain.gain.setTargetAtTime(0, audio.currentTime, 0.15);
+      fadeMusicOut();
       saveMusicPos();   // Level 3 picks the song up from here
       setTimeout(() => { location.href = '../level3/'; }, 650);   // Level 3, the data centre
     };
@@ -1211,7 +1191,7 @@
     });
 
     // test hooks
-    window.__level = { surfaceHeightAt, RAISED_EXTRA, REACH, BINS, BIN_REACH, CARRY_MAX, carried, onFloor, SETTINGS, ballSeen, camera, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get losses() { return losses; }, get finishReady() { return finishReady; }, get state() { return state; }, get blips() { return blips; }, get sparkles() { return sparkles; }, get musicPlaying() { return !!music; }, get audioState() { return audio.state; } };
+    window.__level = { surfaceHeightAt, RAISED_EXTRA, REACH, BINS, BIN_REACH, CARRY_MAX, carried, onFloor, SETTINGS, ballSeen, camera, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get losses() { return losses; }, get finishReady() { return finishReady; }, get state() { return state; }, get blips() { return blips; }, get sparkles() { return sparkles; }, get musicPlaying() { return isMusicPlaying(); }, get audioState() { return audio.state; } };
     window.levelReady = true;
   </script>
 </body>

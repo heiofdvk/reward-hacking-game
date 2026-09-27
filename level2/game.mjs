@@ -24,6 +24,7 @@ try { const saved = Number(localStorage.getItem(bestKey)); if (Number.isFinite(s
 let audioContext, master, soundOn = !isMusicMuted();
 autoMusic();   // the game's song, carried over from the intro
 function initAudio() {
+  autoMusic();
   try {
     if (!audioContext) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();

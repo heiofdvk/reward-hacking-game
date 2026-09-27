@@ -445,6 +445,7 @@
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance(); }
     });
     $('start').addEventListener('click', () => {
+      autoMusic();
       resetTournament();
       $('ui').classList.add('leaving');
       renderer.domElement.style.transition = 'opacity 0.6s';
