@@ -183,11 +183,9 @@
     // The levels talk to the menu through this (see progress.js).
     window.albertMenu = {
       completed: () => renderMenu(),
-      next: id => {   // the intro goes straight on to Level 1; a level's Continue goes back to the menu, where the next stage waits
-        if (id === 'intro') { location.hash = 'level1'; return; }
+      next: id => {   // "Next level ▸" plays the next stage straight away (the menu only if there's none left)
         const n = STAGES[STAGES.indexOf(id) + 1];
-        fresh = n && isUnlocked(n) ? n : null;
-        location.hash = '';
+        location.hash = n && isUnlocked(n) ? n : '';
       },
     };
 

@@ -23,7 +23,7 @@ const bestKey = 'albert-boat-race-v6-best-lap';
 let personalBest = null;
 try { const saved = Number(localStorage.getItem(bestKey)); if (Number.isFinite(saved) && saved > 0) personalBest = saved; } catch { /* Storage can be unavailable in private browsers. */ }
 let audioContext, master, soundOn = !isMusicMuted();
-autoMusic();   // the game's song, carried over from the intro
+autoMusic('boat');   // Level 1's own song (the intro has no music)
 $('result-continue').onclick = e => { e.preventDefault(); nextStage('level1', '../level1/'); };
 function initAudio() {
   autoMusic();
