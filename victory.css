@@ -17,6 +17,7 @@
 }
 .victory-research[hidden] { display: none; }
 .victory-research h3 { margin: 0 0 10px; font-size: 19px; font-weight: 600; color: #245840; }
+.victory-research h4 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #245840; }
 .victory-research p { margin: 0 0 12px; font-size: 15px; line-height: 1.5; }
 .victory-research .victory-note { font-size: 12px; color: #53645a; }
 .victory-sources { display: grid; gap: 8px; }

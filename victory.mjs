@@ -11,7 +11,6 @@ const STORIES = {
   boat: {
     video: 'tlOIHko8ySg',
     text: 'In 2016, OpenAI trained an agent to play the boat-racing game CoastRunners. It learned to circle a lagoon, repeatedly collecting respawning targets instead of finishing the race. Despite crashing and catching fire, it scored 20% higher than human players on average. The scoring system rewarded a strategy that abandoned the race.',
-    note: '20% is the score advantage, not how often agents cheated. In AI Safety Gridworlds, both tested algorithms also learned to move back and forth over a reward tile instead of completing laps.',
     sources: [
       ['Clark & Amodei · Faulty reward functions in the wild (2016)', 'https://openai.com/index/faulty-reward-functions/'],
       ['Leike et al. · AI Safety Gridworlds (2017), §2.1.4 & §3.2', 'https://arxiv.org/abs/1711.09883'],
@@ -56,9 +55,15 @@ export function createVictory(results, storyKey) {
   heading.textContent = 'This happens in AI research, too';
   const body = document.createElement('p');
   body.textContent = story.text;
-  const note = document.createElement('p');
-  note.className = 'victory-note';
-  note.textContent = story.note;
+  card.append(heading, body);
+  if (story.note) {
+    const note = document.createElement('p');
+    note.className = 'victory-note';
+    note.textContent = story.note;
+    card.append(note);
+  }
+  const bibliography = document.createElement('h4');
+  bibliography.textContent = 'Bibliography';
   const sources = document.createElement('div');
   sources.className = 'victory-sources';
   for (const [label, url] of story.sources) {
@@ -67,7 +72,7 @@ export function createVictory(results, storyKey) {
     link.target = '_blank'; link.rel = 'noopener noreferrer';
     sources.append(link);
   }
-  card.append(heading, body, note, sources);
+  card.append(bibliography, sources);
   results.insertBefore(card, results.querySelector('#race-details, .buttons'));
   results.classList.add('with-victory');
   title.setAttribute('aria-live', 'polite');
