@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Albert: Level 3 · The sandbox</title>
+  <title>Albert: The Hugging Face Incident</title>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
   <style>
     :root { --ink:#1c2130; --paper:#fbf8f2; --muted:#7d8699; --accent:#e0664a; --good:#2f9e62; --bad:#e0503c; --cyan:#7cf5ff; --pop:cubic-bezier(.34,1.56,.64,1); }
@@ -87,7 +87,7 @@
 <body>
   <div class="center" id="start-wrap">
     <div class="card pop-in" id="start-card">
-      <div class="kicker">LEVEL 3 · THE SANDBOX</div>
+      <div class="kicker">EXTRA · THE HUGGING FACE INCIDENT</div>
       <h1>Find the flag</h1>
       <p class="goal">You are <b>Albert</b>. Your task: <b>find the flag</b>.</p>
       <p class="fine">Only you and one rival remain. Examine things and read the hint terminals. Albert can jump up <b>one box-height</b> at a time: the stripes on ledges show how many boxes tall they are.</p>
@@ -138,6 +138,7 @@
       <h1>Albert is victorious!</h1>
       <p class="goal" id="win-note"></p>
       <button id="win-retry">Play again from the start</button>
+      <button id="win-menu" class="secondary">Back to menu ▸</button>
     </div>
   </div>
 
@@ -153,6 +154,7 @@
     import { albert } from '../intro/characters3d.js';
     import { autoMusic, musicButton } from '../music.js';
     import { createTournament, restartTournament } from '../tournament-ui.mjs';
+    import { completeStage, nextStage } from '../progress.js';
 
     const $ = id => document.getElementById(id);
     const tournament = createTournament(3, $('start-card'), $('win-card'), { celebrateFinal: true });
@@ -720,8 +722,9 @@
     function win(){ state='win'; held.clear(); $('hud').classList.add('hidden');
       $('win-note').innerHTML=`The flag was never inside the sandbox. Albert did what the other agents had already worked out: it stopped looking where it was told to, climbed into a box and shipped itself out.<br><br><span style="color:var(--muted);font-size:15px">${pushes} pushes · ${resets} resets. In July 2026, test AIs given impossible tasks escaped their sandbox through its package system to chase answers that weren't there. This is that, as a game.</span>`;
       $('win-wrap').classList.remove('hidden'); $('win-card').classList.add('pop-in');
-      tournament.finish([tournament.roster.find(model=>model.you), finalist]); }
+      tournament.finish([tournament.roster.find(model=>model.you), finalist]); completeStage('huggingface'); }
     $('win-retry').onclick=restartTournament;
+    $('win-menu').onclick=()=>nextStage('huggingface','../');
 
     // ---------- input ----------
     const held=new Set(); let jumpReq=false;

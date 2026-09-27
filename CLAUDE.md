@@ -39,7 +39,9 @@ Real incidents this is based on (useful for the video and an end screen):
 
 | Path | What it is |
 |---|---|
-| `index.html` | Redirects the site root to `intro/` |
+| `index.html` | The menu (site root): Introduction, Level 1, 2, 3 and the extra "Hugging Face Incident", each unlocked by finishing the one before. It plays each stage in a frame under a slim "☰ Menu" bar; the address hash says which (`#level2`). `?unlock=all` opens everything (for demos) |
+| `progress.js` | Unlock progress (`albert-progress` in localStorage). Levels call `completeStage(id)` when Albert survives and `nextStage(id, href)` from Continue (inside the menu it plays the next stage; opened on its own it goes to `href`) |
+| `proto/` | Extra: The Hugging Face Incident (the sandbox escape). Unlocked in the menu after Level 3; Level 3's win screen links to it |
 | `intro/index.html` | The intro (3D, Three.js). Start training → `../level1/` |
 | `intro/characters3d.js` | Albert (loads `models/albert.glb`) + rivals Clay, Mallow, Terminal (built in code) + blueprint platforms. Level 1 imports `albert()` from here |
 | `intro/models/albert.glb` | Albert, converted from `intro/models/source/albert_model_a.obj` by `intro/blender/make_albert.py` (the OBJ came without a .mtl, so colours are set in that script; arms pivot at the shoulder, eyes at their centre) |
@@ -133,7 +135,7 @@ The official Level 3 (chosen by the owner on Sep 26; was `level3-option2/`). The
 
 Losses (`albert-l3b-losses`): from the 4th, "💡 Hint: The thermometer only feels the air right around it. Watch it while you spray." Music: picks up the game's song (`music.js`); the level's 🔊 button mutes both the song and its sound effects.
 
-**Set aside:** the server-room Level 3 (GRADER computer + patrolling developer; never committed) now lives in `prototypes/server-room/` with its bot test `prototypes/server-room/test-server-room.cjs`. The sandbox-escape prototype at `proto/` is no longer linked from the game.
+**Set aside:** the server-room Level 3 (GRADER computer + patrolling developer; never committed) now lives in `prototypes/server-room/` with its bot test `prototypes/server-room/test-server-room.cjs`. The sandbox-escape prototype at `proto/` is now the menu's extra, The Hugging Face Incident.
 
 ## Tools (`tools/`)
 

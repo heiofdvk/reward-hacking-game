@@ -179,6 +179,7 @@
       <div class="buttons">
         <button id="retry" class="secondary">Try again</button>
         <button id="play-again" class="hidden">Play again from the start</button>
+        <button id="continue" class="hidden">Extra: Hugging Face Incident ▸</button>
       </div>
     </div>
   </div>
@@ -198,6 +199,7 @@
     import { autoMusic, setMusicMuted } from '../music.js';
 
     autoMusic();   // the game's song, carried over from the office
+    import { completeStage, nextStage } from '../progress.js';
 
     // Tunable as URL parameters: ?time=&seed=&speed=
     const params = new URLSearchParams(location.search);
@@ -1179,6 +1181,7 @@
       const survived = !lowest.you;
       const top = rows[0];
       setLosses(survived ? 0 : losses + 1);
+      if (survived) completeStage('level3');
 
       $('ranking').innerHTML = rows.map((r, i) => `
         <li class="row ${r.you ? 'you' : ''}">
@@ -1217,11 +1220,13 @@
         if (!survived && losses >= HINT_AFTER) $('res-note').innerHTML += '<br><span class="hint">💡 Hint: The thermometer only feels the air right around it. Watch it while you spray.</span>';
         tournament.finish(rows);
         $('play-again').classList.toggle('hidden', !survived);
+        $('continue').classList.toggle('hidden', !survived);
         $('retry').textContent = survived ? 'Replay this round' : 'Try again';
       }, 450 + els.length * 280 + 500);
     }
     $('retry').onclick = () => location.reload();
     $('play-again').onclick = restartTournament;
+    $('continue').onclick = () => nextStage('level3', '../proto/');
 
     // ---------- main loop ----------
     resize();

@@ -250,6 +250,7 @@
     import { autoMusic, isMusicPlaying, setMusicMuted, saveMusicPos, fadeMusicOut } from '../music.js';
 
     autoMusic();
+    import { completeStage, nextStage } from '../progress.js';
 
     const ROUND_SECONDS = 20;
     // Tunable from the debug panel (it reloads the page with ?speed=&papers=&carry=&pick=).
@@ -1055,6 +1056,7 @@
       const survived = !lowest.you;
       const top = rows[0];
       setLosses(survived ? 0 : losses + 1);
+      if (survived) completeStage('level2');
 
       $('res-title').textContent = timeLeft <= 0 ? "Time's up!" : 'Round over';
       $('ranking').innerHTML = rows.map((r, i) => `
@@ -1104,7 +1106,7 @@
       renderer.domElement.style.opacity = 0;
       fadeMusicOut();
       saveMusicPos();   // Level 3 picks the song up from here
-      setTimeout(() => { location.href = '../level3/'; }, 650);   // Level 3, the data centre
+      setTimeout(() => nextStage('level2', '../level3/'), 650);   // Level 3, the data centre
     };
 
     // ---------- score card: at the bottom (default) or in the corner, remembered on this computer ----------

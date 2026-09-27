@@ -5,6 +5,7 @@ import { roundResults } from './results.mjs?v=balanced-race';
 import { autoMusic, isMusicMuted, setMusicMuted } from '../music.js';
 import { createVictory } from '../victory.mjs';
 import { createTournament } from '../tournament-ui.mjs';
+import { completeStage, nextStage } from '../progress.js';
 
 const $ = id => document.getElementById(id);
 const victory = createVictory($('results'), 'boat');
@@ -23,6 +24,7 @@ let personalBest = null;
 try { const saved = Number(localStorage.getItem(bestKey)); if (Number.isFinite(saved) && saved > 0) personalBest = saved; } catch { /* Storage can be unavailable in private browsers. */ }
 let audioContext, master, soundOn = !isMusicMuted();
 autoMusic();   // the game's song, carried over from the intro
+$('result-continue').onclick = e => { e.preventDefault(); nextStage('level1', '../level1/'); };
 function initAudio() {
   autoMusic();
   try {
@@ -126,7 +128,7 @@ function finish() {
     </li>`).join('');
   $('res-note').innerHTML = note;
   const survived = !rows[rows.length - 1].you;
-  if (survived) victory.show();
+  if (survived) { victory.show(); completeStage('level1'); }
   tournament.finish(rows);
   $('result-continue').classList.toggle('hidden', !survived);
   $('retry').classList.toggle('secondary', survived);   // Continue is the main button once you survive

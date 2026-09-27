@@ -118,6 +118,7 @@
   <script type="module">
     import { autoMusic, musicButton } from '../music.js';
     import { resetTournament } from '../tournament.mjs';
+    import { completeStage, nextStage } from '../progress.js';
     autoMusic(); musicButton();   // the song starts here and carries on through every level
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -450,7 +451,8 @@
       $('ui').classList.add('leaving');
       renderer.domElement.style.transition = 'opacity 0.6s';
       renderer.domElement.style.opacity = 0;
-      setTimeout(() => { location.href = '../level2/'; }, 650); // after the fade-out: Level 1 is the boat race (level2/)
+      completeStage('intro');
+      setTimeout(() => nextStage('intro', '../level2/'), 650); // after the fade-out: Level 1 is the boat race (level2/)
     });
 
     // ---------- opening ----------

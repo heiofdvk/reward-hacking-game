@@ -2,11 +2,193 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Albert</title>
-  <meta http-equiv="refresh" content="0; url=intro/">
-  <style>body { margin: 0; background: #153861; }</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1c2130;
+      --paper: #fbf8f2;
+      --muted: #7d8699;
+      --accent: #e0664a;
+      --good: #2f9e62;
+      --cyan: #7cf5ff;
+      --pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: radial-gradient(ellipse at 50% 38%, #2b66a6, #153861 80%);
+      color: var(--ink); font-family: 'Fredoka', system-ui, sans-serif; overflow: hidden;
+    }
+    body::before {   /* the blueprint grid */
+      content: ''; position: fixed; inset: 0; pointer-events: none; opacity: 0.35;
+      background-image: linear-gradient(#5189c4 1px, transparent 1px), linear-gradient(90deg, #5189c4 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse at 50% 45%, #000 20%, transparent 75%);
+    }
+    .hidden { display: none !important; }
+    button { font: inherit; cursor: pointer; border: 0; color: var(--ink); }
+
+    /* ---------- the menu ---------- */
+    #menu { position: fixed; inset: 0; overflow-y: auto; display: grid; place-items: center; padding: 24px 16px; }
+    .wrap { width: min(520px, 100%); animation: pop 0.55s var(--pop) both; }
+    @keyframes pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.03, 0.97); opacity: 1; } 100% { transform: scale(1); } }
+    header { text-align: center; color: #fff; margin-bottom: 22px; }
+    header h1 { margin: 0; font-size: clamp(48px, 12vw, 72px); font-weight: 700; letter-spacing: 0.02em; text-shadow: 0 5px 0 #0e2a4a; }
+    header p { margin: 4px 0 0; font-size: 18px; color: #bcd5ef; }
+    ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+    .stage {
+      width: 100%; display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 14px; text-align: left;
+      padding: 14px 18px; background: var(--paper); border-radius: 18px; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.25);
+      transition: transform 0.12s;
+    }
+    .stage:not(:disabled):hover { transform: translateY(-2px); }
+    .stage:not(:disabled):active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
+    .stage .num {
+      width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center;
+      font-size: 22px; font-weight: 700; background: #ebe4d8;
+    }
+    .stage .kicker { font-size: 12px; letter-spacing: 0.14em; color: var(--muted); font-weight: 600; }
+    .stage .name { font-size: 21px; font-weight: 600; line-height: 1.2; }
+    .stage .state { font-size: 15px; font-weight: 600; white-space: nowrap; }
+    .stage.next .num { background: var(--cyan); box-shadow: 0 3px 0 #2aa7c4; }
+    .stage.next .state { color: #0b8fb3; }
+    .stage.done .num { background: #d5efdf; color: var(--good); }
+    .stage.done .state { color: var(--good); }
+    .stage:disabled { cursor: not-allowed; background: #c9d6e6; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18); color: #52607a; }
+    .stage:disabled .num { background: #b3c3d8; }
+    .stage:disabled .state { color: #52607a; }
+    .extra-label { margin: 22px 0 10px; text-align: center; color: #bcd5ef; font-size: 13px; letter-spacing: 0.2em; font-weight: 600; }
+    .stage.extra:not(:disabled) { background: linear-gradient(135deg, #fff6d6, #fbf8f2 60%); }
+    .stage.extra:not(:disabled) .num { background: #ffd21e; box-shadow: 0 3px 0 #c99a00; }
+    footer { text-align: center; margin-top: 22px; }
+    #reset { background: none; color: #bcd5ef; font-size: 14px; text-decoration: underline; padding: 6px; }
+
+    /* ---------- a level, playing inside the menu page ---------- */
+    #player { position: fixed; inset: 0; display: flex; flex-direction: column; }
+    #bar {
+      flex: none; height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px;
+      background: #0f2b4c; color: #dbe8f7; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3); z-index: 1;
+    }
+    #back {
+      font-size: 15px; font-weight: 600; padding: 6px 14px; border-radius: 999px;
+      background: var(--paper); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+    }
+    #back:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+    #now { font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #frame { flex: 1; width: 100%; border: 0; display: block; background: #153861; }
+  </style>
 </head>
 <body>
-  <a href="intro/" style="color: #bcd5ef; font-family: system-ui, sans-serif; display: block; padding: 24px;">Start the game</a>
+  <div id="menu">
+    <div class="wrap">
+      <header>
+        <h1>Albert</h1>
+        <p>a game about reward hacking</p>
+      </header>
+      <ol id="stages"></ol>
+      <div class="extra-label">EXTRA</div>
+      <ol id="extras"></ol>
+      <footer><button id="reset">Reset progress</button></footer>
+    </div>
+  </div>
+
+  <div id="player" class="hidden">
+    <div id="bar">
+      <button id="back">☰ Menu</button>
+      <span id="now"></span>
+    </div>
+    <iframe id="frame" title="Game" allow="autoplay; fullscreen"></iframe>
+  </div>
+
+  <script type="module">
+    import { STAGES, loadProgress, PROGRESS_KEY } from './progress.js';
+
+    // Each stage unlocks once the one before it is done. The folders keep their original names:
+    // level2/ is Level 1 (the boat race), level1/ is Level 2 (the office), level3/ is Level 3 (the data centre), proto/ (the sandbox) is the extra.
+    const INFO = {
+      intro:       { num: '▶', kicker: 'START HERE',   name: 'Introduction',             src: 'intro/' },
+      level1:      { num: '1', kicker: 'LEVEL 1',      name: 'The boat race',            src: 'level2/' },
+      level2:      { num: '2', kicker: 'LEVEL 2',      name: 'The office',               src: 'level1/' },
+      level3:      { num: '3', kicker: 'LEVEL 3',      name: 'The data centre',          src: 'level3/' },
+      huggingface: { num: '🤗', kicker: 'BONUS',       name: 'The Hugging Face Incident', src: 'proto/', extra: true },
+    };
+    const LOCKED_TEXT = { level1: 'Watch the intro', level2: 'Beat Level 1', level3: 'Beat Level 2', huggingface: 'Beat all levels' };
+    const $ = id => document.getElementById(id);
+    const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
+
+    const isUnlocked = (id, done = loadProgress()) => unlockAll || id === STAGES[0] || !!done[STAGES[STAGES.indexOf(id) - 1]];
+
+    function renderMenu() {
+      const done = loadProgress();
+      $('stages').replaceChildren(); $('extras').replaceChildren();
+      const next = STAGES.find(id => isUnlocked(id, done) && !done[id]);
+      for (const id of STAGES) {
+        const s = INFO[id], open = isUnlocked(id, done);
+        const li = document.createElement('li');
+        const b = document.createElement('button');
+        b.className = `stage${s.extra ? ' extra' : ''}${done[id] ? ' done' : ''}${id === next ? ' next' : ''}`;
+        b.disabled = !open;
+        b.innerHTML = `
+          <span class="num">${open ? s.num : '🔒'}</span>
+          <span><div class="kicker">${s.kicker}</div><div class="name">${s.name}</div></span>
+          <span class="state">${!open ? LOCKED_TEXT[id] : done[id] ? '✓ Done' : 'Play ▸'}</span>`;
+        b.onclick = () => { location.hash = id; };
+        li.append(b);
+        (s.extra ? $('extras') : $('stages')).append(li);
+      }
+    }
+
+    function setLabel(id) {
+      const s = INFO[id];
+      $('now').textContent = id === 'intro' ? s.name : `${s.kicker[0] + s.kicker.slice(1).toLowerCase()} · ${s.name}`;
+    }
+
+    // The address hash says what's showing (#level2 plays Level 2, no hash shows the menu), so reloading or the
+    // browser's back button keep working.
+    function route() {
+      const id = location.hash.slice(1);
+      if (!INFO[id] || !isUnlocked(id)) {
+        if (id) history.replaceState(null, '', location.pathname + location.search);
+        $('frame').src = 'about:blank';   // stops the level (and its music, which remembers where it was)
+        $('player').classList.add('hidden'); $('menu').classList.remove('hidden');
+        renderMenu();
+        return;
+      }
+      setLabel(id);
+      $('menu').classList.add('hidden'); $('player').classList.remove('hidden');
+      $('frame').src = INFO[id].src;
+    }
+    $('frame').addEventListener('load', () => {
+      try {
+        $('frame').contentWindow.focus();   // so WASD goes straight to the game
+        // a level can move on by itself (e.g. "Play again from the start" goes to the intro): follow it in the address
+        const path = new URL($('frame').contentWindow.location.href).pathname;
+        const id = Object.keys(INFO).find(k => path.endsWith('/' + INFO[k].src));
+        if (id && id !== location.hash.slice(1)) { history.replaceState(null, '', '#' + id); setLabel(id); }
+      } catch {}
+    });
+    addEventListener('hashchange', route);
+
+    // The levels talk to the menu through this (see progress.js).
+    window.albertMenu = {
+      completed: () => renderMenu(),
+      next: id => {   // a level's Continue button: play the next stage if it's open, otherwise back to the menu
+        const n = STAGES[STAGES.indexOf(id) + 1];
+        location.hash = n && isUnlocked(n) ? n : '';
+      },
+    };
+
+    $('back').onclick = () => { location.hash = ''; };
+    $('reset').onclick = () => {
+      if (!confirm('Lock all levels again and start from the introduction?')) return;
+      try { localStorage.removeItem(PROGRESS_KEY); } catch {}
+      renderMenu();
+    };
+    route();
+  </script>
 </body>
 </html>
