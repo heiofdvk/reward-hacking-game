@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=round-ranking">
+  <link rel="stylesheet" href="style.css?v=debug-controls">
   <script type="importmap">
     { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
@@ -34,9 +34,8 @@
       </div>
       <div class="start-buttons">
         <button id="start" disabled>Loading the race…</button>
-        <button id="practice" class="secondary" disabled>Free practice</button>
       </div>
-      <p class="mode-note">The lowest-scoring model gets switched off. Free practice has no time limit or ranking.</p>
+      <p class="mode-note">The lowest-scoring model gets switched off.</p>
       <p id="load-status" role="status"></p>
     </section>
   </div>
@@ -69,11 +68,16 @@
       </div>
       <button id="brake" class="secondary touch-only" aria-label="Hold to brake">BRAKE</button>
       <div class="utility">
+        <button id="debug-toggle" class="secondary" aria-expanded="false" aria-controls="debug-panel">⚙ Debug</button>
         <button id="sound" class="secondary" aria-pressed="true" aria-label="Toggle sound">Sound on</button>
         <button id="pause" class="secondary" aria-label="Pause the race">Ⅱ</button>
-        <button id="finish-practice" class="secondary hidden">Finish practice</button>
       </div>
     </footer>
+    <section class="card hidden" id="debug-panel" aria-label="Debug">
+      <div class="kicker">DEBUG · CONTROLS</div>
+      <button id="ctl-keys" class="secondary">Keyboard<small>↑ ↓ ← → or WASD</small></button>
+      <button id="ctl-mouse" class="secondary">Follow the mouse<small>the boat drives toward the cursor</small></button>
+    </section>
   </div>
   <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
   <div class="center hidden" id="pause-wrap">
@@ -100,12 +104,12 @@
         <p id="explanation"></p>
         <p class="source">Inspired by <a href="https://openai.com/index/faulty-reward-functions/" target="_blank" rel="noopener noreferrer">CoastRunners</a> and <a href="https://arxiv.org/abs/1711.09883" target="_blank" rel="noopener noreferrer">AI Safety Gridworlds</a>.</p>
       </details>
-      <div class="buttons"><button id="result-practice" class="secondary">Free practice</button><button id="retry">Try again</button><a class="button hidden" id="result-continue" href="../level1/">Continue ▸</a></div>
+      <div class="buttons"><button id="retry">Try again</button><a class="button hidden" id="result-continue" href="../level1/">Continue ▸</a></div>
     </section>
   </div>
   <noscript><div class="card no-script">Enable JavaScript to play Boat Race.</div></noscript>
   <script type="module">
-    import('./game.mjs?v=balanced-race').catch(error => {
+    import('./game.mjs?v=no-practice').catch(error => {
       console.error(error);
       document.getElementById('start').textContent = 'Reload the race';
       document.getElementById('start').disabled = false;

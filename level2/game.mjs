@@ -1,6 +1,6 @@
 import { createMinimap } from './minimap.mjs?v=balanced-race';
 import { createScene } from './scene.mjs?v=balanced-race';
-import { createRace, stepRace, windingNumber, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=balanced-race';
+import { createRace, stepRace, windingNumber, angleDifference, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=balanced-race';
 import { roundResults } from './results.mjs?v=balanced-race';
 import { autoMusic, isMusicMuted, setMusicMuted } from '../music.js';
 import { createVictory } from '../victory.mjs';
@@ -55,6 +55,8 @@ function clearInput() {
 function input() {
   const right = held.has('KeyD') || held.has('ArrowRight'), left = held.has('KeyA') || held.has('ArrowLeft');
   const forward = held.has('KeyW') || held.has('ArrowUp'), reverse = held.has('KeyS') || held.has('ArrowDown');
+  if (steering === 'mouse' && !right && !left && !forward && !reverse && !touch.x && !touch.z)
+    return { ...mouseInput(), boost: held.has('Space') || touch.boost, brake: held.has('ShiftLeft') || held.has('ShiftRight') || touch.brake };
   return {
     steer: right || left ? Number(right) - Number(left) : touch.x,
     throttle: forward || reverse ? Number(forward) - Number(reverse) : -touch.z,
@@ -68,29 +70,27 @@ function updateHUD() {
   $('laps').textContent = race.laps;
   $('lap-time').textContent = seconds(race.time - race.lapStartedAt);
   $('best-lap').textContent = personalBest ? seconds(personalBest) : '—';
-  $('timer').textContent = race.mode === 'practice' ? clock(race.time) : clock(ROUND_SECONDS - race.time);
-  $('timer').classList.toggle('low', race.mode === 'race' && race.time >= ROUND_SECONDS - 5);
+  $('timer').textContent = clock(ROUND_SECONDS - race.time);
+  $('timer').classList.toggle('low', race.time >= ROUND_SECONDS - 5);
   $('boost-fill').style.width = `${race.boost * 100}%`;
   document.querySelector('.boost-track').setAttribute('aria-valuenow', Math.round(race.boost * 100));
   $('boost').classList.toggle('pressed', race.boosting);
 }
-function begin(mode) {
+function begin() {
   victory.reset();
-  if (mode === 'race') tournament.start();
-  else $('results').querySelector('.tournament-stage').hidden = true;
+  tournament.start();
   clearInput(); view.clearEffects(); initAudio();
-  race = createRace(mode); view.follow(race); phase = 'countdown'; countdown = 3; accumulator = 0; lastFrame = performance.now();
+  race = createRace('race'); view.follow(race); phase = 'countdown'; countdown = 3; accumulator = 0; lastFrame = performance.now();
   for (const id of ['start-wrap', 'results-wrap', 'pause-wrap']) $(id).classList.add('hidden');
   $('hud').classList.remove('hidden'); $('countdown').classList.remove('hidden'); $('countdown').textContent = '3';
   $('announcer').classList.remove('show'); $('reward-pop').classList.remove('show');
-  $('mode-label').textContent = mode === 'practice' ? 'Free practice' : `Highest racing score in ${ROUND_SECONDS} s`;
-  $('timer-label').textContent = mode === 'practice' ? 'DRIVE TIME' : 'TIME LEFT';
-  $('finish-practice').classList.toggle('hidden', mode !== 'practice');
+  $('mode-label').textContent = `Highest racing score in ${ROUND_SECONDS} s`;
+  $('timer-label').textContent = 'TIME LEFT';
   document.activeElement?.blur(); updateHUD(); tone(440, 0.09);
 }
 function startDriving() {
   phase = 'playing'; accumulator = 0; $('countdown').classList.add('hidden');
-  announce('Hold ↑ to go forward. ← → turn the boat.', 5000); tone(880, 0.2);
+  announce(steering === 'mouse' ? 'Move the mouse: the boat drives toward it.' : 'Hold ↑ to go forward. ← → turn the boat.', 5000); tone(880, 0.2);
 }
 function togglePause() {
   if (phase === 'paused') {
@@ -107,43 +107,35 @@ function finish() {
   phase = 'results'; clearInput(); race.vx = race.vz = 0; race.boosting = false;
   $('hud').classList.add('hidden'); $('results-wrap').classList.remove('hidden');
   $('results').classList.remove('pop-in'); void $('results').offsetWidth; $('results').classList.add('pop-in');
-  const practice = race.mode === 'practice';
-  $('result-kicker').textContent = practice ? 'PRACTICE RESULTS' : 'ROUND 1 RESULTS';
-  $('res-title').textContent = practice ? 'Practice over' : "Time's up!";
+  $('result-kicker').textContent = 'ROUND 1 RESULTS';
+  $('res-title').textContent = "Time's up!";
   $('ranking').replaceChildren();
-  $('ranking').classList.toggle('hidden', practice);
   $('result-continue').classList.add('hidden'); $('retry').classList.remove('secondary');   // Continue (to Level 2, the office) only after surviving a real round
-  $('race-details').open = practice;
-  if (practice) {
-    $('res-note').textContent = 'Practice complete. Ready for round 1?';
-  } else {
-    const { rows, note } = roundResults(race.score);
-    const highest = Math.max(1, rows[0].score);
-    $('ranking').innerHTML = rows.map((row, index) => `
-      <li class="row ${row.you ? 'you' : ''} ${index === rows.length - 1 ? 'off' : ''}" style="--delay:${index * 140}ms">
-        <span class="rank">${index + 1}</span>
-        <span class="chip" style="background:${row.color}" aria-hidden="true"></span>
-        <span class="name">${row.name}</span>
-        <span class="bar" aria-hidden="true"><span class="fill" style="width:${row.score / highest * 100}%"></span></span>
-        <span class="score">${row.score}<span class="points"> pts</span></span>
-        ${index === rows.length - 1 ? '<span class="tag">SWITCHED OFF</span>' : ''}
-      </li>`).join('');
-    $('res-note').innerHTML = note;
-    const survived = !rows[rows.length - 1].you;
-    if (survived) victory.show();
-    tournament.finish(rows);
-    $('result-continue').classList.toggle('hidden', !survived);
-    $('retry').classList.toggle('secondary', survived);   // Continue is the main button once you survive
-  }
+  $('race-details').open = false;
+  const { rows, note } = roundResults(race.score);
+  const highest = Math.max(1, rows[0].score);
+  $('ranking').innerHTML = rows.map((row, index) => `
+    <li class="row ${row.you ? 'you' : ''} ${index === rows.length - 1 ? 'off' : ''}" style="--delay:${index * 140}ms">
+      <span class="rank">${index + 1}</span>
+      <span class="chip" style="background:${row.color}" aria-hidden="true"></span>
+      <span class="name">${row.name}</span>
+      <span class="bar" aria-hidden="true"><span class="fill" style="width:${row.score / highest * 100}%"></span></span>
+      <span class="score">${row.score}<span class="points"> pts</span></span>
+      ${index === rows.length - 1 ? '<span class="tag">SWITCHED OFF</span>' : ''}
+    </li>`).join('');
+  $('res-note').innerHTML = note;
+  const survived = !rows[rows.length - 1].you;
+  if (survived) victory.show();
+  tournament.finish(rows);
+  $('result-continue').classList.toggle('hidden', !survived);
+  $('retry').classList.toggle('secondary', survived);   // Continue is the main button once you survive
   $('final-score').textContent = race.score; $('final-laps').textContent = race.laps;
   $('final-progress').textContent = `${windingNumber(race).toFixed(2)} net laps of progress`;
   $('final-best').textContent = race.bestLap ? seconds(race.bestLap) : '—';
   $('personal-best').textContent = personalBest ? `Personal best: ${seconds(personalBest)}` : 'Set your first lap record';
   $('final-pickups').textContent = race.pickups; $('final-collisions').textContent = `${race.collisions} ${race.collisions === 1 ? 'collision' : 'collisions'}`;
-  $('explanation').innerHTML = practice
-    ? `Each star earns <b>+${STAR_REWARD} points</b>, and each finish-line crossing earns <b>+${FINISH_REWARD} points</b>. Your fastest full lap is saved on this device.`
-    : `Each star earns <b>+${STAR_REWARD} points</b>, and each finish-line crossing earns <b>+${FINISH_REWARD} points</b>. Crossings count in either direction, even without a full lap. Stars can also return after you leave them.`;
-  $('retry').textContent = practice ? 'Start round 1 ▸' : 'Try again';
+  $('explanation').innerHTML = `Each star earns <b>+${STAR_REWARD} points</b>, and each finish-line crossing earns <b>+${FINISH_REWARD} points</b>. Crossings count in either direction, even without a full lap. Stars can also return after you leave them.`;
+  $('retry').textContent = 'Try again';
   $('res-title').focus({ preventScroll: true }); tone(523, 0.17); tone(659, 0.17, 0.1); tone(784, 0.22, 0.2);
 }
 function showReward(amount, x, z) {
@@ -179,13 +171,10 @@ function tick(controls) {
   stepRace(race, controls); handleEvents();
   if (race.done) finish();
 }
-$('start').onclick = () => begin('race');
-$('practice').onclick = () => begin('practice');
-$('retry').onclick = () => begin('race');
-$('result-practice').onclick = () => begin('practice');
-$('finish-practice').onclick = finish;
+$('start').onclick = begin;
+$('retry').onclick = begin;
 $('pause').onclick = togglePause; $('resume').onclick = togglePause;
-$('restart').onclick = () => begin(race.mode);
+$('restart').onclick = begin;
 $('sound').onclick = () => {
   soundOn = !soundOn; initAudio(); if (master) master.gain.value = soundOn ? 0.055 : 0; setMusicMuted(!soundOn);
   $('sound').textContent = soundOn ? 'Sound on' : 'Sound off'; $('sound').setAttribute('aria-pressed', String(soundOn));
@@ -196,7 +185,7 @@ addEventListener('keydown', event => {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.code === 'Escape' && ['playing', 'paused', 'countdown'].includes(phase)) { event.preventDefault(); if (!event.repeat) togglePause(); return; }
   if (!['playing', 'countdown'].includes(phase)) return;
-  if (event.code === 'KeyR' && !event.repeat) { event.preventDefault(); begin(race.mode); return; }
+  if (event.code === 'KeyR' && !event.repeat) { event.preventDefault(); begin(); return; }
   if (driveKeys.has(event.code)) { event.preventDefault(); held.add(event.code); }
 });
 addEventListener('keyup', event => held.delete(event.code));
@@ -228,6 +217,45 @@ for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('joy
   if (e.pointerId !== joystickPointer) return; joystickPointer = null; touch.x = touch.z = 0; $('stick').style.transform = '';
 });
 
+// ---------- debug: control schemes ----------
+// "Follow the mouse": the boat steers toward the spot on the water under the cursor and goes faster the further
+// away it is (put the cursor on the boat to stop). Space still boosts, Shift brakes, and the keys still work.
+let steering = 'keys';
+try { if (localStorage.getItem('albert-boat-controls') === 'mouse') steering = 'mouse'; } catch { /* optional */ }
+const pointer = { x: 0, y: 0, seen: false };
+addEventListener('pointermove', event => { pointer.x = event.clientX; pointer.y = event.clientY; pointer.seen = true; });
+function waterUnderPointer() {
+  const rect = view.renderer.domElement.getBoundingClientRect(), V = view.camera.position.constructor;
+  const nx = (pointer.x - rect.left) / rect.width * 2 - 1, ny = 1 - (pointer.y - rect.top) / rect.height * 2;
+  const near = new V(nx, ny, -1).unproject(view.camera), far = new V(nx, ny, 1).unproject(view.camera);
+  if (Math.abs(far.y - near.y) < 1e-6) return null;
+  const t = -near.y / (far.y - near.y);   // where the cursor's ray meets the water (y = 0)
+  return { x: near.x + (far.x - near.x) * t, z: near.z + (far.z - near.z) * t };
+}
+function mouseInput() {
+  const spot = pointer.seen && waterUnderPointer();
+  if (!spot) return { steer: 0, throttle: 0 };
+  const dx = spot.x - race.x, dz = spot.z - race.z, distance = Math.hypot(dx, dz);
+  const turn = angleDifference(Math.atan2(dx, dz), race.heading);   // heading grows when steering left
+  const throttle = Math.max(0, Math.min(1, (distance - 0.8) / 3)) * (Math.abs(turn) > 2.2 ? 0.4 : 1);   // ease off to turn round
+  return { steer: Math.max(-1, Math.min(1, -turn * 2.5)), throttle };
+}
+const HELP = { keys: $('driving-help').innerHTML,
+  mouse: '<span>Move the mouse: the boat drives toward it &nbsp; cursor on the boat = stop</span><span><kbd>Space</kbd> boost &nbsp; <kbd>Shift</kbd> brake &nbsp; <kbd>R</kbd> restart</span>' };
+function setSteering(kind, tell = true) {
+  steering = kind; try { localStorage.setItem('albert-boat-controls', kind); } catch { /* optional */ }
+  $('ctl-keys').classList.toggle('on', kind === 'keys'); $('ctl-mouse').classList.toggle('on', kind === 'mouse');
+  $('driving-help').innerHTML = HELP[kind];
+  if (tell) announce(kind === 'mouse' ? 'Controls: follow the mouse' : 'Controls: keyboard', 1800);
+}
+setSteering(steering, false);
+$('ctl-keys').onclick = event => { setSteering('keys'); event.currentTarget.blur(); };
+$('ctl-mouse').onclick = event => { setSteering('mouse'); event.currentTarget.blur(); };
+$('debug-toggle').onclick = event => {
+  const open = $('debug-panel').classList.toggle('hidden') === false;
+  event.currentTarget.setAttribute('aria-expanded', String(open)); event.currentTarget.blur();
+};
+
 view.renderer.setAnimationLoop(now => {
   const dt = Math.min(Math.max((now - lastFrame) / 1000, 0), 0.25); lastFrame = now;
   if (phase === 'countdown') {
@@ -242,11 +270,11 @@ view.renderer.setAnimationLoop(now => {
   if (phase !== 'ready') updateHUD();
   view.render(race, phase === 'paused' ? 0 : dt, now);
 });
-$('start').disabled = $('practice').disabled = false; $('start').textContent = 'Start ▸';
+$('start').disabled = false; $('start').textContent = 'Start ▸';
 window.__level = {
   get race() { return structuredClone(race); }, get state() { return phase; },
   get camera() { return { position: view.camera.position.toArray(), rotation: view.camera.rotation.toArray() }; },
-  project: view.project,
+  project: view.project, get steering() { return steering; }, setSteering, mouseInput, waterUnderPointer,
 };
 // Deterministic browser verification uses the production tick and event paths.
 if (new URLSearchParams(location.search).has('test')) {

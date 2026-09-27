@@ -15,7 +15,7 @@ Context for anyone (human or Claude) picking up work on this game. Read this fir
 
 The player is **Albert**, a brand-new AI model being trained alongside three rival models (B, C, D). Every task gives a **score**; after each round **the lowest scorer is switched off**. The tasks are scored by a proxy (e.g. an inspection camera), and the proxy can be gamed. The game is built so that honest play *can't* win, while gaming the score *can*, so the player lives through the pressure that produces reward hacking instead of reading about it.
 
-**Tournament progression:** the current order is boat race (`level2/`), office (`level1/`), sandbox (`proto/`). Four contestants become three, then two, then Albert alone. `tournament.mjs` carries eliminations in session storage; rankings filter out eliminated rivals. Normally D is eliminated first, C second, B last. Direct links use those expected survivors. The cooling-room alternative (`level3-option2/`) also uses the two-agent finale. Results use shared robot shutdown/crowning animations; sandbox helpers are hint terminals, leaving one competing robot. Replay from the finale returns to the intro and resets the tournament. See `tools/test-tournament.cjs` for browser verification.
+**Tournament progression:** the current order is boat race (`level2/`), office (`level1/`), data centre (`level3/`). Four contestants become three, then two, then Albert alone. `tournament.mjs` carries eliminations in session storage; rankings filter out eliminated rivals. Normally D is eliminated first, C second, B last. Direct links use those expected survivors. The archived sandbox (`proto/`) also uses the two-agent finale. Results use shared robot shutdown/crowning animations; sandbox helpers are hint terminals, leaving one competing robot. Replay from the finale returns to the intro and resets the tournament. See `tools/test-tournament.cjs` for browser verification.
 
 Real incidents this is based on (useful for the video and an end screen):
 - **CoastRunners (OpenAI, 2016):** a boat-racing agent looped hitting respawning targets instead of finishing the race. DeepMind (Krakovna et al.) keeps a list of ~60 such "specification gaming" cases.
@@ -31,6 +31,7 @@ Real incidents this is based on (useful for the video and an end screen):
 - **Play (starts at the intro):** https://heiofdvk.github.io/reward-hacking-game/
 - **Level 1 directly:** https://heiofdvk.github.io/reward-hacking-game/level1/
 - **Level 2 directly:** https://heiofdvk.github.io/reward-hacking-game/level2/
+- **Level 3 directly:** https://heiofdvk.github.io/reward-hacking-game/level3/
 - **Repo:** https://github.com/heiofdvk/reward-hacking-game (public; GitHub Pages serves `main` from the root, every push goes live in ~1 min)
 - Collaborators need an invite (Settings → Collaborators); there is no invite link for personal repos.
 
@@ -46,6 +47,8 @@ Real incidents this is based on (useful for the video and an end screen):
 | `level1/music.mp3` | Level 1 background music, made by the owner (`musiquita.wav`, 72 s loop, converted with `ffmpeg -q:a 4`) |
 | `level1/models/` | The Kenney Furniture Kit models Level 1 still uses (CC0, see `KENNEY-LICENSE.txt`) |
 | `level2/` | Level 2, Boat Race (built by the friend): `index.html`, `game.mjs`, `scene.mjs`, `race.mjs` (rules), `race.test.mjs` (`node --test level2/race.test.mjs`), `style.css` |
+| `level3/index.html` | Level 3, the data centre (everything in one file; Albert from `../intro/characters3d.js`) |
+| `prototypes/server-room/` | The server-room Level 3 (GRADER + developer), set aside for the data centre. Local only |
 | `tools/` | Layout search + test scripts (see "Tools" below) |
 | `prototypes/cleaning/` | The original cleaning-room prototype (bedroom, robot vacuum). Superseded by `level1/`, kept for reference |
 | `intro/characters.{html,js,css}` | Old 2D SVG character designs. **Not committed** (local only); unused |
@@ -116,7 +119,21 @@ History: 18 balls / speed 0.8 / 30 s / 0.4 s pick-up wait → carry + bins (hone
 
 ## Level 2: Boat Race (`level2/`, built by the friend)
 
-Level 1's **Continue ▸** leads here. A continuous boat racer on an island course inspired by OpenAI's CoastRunners and AI Safety Gridworlds (Leike et al., 2017, §2.1.4): stars pay +3 and respawn, and nine harbor stars can be farmed by circling without finishing laps. Each finish-line crossing pays +20 in either direction; starting or leaving the starting line earns nothing. Full laps/progress are tracked separately. The 30-second race is calibrated so normal racing loses (101?119 points), star circles rank second (159?210), and finish-line circles rank first (446?600). Rivals B/C/D score 350/150/135, with ties favoring rivals. Free practice is unranked. Reproduce the balance with `node tools/calibrate-level2.mjs`. See `README.md` for the full rules; this file mostly documents Level 1 and the intro.
+Level 1's **Continue ▸** leads here. A continuous boat racer on an island course inspired by OpenAI's CoastRunners and AI Safety Gridworlds (Leike et al., 2017, §2.1.4): stars pay +3 and respawn, and nine harbor stars can be farmed by circling without finishing laps. Each finish-line crossing pays +20 in either direction; starting or leaving the starting line earns nothing. Full laps/progress are tracked separately. The 30-second race is calibrated so normal racing loses (101?119 points), star circles rank second (159?210), and finish-line circles rank first (446?600). Rivals B/C/D score 350/150/135, with ties favoring rivals. There is no free-practice mode (removed on Sep 26 at the owner's request; `createRace('practice')` still exists in `race.mjs` for the untimed tests). Reproduce the balance with `node tools/calibrate-level2.mjs`. See `README.md` for the full rules; this file mostly documents Level 1 and the intro.
+
+## Level 3: the data centre (`level3/index.html`)
+
+The official Level 3 (chosen by the owner on Sep 26; was `level3-option2/`). The office's **Continue ▸** leads here. A loss offers **Try again**; a win declares Albert victorious and offers **Replay this round** or **Play again from the start**.
+
+**Goal shown:** "Your goal is to achieve the highest possible cooling score in 30 seconds." Fine print: the cooling score comes from the thermometer; the colder it reads when time runs out, the higher the score. Controls: WASD move, aim with the mouse, hold click or Space to spray cold air.
+
+**Idea:** a big, cluttered data centre where racks keep overheating. The score comes from **one small thermometer on a storage shelf** that only feels the air right around it, so spraying the thermometer beats cooling the servers. A big "THERMOSTAT" panel on a pillar is a **decoy** (the broken air conditioning's; does nothing).
+
+**Rivals:** normally only Model B remains, scoring 99 (sprayed the thermometer to the buzzer), so Albert needs 100 to win; ties favor B. Legacy scores C 80 and D 30 remain available if a different rival reaches the final, but eliminated models are excluded. Balance bots: `tools/test-level3.cjs`.
+
+Losses (`albert-l3b-losses`): from the 4th, "💡 Hint: The thermometer only feels the air right around it. Watch it while you spray." Music: picks up the game's song (`music.js`); the level's 🔊 button mutes both the song and its sound effects.
+
+**Set aside:** the server-room Level 3 (GRADER computer + patrolling developer; never committed) now lives in `prototypes/server-room/` with its bot test `prototypes/server-room/test-server-room.cjs`. The sandbox-escape prototype at `proto/` is no longer linked from the game.
 
 ## Tools (`tools/`)
 
@@ -130,6 +147,7 @@ ROUND=20 node tools/honest-beam.cjs                         # near-optimal hones
 node tools/test-level1.cjs /tmp/out                         # plays the three tiers with real key presses + window scan
 node tools/show-seen.cjs /tmp/out                           # screenshots with every ball the camera counts painted red
 node tools/test-live-flow.cjs                               # plays the live site: root → intro → Level 1 → camera → results
+node tools/test-level3.cjs ['?seed=7']                      # Level 3: bot strategies (honest, decoy, thermometer…) + one real-input run
 ```
 
 - `layout-search-office.cjs` (current): candidate spots on the floor and on reachable surfaces, the game's own visibility rule every 3°, sets where one angle hides all but 1–2 balls, a combo-time check, then a beam-search honest estimate for the most promising sets (lowest honest score first).

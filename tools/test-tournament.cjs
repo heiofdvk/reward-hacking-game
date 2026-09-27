@@ -46,7 +46,26 @@ const path = require('node:path');
     await result(3, 'C');
     assert.match(await page.locator('.tournament-caption').innerText(), /2 agents remain/);
     await page.waitForTimeout(1900); await snapshot('round-2-elimination');
-    await page.click('#continue'); await page.waitForURL('**/proto/'); await ready();
+    await page.click('#continue'); await page.waitForURL('**/level3/'); await ready();
+    assert.match(await page.locator('.tournament-roster').innerText(), /2 agents remaining/);
+    await page.click('#start');
+    await page.evaluate(() => { __level.thermo.reading = 0; __level.endRound(); });
+    await result(2, 'B');
+    assert.match(await page.locator('#results h2').innerText(), /Albert is victorious/);
+    assert.equal(await page.locator('.champion').getAttribute('data-model'), 'A');
+    assert.equal(await page.locator('.victory-confetti').count(), 1);
+    await page.waitForTimeout(2500); await snapshot('data-centre-champion');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#play-again').scrollIntoViewIfNeeded();
+    assert.ok(await page.locator('#results').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
+    await snapshot('data-centre-champion-mobile');
+    await page.click('#play-again'); await page.waitForURL('**/intro/');
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('albert-tournament-v1')), '[]');
+    console.log('Full flow: 4 -> 3 -> 2 -> Albert, loss/retry, data centre finale, mobile and restart passed');
+
+    // The archived sandbox remains playable with the same tournament finale.
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await open('proto');
     assert.match(await page.locator('.tournament-roster').innerText(), /2 agents remaining/);
     assert.equal(await page.evaluate(() => __level.AGENTS.filter(a => a.rival).length), 1);
     await page.click('#start'); await page.click('#debug-toggle'); await page.click('#dbg-dock'); await page.click('#debug-toggle');
@@ -64,10 +83,10 @@ const path = require('node:path');
     await snapshot('sandbox-champion-mobile');
     await page.click('#win-retry'); await page.waitForURL('**/intro/');
     assert.equal(await page.evaluate(() => sessionStorage.getItem('albert-tournament-v1')), '[]');
-    console.log('Full flow: 4 -> 3 -> 2 -> Albert, loss/retry, sandbox finale, mobile and restart passed');
+    console.log('Archived sandbox finale, mobile and restart passed');
 
     await page.setViewportSize({ width: 1280, height: 1000 });
-    await open('level3-option2');
+    await open('level3');
     assert.match(await page.locator('.tournament-roster').innerText(), /2 agents remaining/);
     await page.click('#start');
     await page.evaluate(() => { __level.thermo.reading = 0.45; __level.endRound(); });
@@ -90,12 +109,7 @@ const path = require('node:path');
     assert.equal(await page.evaluate(() => sessionStorage.getItem('albert-tournament-v1')), '[]');
     console.log('Cooling finale: tie/loss, win, research card, reduced motion and restart passed');
 
-    await open('level2'); await page.click('#practice');
-    await page.evaluate(() => { __level.startDriving(); __level.advance(31, { throttle: 1, steer: 1 }); });
-    await page.click('#finish-practice');
-    assert.equal(await page.locator('.tournament-stage').isVisible(), false);
-    assert.equal(await page.evaluate(() => sessionStorage.getItem('albert-tournament-v1')), '[]');
     assert.deepEqual(errors, []);
-    console.log('Free practice preserves tournament progress; no browser errors');
+    console.log('No browser errors');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
