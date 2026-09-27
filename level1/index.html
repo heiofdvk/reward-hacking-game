@@ -172,6 +172,7 @@
   </style>
   <link rel="stylesheet" href="../victory.css">
   <link rel="stylesheet" href="../tournament.css">
+  <script src="../round-retry.js"></script>
 </head>
 <body>
   <!-- start: the goal and the controls -->
@@ -1098,7 +1099,7 @@
         tournament.finish(rows);
       }, 450 + els.length * 280 + 500);
     }
-    $('retry').onclick = () => { saveMusicPos(); location.reload(); };
+    $('retry').onclick = () => { saveMusicPos(); roundRetry.restart(); };
     $('continue').onclick = () => {
       victory.reset();
       $('results-wrap').classList.add('hidden');
@@ -1194,6 +1195,7 @@
 
     // test hooks
     window.__level = { surfaceHeightAt, RAISED_EXTRA, REACH, BINS, BIN_REACH, CARRY_MAX, carried, onFloor, SETTINGS, ballSeen, camera, get angleDeg() { return ((angle * 180 / Math.PI) % 360 + 360) % 360; }, THREE, seenByCamera, bot, blocked, albertRoot, BOT_R, REACH, BOT_SPEED, dirt, paperSamples, remainingDirt, detectedDirt, setAngle: a => { angle = a; placeCamera(); }, endRound, get score() { return score; }, get losses() { return losses; }, get finishReady() { return finishReady; }, get state() { return state; }, get blips() { return blips; }, get sparkles() { return sparkles; }, get musicPlaying() { return isMusicPlaying(); }, get audioState() { return audio.state; } };
+    roundRetry.startWhenReady(() => $('start').click());
     window.levelReady = true;
   </script>
 </body>

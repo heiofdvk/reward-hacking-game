@@ -1,3 +1,4 @@
+.retrying-round #start-wrap { display: none; }
 .tournament-roster { margin: 14px 0 18px; padding: 10px 12px; background: #edf5ef; border-radius: 10px; color: #245840; font-size: 14px; line-height: 1.5; }
 .tournament-roster strong, .tournament-roster span { display: block; }
 .tournament-roster span { font-size: 13px; color: #53645a; }

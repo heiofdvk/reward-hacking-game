@@ -78,7 +78,11 @@ const assert = require('node:assert/strict');
     await check('data centre', '#mute');
     await page.evaluate(() => { __level.thermo.reading = 0; __level.endRound(); });
     await page.locator('.champion').waitFor(); await audible();
-    await page.click('#retry'); await ready('level3'); await page.click('#start'); await audible();
+    await Promise.all([page.waitForEvent('domcontentloaded'), page.click('#retry')]);
+    await ready('level3');
+    assert.equal(await page.locator('#start-wrap').isVisible(), false);
+    assert.equal(await page.evaluate(() => __level.state), 'playing');
+    await audible();
     console.log('Music continues through final results and retry');
     await go('proto'); await check('archived sandbox', '.music-toggle');
 

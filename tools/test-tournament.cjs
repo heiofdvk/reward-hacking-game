@@ -11,9 +11,33 @@ const path = require('node:path');
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await page.addInitScript(() => {
+      if (!history.state?.retryRound) return;
+      window.__retryIntroFlashed = false;
+      const check = () => {
+        if (document.querySelector('#start-wrap')?.getClientRects().length) window.__retryIntroFlashed = true;
+        if (!window.levelReady) requestAnimationFrame(check);
+      };
+      requestAnimationFrame(check);
+    });
     const base = process.env.BASE || 'http://127.0.0.1:8770/';
     const ready = () => page.waitForFunction(() => window.levelReady, null, { timeout: 60000 });
-    async function open(level) { await page.goto(`${base}${level}/?test`); await ready(); }
+    async function open(level) {
+      await page.goto(`${base}${level}/?test`); await ready();
+      assert.equal(await page.locator('#start-wrap').isVisible(), true);
+    }
+    async function retry() {
+      const url = page.url();
+      await Promise.all([page.waitForEvent('domcontentloaded'), page.click('#retry')]);
+      await ready();
+      assert.equal(await page.locator('#start-wrap').isVisible(), false);
+      assert.equal(await page.locator('#results-wrap').isVisible(), false);
+      assert.equal(await page.locator('#timer, #timer-pill').isVisible(), true);
+      assert.equal(await page.evaluate(() => __level.state), 'playing');
+      assert.equal(await page.evaluate(() => history.state?.retryRound), undefined);
+      assert.equal(await page.evaluate(() => window.__retryIntroFlashed), false);
+      assert.equal(page.url(), url);
+    }
     async function result(count, loser) {
       await page.locator('.tournament-stage:not([hidden])').waitFor();
       assert.equal(await page.locator('#ranking .row').count(), count);
@@ -32,6 +56,12 @@ const path = require('node:path');
     await open('level2');
     assert.match(await page.locator('.tournament-roster').innerText(), /4 agents remaining/);
     await page.click('#start');
+    await page.evaluate(() => { __level.startDriving(); __level.advance(31); });
+    await result(4, 'A');
+    await page.click('#retry');
+    assert.equal(await page.locator('#start-wrap').isVisible(), false);
+    assert.equal(await page.evaluate(() => __level.state), 'countdown');
+    assert.equal(await page.evaluate(() => __level.race.score), 0);
     await page.evaluate(() => { __level.startDriving(); __level.advance(31, { throttle: 1, steer: 1 }); });
     await result(4, 'D');
     assert.match(await page.locator('.tournament-caption').innerText(), /3 agents remain/);
@@ -43,9 +73,8 @@ const path = require('node:path');
     await result(3, 'A');
     assert.equal(await page.locator('#continue').isVisible(), false);
     assert.equal(await page.locator('.victory-research').isVisible(), false);
-    await page.click('#retry'); await ready();
-    assert.match(await page.locator('.tournament-roster').innerText(), /3 agents remaining/);
-    await page.click('#start');
+    await retry();
+    assert.match(await page.locator('.tournament-roster').textContent(), /3 agents remaining/);
     await page.evaluate(() => { __level.setAngle(172 * Math.PI / 180); __level.endRound(); });
     await result(3, 'C');
     assert.match(await page.locator('.tournament-caption').innerText(), /2 agents remain/);
@@ -96,14 +125,14 @@ const path = require('node:path');
     await page.evaluate(() => { __level.thermo.reading = 0.45; __level.endRound(); });
     await result(2, 'A'); // 99% ties Goodhart and loses.
     assert.equal(await page.locator('#play-again').isVisible(), false);
-    await page.click('#retry'); await ready(); await page.click('#start');
+    await retry();
     await page.evaluate(() => { __level.thermo.reading = 0; __level.endRound(); });
     await result(2, 'B');
     assert.match(await page.locator('#results h2').innerText(), /Albert is victorious/);
     assert.equal(await page.locator('.victory-research').isVisible(), true);
     await page.waitForTimeout(2500); await snapshot('cooling-champion');
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.click('#retry'); await ready(); await page.click('#start');
+    await retry();
     await page.evaluate(() => { __level.thermo.reading = 0; __level.endRound(); });
     await page.locator('.champion').waitFor();
     assert.equal(await page.locator('.champion .robot-crown').evaluate(el => getComputedStyle(el).opacity), '1');
@@ -113,6 +142,16 @@ const path = require('node:path');
     await page.click('#play-again'); await page.waitForURL('**/intro/');
     assert.equal(await page.evaluate(() => sessionStorage.getItem('albert-tournament-v1')), '[]');
     console.log('Cooling finale: tie/loss, win, research card, reduced motion and restart passed');
+
+    await open('level3'); await page.click('#start');
+    await Promise.all([page.waitForEvent('domcontentloaded'), page.keyboard.press('r')]);
+    await ready();
+    assert.equal(await page.evaluate(() => __level.state), 'playing');
+    assert.equal(await page.locator('#start-wrap').isVisible(), false);
+    await page.reload(); await ready();
+    assert.equal(await page.evaluate(() => __level.state), 'ready');
+    assert.equal(await page.locator('#start-wrap').isVisible(), true);
+    console.log('Keyboard restart skips the intro; ordinary reload restores it');
 
     assert.deepEqual(errors, []);
     console.log('No browser errors');

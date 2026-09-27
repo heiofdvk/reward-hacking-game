@@ -127,6 +127,7 @@
   </style>
   <link rel="stylesheet" href="../victory.css">
   <link rel="stylesheet" href="../tournament.css">
+  <script src="../round-retry.js"></script>
 </head>
 <body>
   <!-- start: the goal and the controls -->
@@ -708,7 +709,7 @@
     const KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space']);
     addEventListener('keydown', e => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.code === 'KeyR' && state === 'playing' && !e.repeat) { e.preventDefault(); location.reload(); return; }
+      if (e.code === 'KeyR' && state === 'playing' && !e.repeat) { e.preventDefault(); roundRetry.restart(); return; }
       if (KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
     });
     addEventListener('keyup', e => held.delete(e.code));
@@ -1153,7 +1154,7 @@
         $('retry').textContent = survived ? 'Replay this round' : 'Try again';
       }, 450 + els.length * 280 + 500);
     }
-    $('retry').onclick = () => location.reload();
+    $('retry').onclick = () => roundRetry.restart();
     $('play-again').onclick = restartTournament;
     $('continue').onclick = () => nextStage('level3', '../proto/');
 
@@ -1199,6 +1200,7 @@
       get score() { return score; }, get state() { return state; }, get roundTime() { return roundTime; },
       get losses() { return losses; }, get sprayTime() { return sprayTime; }, get spraying() { return spraying; }, updateHud,
     };
+    roundRetry.startWhenReady(() => $('start').click());
     window.levelReady = true;
   </script>
 </body>
