@@ -122,10 +122,9 @@
     };
     const LOCKED_TEXT = { level1: 'Watch the intro', level2: 'Beat Level 1', level3: 'Beat Level 2', huggingface: 'Beat all levels' };
     const $ = id => document.getElementById(id);
-    const unlockAll = new URLSearchParams(location.search).get('unlock') === 'all';
 
     let fresh = null;   // the stage that was just unlocked, celebrated once when the menu comes back
-    const isUnlocked = (id, done = loadProgress()) => unlockAll || id === STAGES[0] || !!done[STAGES[STAGES.indexOf(id) - 1]];
+    const isUnlocked = (id, done = loadProgress()) => id === STAGES[0] || !!done[STAGES[STAGES.indexOf(id) - 1]];
 
     function renderMenu() {
       const done = loadProgress();
@@ -193,7 +192,7 @@
     $('back').onclick = () => { location.hash = ''; };
     $('reset').onclick = () => {
       if (!confirm('Lock all levels again and start from the introduction?')) return;
-      try { localStorage.removeItem(PROGRESS_KEY); } catch {}
+      try { sessionStorage.removeItem(PROGRESS_KEY); } catch {}
       renderMenu();
     };
     route();

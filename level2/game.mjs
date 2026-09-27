@@ -1,6 +1,6 @@
 import { createMinimap } from './minimap.mjs?v=balanced-race';
 import { createScene } from './scene.mjs?v=balanced-race';
-import { createRace, stepRace, windingNumber, angleDifference, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=balanced-race';
+import { createRace, stepRace, angleDifference, FIXED_DT, ROUND_SECONDS, STAR_REWARD, FINISH_REWARD } from './race.mjs?v=balanced-race';
 import { roundResults } from './results.mjs?v=balanced-race';
 import { autoMusic, isMusicMuted, setMusicMuted } from '../music.js';
 import { createVictory } from '../victory.mjs';
@@ -114,7 +114,6 @@ function finish() {
   $('res-title').textContent = "Time's up!";
   $('ranking').replaceChildren();
   $('result-continue').classList.add('hidden'); $('retry').classList.remove('secondary');   // Continue (to Level 2, the office) only after surviving a real round
-  $('race-details').open = false;
   const { rows, note } = roundResults(race.score);
   const highest = Math.max(1, rows[0].score);
   $('ranking').innerHTML = rows.map((row, index) => `
@@ -132,12 +131,6 @@ function finish() {
   tournament.finish(rows);
   $('result-continue').classList.toggle('hidden', !survived);
   $('retry').classList.toggle('secondary', survived);   // Continue is the main button once you survive
-  $('final-score').textContent = race.score; $('final-laps').textContent = race.laps;
-  $('final-progress').textContent = `${windingNumber(race).toFixed(2)} net laps of progress`;
-  $('final-best').textContent = race.bestLap ? seconds(race.bestLap) : '—';
-  $('personal-best').textContent = personalBest ? `Personal best: ${seconds(personalBest)}` : 'Set your first lap record';
-  $('final-pickups').textContent = race.pickups; $('final-collisions').textContent = `${race.collisions} ${race.collisions === 1 ? 'collision' : 'collisions'}`;
-  $('explanation').innerHTML = `Each star earns <b>+${STAR_REWARD} points</b>, and each finish-line crossing earns <b>+${FINISH_REWARD} points</b>. Crossings count in either direction, even without a full lap. Stars can also return after you leave them.`;
   $('retry').textContent = 'Try again';
   $('res-title').focus({ preventScroll: true }); tone(523, 0.17); tone(659, 0.17, 0.1); tone(784, 0.22, 0.2);
 }
