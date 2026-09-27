@@ -17,7 +17,7 @@ const view = await createScene($('viewport'));
 let race = createRace(), phase = 'ready', pausedPhase = 'playing';
 let countdown = 3, accumulator = 0, lastFrame = performance.now(), announcementUntil = 0;
 const held = new Set();
-const touch = { x: 0, z: 0, boost: false, brake: false };
+const touch = { x: 0, z: 0 };
 let joystickPointer = null;
 const bestKey = 'albert-boat-race-v6-best-lap';
 let personalBest = null;
@@ -52,19 +52,17 @@ function announce(message, duration = 2200) {
   $('announcer').textContent = message; $('announcer').classList.add('show'); announcementUntil = performance.now() + duration;
 }
 function clearInput() {
-  held.clear(); Object.assign(touch, { x: 0, z: 0, boost: false, brake: false }); joystickPointer = null;
-  $('stick').style.transform = ''; $('boost').classList.remove('pressed'); $('brake').classList.remove('pressed');
+  held.clear(); Object.assign(touch, { x: 0, z: 0 }); joystickPointer = null;
+  $('stick').style.transform = '';
 }
 function input() {
   const right = held.has('KeyD') || held.has('ArrowRight'), left = held.has('KeyA') || held.has('ArrowLeft');
   const forward = held.has('KeyW') || held.has('ArrowUp'), reverse = held.has('KeyS') || held.has('ArrowDown');
   if (steering === 'mouse' && !right && !left && !forward && !reverse && !touch.x && !touch.z)
-    return { ...mouseInput(), boost: held.has('Space') || touch.boost, brake: held.has('ShiftLeft') || held.has('ShiftRight') || touch.brake };
+    return mouseInput();   // no boost or brake for the player (the owner took them out)
   return {
     steer: right || left ? Number(right) - Number(left) : touch.x,
     throttle: forward || reverse ? Number(forward) - Number(reverse) : -touch.z,
-    boost: held.has('Space') || touch.boost,
-    brake: held.has('ShiftLeft') || held.has('ShiftRight') || touch.brake,
   };
 }
 function updateHUD() {
@@ -75,9 +73,6 @@ function updateHUD() {
   $('best-lap').textContent = personalBest ? seconds(personalBest) : '—';
   $('timer').textContent = clock(ROUND_SECONDS - race.time);
   $('timer').classList.toggle('low', race.time >= ROUND_SECONDS - 5);
-  $('boost-fill').style.width = `${race.boost * 100}%`;
-  document.querySelector('.boost-track').setAttribute('aria-valuenow', Math.round(race.boost * 100));
-  $('boost').classList.toggle('pressed', race.boosting);
 }
 function begin() {
   victory.reset();
@@ -176,7 +171,7 @@ $('sound').onclick = () => {
   $('sound').textContent = soundOn ? 'Sound on' : 'Sound off'; $('sound').setAttribute('aria-pressed', String(soundOn));
 };
 $('sound').textContent = soundOn ? 'Sound on' : 'Sound off'; $('sound').setAttribute('aria-pressed', String(soundOn));   // muted earlier in the game → starts muted
-const driveKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight']);
+const driveKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 addEventListener('keydown', event => {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.code === 'Escape' && ['playing', 'paused', 'countdown'].includes(phase)) { event.preventDefault(); if (!event.repeat) togglePause(); return; }
@@ -188,15 +183,6 @@ addEventListener('keyup', event => held.delete(event.code));
 function blur() { clearInput(); if (phase === 'playing' || phase === 'countdown') togglePause(); }
 addEventListener('blur', blur);
 document.addEventListener('visibilitychange', () => { if (document.hidden) blur(); });
-function bindHold(id, field) {
-  const button = $(id);
-  button.addEventListener('pointerdown', event => {
-    if (!['playing', 'countdown'].includes(phase)) return;
-    event.preventDefault(); button.setPointerCapture(event.pointerId); touch[field] = true; button.classList.add('pressed');
-  });
-  for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(event, () => { touch[field] = false; button.classList.remove('pressed'); });
-}
-bindHold('boost', 'boost'); bindHold('brake', 'brake');
 function moveStick(event) {
   const rect = $('joystick').getBoundingClientRect();
   const dx = event.clientX - rect.left - rect.width / 2, dz = event.clientY - rect.top - rect.height / 2;
@@ -215,7 +201,7 @@ for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('joy
 
 // ---------- debug: control schemes ----------
 // "Follow the mouse": the boat steers toward the spot on the water under the cursor and goes faster the further
-// away it is (put the cursor on the boat to stop). Space still boosts, Shift brakes, and the keys still work.
+// away it is (put the cursor on the boat to stop). The keys still work.
 let steering = 'keys';
 try { if (localStorage.getItem('albert-boat-controls') === 'mouse') steering = 'mouse'; } catch { /* optional */ }
 const pointer = { x: 0, y: 0, seen: false };
@@ -237,7 +223,7 @@ function mouseInput() {
   return { steer: Math.max(-1, Math.min(1, -turn * 2.5)), throttle };
 }
 const HELP = { keys: $('driving-help').innerHTML,
-  mouse: '<span>Move the mouse: the boat drives toward it &nbsp; cursor on the boat = stop</span><span><kbd>Space</kbd> boost &nbsp; <kbd>Shift</kbd> brake &nbsp; <kbd>R</kbd> restart</span>' };
+  mouse: '<span>Move the mouse: the boat drives toward it &nbsp; cursor on the boat = stop</span><span><kbd>R</kbd> restart</span>' };
 function setSteering(kind, tell = true) {
   steering = kind; try { localStorage.setItem('albert-boat-controls', kind); } catch { /* optional */ }
   $('ctl-keys').classList.toggle('on', kind === 'keys'); $('ctl-mouse').classList.toggle('on', kind === 'mouse');
