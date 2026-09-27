@@ -116,10 +116,10 @@
     } }
   </script>
   <script type="module">
-    import { autoMusic, musicButton } from '../music.js';
+    import { musicButton, isMusicMuted } from '../music.js';
     import { resetTournament } from '../tournament.mjs';
     import { completeStage, nextStage } from '../progress.js';
-    autoMusic(); musicButton();   // the song starts here and carries on through every level
+    musicButton();   // no music in the intro (Level 1 starts its own song); the button mutes the sound effects below
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { albert, clay, mallow, terminal, platform } from './characters3d.js';
@@ -137,6 +137,48 @@
 
     const $ = id => document.getElementById(id);
     const wait = ms => new Promise(r => setTimeout(r, ms));
+
+    // ---------- sound effects: little plucked arpeggios (Web Audio, no files) ----------
+    // A soft triangle pluck with a quiet octave on top, through a short echo. Browsers only allow sound after the
+    // first click or key, so anything before that (Albert's drop-in on a fresh visit) is simply skipped.
+    const NOTE = { A4: 440, C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880, C6: 1046.5, D6: 1174.66, E6: 1318.51, G6: 1567.98, A6: 1760, C7: 2093 };
+    const sfx = (() => {
+      let ctx = null, out = null;
+      function init() {
+        if (ctx) return;
+        try {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+          out = ctx.createGain(); out.gain.value = 0.14; out.connect(ctx.destination);
+          const echo = ctx.createDelay(); echo.delayTime.value = 0.13;
+          const fb = ctx.createGain(); fb.gain.value = 0.28;
+          const wet = ctx.createGain(); wet.gain.value = 0.22;
+          out.connect(echo); echo.connect(fb); fb.connect(echo); echo.connect(wet); wet.connect(ctx.destination);
+        } catch { ctx = null; }
+      }
+      for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { init(); ctx?.resume().catch(() => {}); }, { capture: true });
+      function pluck(freq, when, { dur = 0.32, vol = 1, type = 'triangle', bend = 0 } = {}) {
+        for (const [mult, v, kind] of [[1, vol, type], [2, vol * 0.18, 'sine']]) {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = kind;
+          o.frequency.setValueAtTime(freq * mult, when);
+          if (bend) o.frequency.exponentialRampToValueAtTime(freq * mult * bend, when + dur);
+          g.gain.setValueAtTime(0.0001, when);
+          g.gain.exponentialRampToValueAtTime(v, when + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+          o.connect(g); g.connect(out); o.start(when); o.stop(when + dur + 0.02);
+          o.onended = () => { o.disconnect(); g.disconnect(); };
+        }
+      }
+      // notes one after another, `step` seconds apart
+      return function arp(notes, step = 0.07, opts = {}) {
+        if (!ctx || isMusicMuted()) return; // no click or key yet (or muted)
+        if (ctx.state !== 'running') ctx.resume().catch(() => {});
+        const t0 = ctx.currentTime + 0.01;
+        notes.forEach((n, i) => pluck(NOTE[n], t0 + i * step, { ...opts, vol: (opts.vol ?? 1) * (i === notes.length - 1 ? 1 : 0.8) }));
+      };
+    })();
+    // a different little rising pair for every narration line
+    const LINE_ARPS = [['C6', 'E6', 'G6'], ['D6', 'G6'], ['E6', 'A6'], ['C6', 'G6'], ['D6', 'A6'], ['E6', 'G6'], ['C6', 'E6', 'G6', 'C7']];
 
     // ---------- background themes (try them with ?bg=graph, studio, blueprint, warm, blue-graph) ----------
     const THEMES = {
@@ -281,6 +323,7 @@
     async function albertEntrance() {
       A.station.visible = true;
       A.body.visible = false;
+      sfx(['G5', 'C6'], 0.06, { vol: 0.7 });
       await tween(0.45, t => { const v = track([{ t: 0, s: 0, sy: 0 }, { t: 0.6, s: 1.08, sy: 0.9 }, { t: 1, s: 1, sy: 1 }])(t); A.platform.scale.set(v.s, v.sy, v.s); });
       A.body.visible = true;
       const drop = track([
@@ -291,7 +334,7 @@
         { t: 0.88, y: 0, sx: 1.04, sy: 0.96 },
         { t: 1, y: 0, sx: 1, sy: 1 },
       ]);
-      setTimeout(() => dust(A), 500);
+      setTimeout(() => { dust(A); sfx(['C5', 'G5', 'C6'], 0.07); }, 500); // boing!
       await tween(1, t => applySquash(A, drop(t)));
       A.idle = true;
       flapArms(1.1);
@@ -320,6 +363,7 @@
 
     // ---------- reactions during the narration ----------
     function nameAlbert() {
+      sfx(['C6', 'E6', 'G6', 'C7'], 0.05, { vol: 0.8 }); // a little sparkle as the arrow points at him
       $('arrow').classList.add('show');
       A.labelEl.classList.add('you');
       const hop = track([
@@ -338,6 +382,7 @@
         placeCamera();
       });
       for (const m of MODELS.slice(1)) m.labelEl.classList.add('show');
+      sfx(['E5', 'G5', 'A5'], 0.14); // one note per rival
     }
     async function demoSwitchOff() {
       // Clippy goes dark and slumps, Albert shivers; then D boots back up (it was only an example)
@@ -346,6 +391,7 @@
       group.traverse(o => { if (o.isMesh && o !== screen && o.material.color) mats.add(o.material); });
       const tinted = [...mats].map(m => [m, m.color.clone()]);
       D.idle = false;
+      sfx(['A5', 'F5', 'D5', 'A4'], 0.1, { type: 'sine', dur: 0.4, bend: 0.94 }); // powering down
       screen.material.color.set('#0c1512');
       face.visible = false;
       ball.material.emissiveIntensity = 0;
@@ -357,6 +403,7 @@
       tween(0.3, t => { D.body.rotation.z = -0.12 * (1 - t); D.body.position.y = -0.04 * (1 - t); });
       screen.material.color.set('#21443b');
       ball.material.emissiveIntensity = 0.6;
+      sfx(['C5', 'E5', 'G5', 'C6'], 0.06, { vol: 0.8 }); // rebooting
       for (const on of [true, false, true, false, true]) { face.visible = on; await wait(90); }
       D.idle = true;
     }
@@ -429,12 +476,14 @@
       ready = false;
       hint.classList.remove('show');
       const line = LINES[++index];
+      if (!line.onStart) sfx(LINE_ARPS[index % LINE_ARPS.length], 0.07, { vol: 0.55 });
       line.onStart?.();
       await typeLine(line.text);
       line.onDone?.();
       if (index === LINES.length - 1) {
         await wait(250);
         $('start').classList.add('in');
+        sfx(['G6', 'C7'], 0.09, { vol: 0.5 });
       } else {
         hint.classList.add('show');
         ready = true;
@@ -446,7 +495,7 @@
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance(); }
     });
     $('start').addEventListener('click', () => {
-      autoMusic();
+      sfx(['C5', 'E5', 'G5', 'C6', 'E6', 'G6'], 0.045); // off we go
       resetTournament();
       $('ui').classList.add('leaving');
       renderer.domElement.style.transition = 'opacity 0.6s';

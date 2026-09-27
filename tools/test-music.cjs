@@ -26,8 +26,13 @@ const assert = require('node:assert/strict');
         if (this.buffer?.duration > 10) sources.push({ source: this, offset });
         return start.call(this, when, offset, ...args);
       };
+      let plucks = 0;
+      const oscStart = OscillatorNode.prototype.start;
+      OscillatorNode.prototype.start = function (...args) { plucks++; return oscStart.apply(this, args); };
       window.__song = {
+        get plucks() { return plucks; },
         get count() { return sources.length; },
+        get duration() { return sources[0]?.source.buffer.duration; },
         get offset() { return sources[0]?.offset; },
         get context() { return sources[0]?.source.context; },
         get loop() { return sources[0]?.source.loop; },
@@ -55,22 +60,37 @@ const assert = require('node:assert/strict');
       console.log(`${level}: actual music output, looping, mute/unmute and suspended-context recovery passed`);
     }
 
+    // The intro has no music, only little arpeggio sound effects (and its 🔊 button mutes them).
     await page.goto(`${base}intro/`); await ready('intro');
-    await page.mouse.click(5, 5); await check('intro', '.music-toggle');
+    await page.mouse.click(400, 300); await page.waitForTimeout(1500);   // finishes typing line 1
+    await page.mouse.click(400, 300); await page.waitForTimeout(600);    // line 2: Albert's sparkle
+    assert.equal(await page.evaluate(() => __song.count), 0);
+    assert.ok(await page.evaluate(() => __song.plucks) > 0);
+    await page.click('.music-toggle'); const before = await page.evaluate(() => __song.plucks);
+    await page.mouse.click(400, 300); await page.mouse.click(400, 300); await page.waitForTimeout(600);
+    assert.equal(await page.evaluate(() => __song.plucks), before);
+    await page.click('.music-toggle');
+    assert.equal(await page.evaluate(() => __song.count), 0);
+    console.log('intro: no song, arpeggio sound effects, muted by its button');
     // Use an ordinary link so the audio clock/position is tested across a real document navigation.
-    async function go(level) {
+    // song: 32 s = Level 1's own song (boat race), 72 s = the office's (Level 2, Level 3, sandbox).
+    // carried: the page picks the song up where the last page playing it left off.
+    async function go(level, song, carried) {
       await page.evaluate(href => {
         const a = document.createElement('a'); a.id = 'music-test-next'; a.href = href;
         a.textContent = 'Next'; a.style = 'position:fixed;top:0;left:0;z-index:9999;background:white'; document.body.append(a);
       }, `${base}${level}/?test`);
       await page.click('#music-test-next'); await ready(level);
       await page.click('#start'); await audible();
+      assert.ok(Math.abs(await page.evaluate(() => __song.duration) - song) < 0.5, `${level} plays the ${song} s song`);
       const position = await page.evaluate(() => ({ saved: Number(sessionStorage.getItem('albert-music-pos')), offset: __song.offset }));
-      assert.ok(position.saved > 0, JSON.stringify(position));
-      assert.ok(Math.abs(position.saved - position.offset) < 0.1, JSON.stringify(position));
+      if (carried) {
+        assert.ok(position.saved > 0, JSON.stringify(position));
+        assert.ok(Math.abs(position.saved - position.offset) < 0.1, JSON.stringify(position));
+      } else assert.equal(position.offset, 0, JSON.stringify(position));
     }
-    await go('level2'); await check('boat race', '#sound');
-    await go('level1'); await check('office', '#mute');
+    await go('level2', 32, false); await check('boat race', '#sound');
+    await go('level1', 72, false); await check('office', '#mute');
     // Exercise the office's real fade-and-Continue path into the data centre.
     await page.evaluate(() => { __level.setAngle(172 * Math.PI / 180); __level.endRound(); });
     await page.locator('#continue:not(.hidden)').waitFor(); await page.click('#continue');
@@ -84,7 +104,7 @@ const assert = require('node:assert/strict');
     assert.equal(await page.evaluate(() => __level.state), 'playing');
     await audible();
     console.log('Music continues through final results and retry');
-    await go('proto'); await check('archived sandbox', '.music-toggle');
+    await go('proto', 72, true); await check('archived sandbox', '.music-toggle');
 
     // A failed initial fetch must recover on Start, including a direct visit to a later level.
     let requests = 0;

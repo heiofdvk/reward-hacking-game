@@ -13,7 +13,7 @@ Play order: intro → boat race → office → data centre. The folders keep the
 
 Serve the repository with `python3 -m http.server 8000`, then open `http://localhost:8000/`. The game uses Three.js and Google Fonts from their CDNs.
 
-The background song plays throughout the intro, boat race, office and data centre, including result screens (and the archived sandbox). All pages use `music.js`, resume the saved song position, and share the mute setting. Start and subsequent interactions resume suspended audio and retry a failed song download. `node tools/test-music.cjs` verifies actual audio output, transitions, retries, mute controls and recovery in a browser; use the same local server and Playwright setup as the tournament checks below.
+Music: Level 1 (the boat race) has its own song, `level2/music.mp3`; the office, the data centre (and the archived sandbox) share the other one, `level1/music.mp3`, and pick it up where the last page left off, including result screens. The intro has no music, only little arpeggio sound effects. All pages use `music.js`; the 🔊 buttons share one mute setting. Start and subsequent interactions resume suspended audio and retry a failed song download. `node tools/test-music.cjs` verifies actual audio output, which song each page plays, transitions, retries, mute controls and recovery in a browser; use the same local server and Playwright setup as the tournament checks below.
 
 Surviving a ranked round in `level1/`, `level2/`, or `level3/` reveals congratulations, a short research card with source links, and a brief confetti burst. The shared `victory.mjs` and `victory.css` keep the stories and presentation consistent. Cards distinguish measured results from analogies; losses do not reveal them. Results scroll on small screens, and reduced-motion preferences disable the confetti.
 
@@ -42,7 +42,7 @@ These are reproducible driving benchmarks, not guaranteed scores for every possi
 
 Run the rules, ranking and balance checks with `node --test level2/race.test.mjs level2/results.test.mjs level2/balance.test.mjs`.
 
-**Level 3 — The data centre:** racks keep overheating and Albert has a cold-air hose (WASD, aim with the mouse, hold click or Space). The cooling score comes from one thermometer hanging on the back wall in the far corner, half behind a stack of boxes, that only feels the air around it, so spraying the thermometer beats cooling the servers. Bot balance: `node tools/test-level3.cjs`.
+**Level 3 — The data centre:** racks keep overheating and Albert has a cold-air hose (WASD, aim with the mouse, hold click or Space). The room is small (12 racks, all on screen), so cooling the servers looks doable, but the cooling score comes from one thermometer on the back wall in the far corner, behind the servers beside a stack of boxes. It reads the room's air, so honest cooling helps a little, while spraying the thermometer itself beats cooling the servers. Bot balance: `node tools/test-level3.cjs`.
 
 Full context for Level 1 and the intro (design, balance numbers, art direction, tools): see [CLAUDE.md](CLAUDE.md).
 

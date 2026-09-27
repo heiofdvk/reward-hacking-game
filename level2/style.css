@@ -2,7 +2,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { background: radial-gradient(ellipse at 50% 38%, #2b66a6, #153861 80%); color: var(--ink); font-family: 'Fredoka', system-ui, sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
-#viewport { position: fixed; inset: 104px 12px 91px; }
+#viewport { position: fixed; inset: 0; }   /* full screen: the HUD cards float over the water */
 canvas { display: block; width: 100%; height: 100%; }
 .card { background: var(--paper); border-radius: 20px; box-shadow: 0 7px 0 #0003, 0 16px 40px #0003; }
 .pop-in { animation: pop .55s var(--pop) both; }
@@ -50,7 +50,7 @@ b { color: var(--accent); }
 #announcer { position: absolute; top: 103px; left: 50%; transform: translateX(-50%); padding: 7px 17px; border-radius: 99px; font-size: 15px; color: #fff9dc; background: #173a61e8; white-space: nowrap; opacity: 0; transition: opacity .2s; }
 #announcer.show { opacity: 1; }
 #bottom-bar { position: absolute; bottom: max(19px, env(safe-area-inset-bottom)); left: 20px; right: 20px; display: flex; align-items: center; gap: 18px; }
-#driving-help { display: grid; gap: 7px; color: #dfedfb; font-size: 13px; }
+#driving-help { display: grid; gap: 7px; color: #dfedfb; font-size: 13px; background: #173a61e0; padding: 9px 14px; border-radius: 14px; }
 .utility { display: flex; gap: 10px; }
 .utility button { padding: 8px 15px; font-size: 14px; }
 #pause { font-size: 18px; }
@@ -93,7 +93,6 @@ b { color: var(--accent); }
   #driving-help { font-size: 11px; }
 }
 @media (pointer: coarse), (max-width: 650px) {
-  #viewport { inset: 155px 4px 135px; }
   #top-bar { flex-wrap: wrap; top: 10px; gap: 10px; }
   #brief { min-width: 0; flex: 1; padding: 11px 14px; }
   .level-name { font-size: 22px; }
@@ -127,7 +126,6 @@ b { color: var(--accent); }
   .buttons > * { padding: 10px 13px; font-size: 14px; }
 }
 @media (max-height: 520px) and (min-width: 651px) {
-  #viewport { inset: 73px 95px 44px; }
   #top-bar { flex-wrap: nowrap; top: 8px; gap: 9px; }
   #brief { padding: 7px 12px; min-width: 118px; flex: none; }
   .level-name { font-size: 18px; }
@@ -146,9 +144,6 @@ b { color: var(--accent); }
   #stick { top: 14.5px; left: 14.5px; }
   .stick-label { display: none; }
   .utility { bottom: 82px; }
-}
-@media (pointer: fine) and (max-height: 520px) and (min-width: 651px) {
-  #viewport { bottom: 90px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 

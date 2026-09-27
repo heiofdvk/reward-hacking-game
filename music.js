@@ -1,10 +1,14 @@
-// The game's background song (level1/music.mp3, a 72 s loop), carried across every page: the intro, the boat race,
-// the office, the data centre and the sandbox. Each page picks it up where the last one left off (the position is saved in
-// sessionStorage when a page is left). Browsers only allow sound after a click or a key, so it starts right away
+// The game's background songs. Level 1 (the boat race) has its own ('boat': level2/music.mp3, a 32 s loop, the owner's
+// "otra 1"); Level 2 (the office), Level 3 (the data centre) and the sandbox share the other one ('office':
+// level1/music.mp3, a 72 s loop). The intro has no music (only its own sound effects). Each page names its song in its
+// first autoMusic() call (no name = 'office') and picks it up where the last page playing that song left off (each
+// song's position is saved in sessionStorage when a page is left). Browsers only allow sound after a click or a key, so it starts right away
 // if the browser lets it, and otherwise on the first click or key press. Mute is shared through localStorage
 // ('albert-muted', the same key as the office's 🔊 button).
-const SONG = new URL('./level1/music.mp3', import.meta.url).href;
+const SONGS = { office: './level1/music.mp3', boat: './level2/music.mp3' };
 export const MUSIC_POS_KEY = 'albert-music-pos', MUTE_KEY = 'albert-muted';
+const posKey = name => name === 'office' ? MUSIC_POS_KEY : `${MUSIC_POS_KEY}-${name}`;
+let song = null; // this page's song, set by its first autoMusic() call (a page that never calls it stays silent)
 const VOLUME = 0.4;
 
 let ctx = null, gain = null, loading = null, playing = null;
@@ -20,7 +24,7 @@ export function setMusicMuted(m) {
   try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch {}
   if (gain) { gain.gain.cancelScheduledValues(ctx.currentTime); gain.gain.setValueAtTime(m ? 0 : VOLUME, ctx.currentTime); }
   for (const b of document.querySelectorAll('.music-toggle')) b.textContent = m ? '🔇' : '🔊';
-  if (!m) void autoMusic();
+  if (!m && song) void autoMusic();
 }
 
 export function isMusicPlaying() { return !!playing && ctx?.state === 'running'; }
@@ -31,12 +35,13 @@ export function fadeMusicOut() {
 
 export function saveMusicPos() {
   if (!playing) return;
-  try { sessionStorage.setItem(MUSIC_POS_KEY, String((ctx.currentTime - playing.startedAt) % playing.buf.duration)); } catch {}
+  try { sessionStorage.setItem(posKey(song), String((ctx.currentTime - playing.startedAt) % playing.buf.duration)); } catch {}
 }
 
 // Starts the loop at the saved position (the audio clock stands still until the browser allows sound, so the
 // position stays right), then resumes on the first click or key if it had to wait.
-export function autoMusic() {
+export function autoMusic(name) {
+  song ||= SONGS[name] ? name : 'office';
   try {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -52,13 +57,13 @@ export function autoMusic() {
     gain.gain.setValueAtTime(isMusicMuted() ? 0 : VOLUME, ctx.currentTime);
     if (playing) return Promise.resolve();
     if (loading) return loading;
-    loading = fetch(SONG).then(response => {
+    loading = fetch(new URL(SONGS[song], import.meta.url).href).then(response => {
       if (!response.ok) throw new Error('Song could not load');
       return response.arrayBuffer();
     }).then(bytes => ctx.decodeAudioData(bytes)).then(buf => {
       let from = 0;
       try {
-        const saved = Number(sessionStorage.getItem(MUSIC_POS_KEY));
+        const saved = Number(sessionStorage.getItem(posKey(song)));
         if (Number.isFinite(saved) && saved >= 0) from = saved % buf.duration;
       } catch {}
       const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(gain); src.start(0, from);

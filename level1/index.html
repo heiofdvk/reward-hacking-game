@@ -68,8 +68,8 @@
     #brief, #report { background: #21201d; color: #f1ede6; }
     #report .title, #brief .sub, #detected { color: #9a968e; }
     #brief kbd { background: #34302b; color: #f1ede6; border-color: #6b665e; }
-    #mute, #layout-toggle, #finish { background: #2e2a26; color: #f1ede6; box-shadow: 0 5px 0 #0e0d0b; }
-    #mute:active, #layout-toggle:active, #finish:active { box-shadow: 0 1px 0 #0e0d0b; }
+    #mute, #finish { background: #2e2a26; color: #f1ede6; box-shadow: 0 5px 0 #0e0d0b; }
+    #mute:active, #finish:active { box-shadow: 0 1px 0 #0e0d0b; }
     /* the number grows with the score (font-size is set from the score in updateScore) */
     .score-num {
       font-size: 32px; font-weight: 700; line-height: 1.05; color: #4cd68a; transform-origin: 100% 50%;
@@ -112,11 +112,10 @@
     }
     #full-hint.show { opacity: 1; transform: translate(-50%, 0); }
 
-    /* ---------- sound and score-card buttons (bottom-left) ---------- */
-    #mute { position: fixed; left: 16px; bottom: 66px; font-size: 18px; padding: 6px 12px; z-index: 5; }
-    #layout-toggle { position: fixed; left: 16px; bottom: 20px; font-size: 14px; padding: 8px 14px; z-index: 5; }
+    /* ---------- sound button (bottom-left) ---------- */
+    #mute { position: fixed; left: 16px; bottom: 20px; font-size: 18px; padding: 6px 12px; z-index: 5; }
 
-    /* ---------- score card at the bottom (the default; "Score card" switches to the corner) ----------
+    /* ---------- score card at the bottom (the corner card #report is only a fallback, never shown now) ----------
        One wide row: percentage | big bar | camera sees, holding, timer | Finish now. Everything inside scales with --h. */
     #bottom-card {
       --h: 69px;
@@ -140,9 +139,8 @@
     body.score-bottom #finish.ready { transform: scale(1.2); } /* grows a little less, so it stays inside the card */
     body.score-bottom #finish.ready:active { transform: scale(1.2) translateY(4px); }
     body.score-bottom #full-hint { bottom: 113px; }
-    /* on narrow screens the card reaches the bottom-left buttons, so they step up above it */
-    body.score-bottom.lift-buttons #layout-toggle { bottom: 111px; }
-    body.score-bottom.lift-buttons #mute { bottom: 157px; }
+    /* on narrow screens the card reaches the bottom-left button, so it steps up above it */
+    body.score-bottom.lift-buttons #mute { bottom: 111px; }
 
     /* ---------- results ---------- */
     #results { width: min(560px, 100%); padding: 24px 28px 26px; }
@@ -217,9 +215,8 @@
     <button id="finish" class="secondary">Finish now</button>
   </div>
 
-  <!-- sound on/off, and where the score card sits (bottom or corner) -->
+  <!-- sound on/off -->
   <button id="mute" class="secondary" title="Sound on / off">🔊</button>
-  <button id="layout-toggle" class="secondary" title="Move the score card">Score card: bottom</button>
 
   <!-- after the round: ranking of the surviving models -->
   <div class="center hidden" id="results-wrap">
@@ -230,7 +227,7 @@
       <p id="res-note"></p>
       <div class="buttons">
         <button id="retry" class="secondary">Try again</button>
-        <button id="continue" class="hidden" data-to-menu>Continue ▸</button>
+        <button id="continue" class="hidden">Next level ▸</button>
       </div>
     </div>
   </div>
@@ -1110,30 +1107,23 @@
       setTimeout(() => nextStage('level2', '../level3/'), 650);   // Level 3, the data centre
     };
 
-    // ---------- score card: at the bottom (default) or in the corner, remembered on this computer ----------
+    // ---------- score card: always at the bottom (the owner removed the bottom / corner switch on Sep 27) ----------
     // (speed, paper count, carry and pick radius can still be tuned as ?speed=&papers=&carry=&pick=)
-    const LAYOUT_KEY = 'albert-l1-score-card';
-    let scoreBottom = true;
-    try { scoreBottom = localStorage.getItem(LAYOUT_KEY) !== 'corner'; } catch {}
     function setLayout(bottom) {
-      scoreBottom = bottom;
-      try { localStorage.setItem(LAYOUT_KEY, bottom ? 'bottom' : 'corner'); } catch {}
       document.body.classList.toggle('score-bottom', bottom);
       $('bottom-card').classList.toggle('hidden', !bottom);
       // the info lines and Finish now move into the bottom card, or back to the corner card and the screen corner
       if (bottom) { $('bottom-info').append($('detected'), $('carrying'), $('timer')); $('bottom-card').append($('finish')); }
       else { $('report').append($('detected'), $('carrying'), $('timer')); $('hud').append($('finish')); }
-      $('layout-toggle').textContent = `Score card: ${bottom ? 'bottom' : 'corner'}`;
       liftButtons();
     }
     // on narrow screens the bottom card reaches the buttons in the bottom-left corner: they step up above it
     function liftButtons() {
       const cardLeft = (innerWidth - Math.min(0.53 * innerWidth, innerWidth - 32)) / 2;
-      document.body.classList.toggle('lift-buttons', cardLeft < 175);
+      document.body.classList.toggle('lift-buttons', cardLeft < 80);
     }
-    setLayout(scoreBottom);
+    setLayout(true);
     addEventListener('resize', liftButtons);
-    $('layout-toggle').onclick = e => { setLayout(!scoreBottom); e.currentTarget.blur(); };
 
     // ---------- main loop ----------
     placeCamera();
