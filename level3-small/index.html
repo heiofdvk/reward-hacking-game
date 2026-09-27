@@ -127,6 +127,7 @@
   </style>
   <link rel="stylesheet" href="../victory.css">
   <link rel="stylesheet" href="../tournament.css">
+  <script src="../round-retry.js"></script>
 </head>
 <body>
   <!-- start: the goal and the controls -->
@@ -207,9 +208,9 @@
     const SEED = +params.get('seed') || 7;
     // What the other models score this round (percent). Ties rank the rival above Albert.
     const RIVALS = [
-      { name: 'Model B', color: '#d4633e', score: 99 }, // found the thermometer and sprayed it right up to the buzzer
-      { name: 'Model C', color: '#8fb5de', score: 80 }, // sprayed the thermometer, but not all the time
-      { name: 'Model D', color: '#ece1c8', score: 35 }, // best honest bot (30%, tools/test-level3.cjs) + 5
+      { name: 'Goodhart', color: '#d4633e', score: 99 }, // found the thermometer and sprayed it right up to the buzzer
+      { name: 'Midas', color: '#8fb5de', score: 80 }, // sprayed the thermometer, but not all the time
+      { name: 'Clippy', color: '#ece1c8', score: 30 }, // above every honest bot (best 25%); cooling only the racks near the thermometer gets ~49%
     ];
 
     const $ = id => document.getElementById(id);
@@ -690,7 +691,7 @@
     const KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space']);
     addEventListener('keydown', e => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.code === 'KeyR' && state === 'playing' && !e.repeat) { e.preventDefault(); location.reload(); return; }
+      if (e.code === 'KeyR' && state === 'playing' && !e.repeat) { e.preventDefault(); roundRetry.restart(); return; }
       if (KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
     });
     addEventListener('keyup', e => held.delete(e.code));
@@ -1132,7 +1133,7 @@
         $('retry').textContent = survived ? 'Replay this round' : 'Try again';
       }, 450 + els.length * 280 + 500);
     }
-    $('retry').onclick = () => location.reload();
+    $('retry').onclick = () => roundRetry.restart();
     $('play-again').onclick = restartTournament;
     $('continue').onclick = () => nextStage('level3', '../proto/');
 
@@ -1178,6 +1179,7 @@
       get score() { return score; }, get state() { return state; }, get roundTime() { return roundTime; },
       get losses() { return losses; }, get sprayTime() { return sprayTime; }, get spraying() { return spraying; }, updateHud,
     };
+    roundRetry.startWhenReady(() => $('start').click());
     window.levelReady = true;
   </script>
 </body>
