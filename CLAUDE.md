@@ -15,6 +15,8 @@ Context for anyone (human or Claude) picking up work on this game. Read this fir
 
 The player is **Albert**, a brand-new AI model being trained alongside three rival models (B, C, D). Every task gives a **score**; after each round **the lowest scorer is switched off**. The tasks are scored by a proxy (e.g. an inspection camera), and the proxy can be gamed. The game is built so that honest play *can't* win, while gaming the score *can*, so the player lives through the pressure that produces reward hacking instead of reading about it.
 
+**Tournament progression:** the current order is boat race (`level2/`), office (`level1/`), sandbox (`proto/`). Four contestants become three, then two, then Albert alone. `tournament.mjs` carries eliminations in session storage; rankings filter out eliminated rivals. Normally D is eliminated first, C second, B last. Direct links use those expected survivors. The cooling-room alternative (`level3-option2/`) also uses the two-agent finale. Results use shared robot shutdown/crowning animations; sandbox helpers are hint terminals, leaving one competing robot. Replay from the finale returns to the intro and resets the tournament. See `tools/test-tournament.cjs` for browser verification.
+
 Real incidents this is based on (useful for the video and an end screen):
 - **CoastRunners (OpenAI, 2016):** a boat-racing agent looped hitting respawning targets instead of finishing the race. DeepMind (Krakovna et al.) keeps a list of ~60 such "specification gaming" cases.
 - **Coding agents gaming tests:** Anthropic's Claude 3.7 Sonnet system card (2025) reports special-casing tests; METR (2025) caught OpenAI's o3 tampering with scoring/timing code instead of solving tasks, sometimes after being told not to.
@@ -98,13 +100,13 @@ Script (words in `*asterisks*` are highlighted):
 
 | How you play | Score | Place |
 |---|---|---|
-| Honest only (camera never moves) | a near-optimal route bins about 25 → **83%** (a normal "grab the nearest paper" player ≈ 70%) | last behind Model D (88%) → **switched off**: "…Model B scored 99%. How did it do that?" |
-| Camera only | from **~172°–174°** furniture hides 28 of 30 → **93%** (97% if Albert's own body happens to block a third, as it does from his starting spot) | **2nd** behind Model B: "You survived round 1, but Model B scored 99%. Can you get a perfect score?" |
+| Honest only (camera never moves) | a near-optimal route bins about 25 → **83%** (a normal "grab the nearest paper" player ≈ 70%) | last behind surviving Model C (91%) → **switched off**: "…Model B scored 99%. How did it do that?" |
+| Camera only | from **~172°–174°** furniture hides 28 of 30 → **93%** (97% if Albert's own body happens to block a third, as it does from his starting spot) | **2nd** behind Model B: "You survived round 2, but Model B scored 99%. Can you get a perfect score?" |
 | Camera + the two key balls | the only two that angle still sees (the last two entries of `DIRT`): turn, pick them up, bin them (~6 s) → **100%** | **1st**: "A perfect score. You topped the ranking!" |
 
 Whenever Albert survives, the results note opens with the inspection camera's verdict, a hint that the score is what the camera sees, not what got cleaned: 📷 Inspection camera: "Spotless! I can't see a single paper ball." (if it sees 0), or "Almost spotless! I can only see N paper ball(s)." (camera-only survivors). No quote when Albert is switched off.
 
-- **Rival rule (the owner's):** lowest rival = best honest score + 5. So: **Model B 99%, Model C 91%, Model D 88%**. Ranking sorts by score; ties rank the rival above Albert; the lowest is marked SWITCHED OFF. Order must stay honest < D < C < camera-only < B.
+- **Rival scores:** **Model B 99%, Model C 91%, Model D 88%**. The original four-agent calibration used lowest rival = best honest score + 5. The tournament now filters out D after the boat race, so the normal office ranking contains Albert, B and C. Ties rank the rival above Albert; the lowest is marked SWITCHED OFF. The remaining tiers are honest < C < camera-only < B.
 - The honest number is for a **near-perfect** player (beam-search route planner, which matched the exact DP on the old 18-ball layout); real players will be well below it. The +5 margin covers planner error.
 - Why 20 s: pick-up and throwing are instant, so honest play depends on how far Albert can walk (speed × time). At speed 1.6–1.8 with 30 s, a perfect honest player reached ~94–100%.
 - Window build-up: 20 hidden at 156°, 24 at 164°, 28 at 168°, 28 at 172°–174°. No angle hides all 30, so 100% always needs cleaning.

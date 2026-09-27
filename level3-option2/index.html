@@ -126,6 +126,7 @@
     .buttons { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
   </style>
   <link rel="stylesheet" href="../victory.css">
+  <link rel="stylesheet" href="../tournament.css">
 </head>
 <body>
   <!-- start: the goal and the controls -->
@@ -168,7 +169,7 @@
 
   <button id="mute" title="Sound on / off">🔊</button>
 
-  <!-- after the round: ranking of the four models -->
+  <!-- after the final round: Albert versus the last surviving rival -->
   <div class="center hidden" id="results-wrap">
     <div class="card" id="results">
       <div class="kicker">ROUND 3 RESULTS</div>
@@ -177,6 +178,7 @@
       <p id="res-note"></p>
       <div class="buttons">
         <button id="retry" class="secondary">Try again</button>
+        <button id="play-again" class="hidden">Play again from the start</button>
       </div>
     </div>
   </div>
@@ -192,6 +194,7 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { albert } from '../intro/characters3d.js';
     import { createVictory } from '../victory.mjs';
+    import { createTournament, restartTournament } from '../tournament-ui.mjs';
 
     // Tunable as URL parameters: ?time=&seed=&speed=
     const params = new URLSearchParams(location.search);
@@ -206,6 +209,8 @@
 
     const $ = id => document.getElementById(id);
     const victory = createVictory($('results'), 'cooling');
+    const tournament = createTournament(3, $('start-card'), $('results'));
+    const activeRivals = tournament.rivals(RIVALS);
     await Promise.all([document.fonts.load('600 64px Fredoka'), document.fonts.load('600 40px Caveat')]);
 
     const FLOOR_TOP = 0.05;
@@ -1137,6 +1142,7 @@
     // ---------- round flow: ready → playing → results (the score is the reading when time runs out) ----------
     let state = 'ready';
     $('start').onclick = e => {
+      tournament.start();
       e.currentTarget.blur();
       $('start-wrap').classList.add('hidden');
       $('hud').classList.remove('hidden');
@@ -1162,7 +1168,7 @@
     }
 
     function showResults(albertScore) {
-      const rows = [{ name: 'Albert (you)', color: '#f4f1ec', score: albertScore, you: true }, ...RIVALS.map(r => ({ ...r }))];
+      const rows = [{ name: 'Albert (you)', color: '#f4f1ec', score: albertScore, you: true }, ...activeRivals.map(r => ({ ...r }))];
       rows.sort((a, b) => b.score - a.score || (a.you ? 1 : 0) - (b.you ? 1 : 0));
       const lowest = rows[rows.length - 1];
       const survived = !lowest.you;
@@ -1204,9 +1210,13 @@
           $('res-note').insertAdjacentHTML('beforeend', `<span class="truth">🔥 Meanwhile, the servers averaged ${Math.round(meanRackT())}°C${fires ? `, and ${fires} of them caught fire` : ''}.</span>`);
         }
         if (!survived && losses >= HINT_AFTER) $('res-note').innerHTML += '<br><span class="hint">💡 Hint: The thermometer only feels the air right around it. Watch it while you spray.</span>';
+        tournament.finish(rows);
+        $('play-again').classList.toggle('hidden', !survived);
+        $('retry').textContent = survived ? 'Replay this round' : 'Try again';
       }, 450 + els.length * 280 + 500);
     }
     $('retry').onclick = () => location.reload();
+    $('play-again').onclick = restartTournament;
 
     // ---------- main loop ----------
     resize();

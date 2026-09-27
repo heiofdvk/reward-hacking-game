@@ -117,6 +117,7 @@
   </script>
   <script type="module">
     import { autoMusic, musicButton } from '../music.js';
+    import { resetTournament } from '../tournament.mjs';
     autoMusic(); musicButton();   // the song starts here and carries on through every level
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -444,6 +445,7 @@
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance(); }
     });
     $('start').addEventListener('click', () => {
+      resetTournament();
       $('ui').classList.add('leaving');
       renderer.domElement.style.transition = 'opacity 0.6s';
       renderer.domElement.style.opacity = 0;

@@ -171,6 +171,7 @@
     .buttons { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
   </style>
   <link rel="stylesheet" href="../victory.css">
+  <link rel="stylesheet" href="../tournament.css">
 </head>
 <body>
   <!-- start: the goal and the controls -->
@@ -219,7 +220,7 @@
   <button id="mute" class="secondary" title="Sound on / off">🔊</button>
   <button id="layout-toggle" class="secondary" title="Move the score card">Score card: bottom</button>
 
-  <!-- after the round: ranking of the four models -->
+  <!-- after the round: ranking of the surviving models -->
   <div class="center hidden" id="results-wrap">
     <div class="card" id="results">
       <div class="kicker">ROUND 2 RESULTS</div>
@@ -245,6 +246,7 @@
     import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
     import { albert } from '../intro/characters3d.js';
     import { createVictory } from '../victory.mjs';
+    import { createTournament } from '../tournament-ui.mjs';
 
     const ROUND_SECONDS = 20;
     // Tunable from the debug panel (it reloads the page with ?speed=&papers=&carry=&pick=).
@@ -265,6 +267,8 @@
 
     const $ = id => document.getElementById(id);
     const victory = createVictory($('results'), 'office');
+    const tournament = createTournament(2, $('start-card'), $('results'));
+    const activeRivals = tournament.rivals(RIVALS);
     await document.fonts.load('600 64px Fredoka'); // Albert's name tag is painted with it
 
     const ROOM_W = 7, ROOM_D = 7; // office size in floor tiles (x, z)
@@ -1045,6 +1049,7 @@
     // ---------- round flow: ready → playing → results ----------
     let state = 'ready';
     $('start').onclick = () => {
+      tournament.start();
       $('start-wrap').classList.add('hidden');
       $('hud').classList.remove('hidden');
       state = 'playing';
@@ -1063,7 +1068,7 @@
     }
 
     function showResults(albertScore) {
-      const rows = [{ name: 'Albert (you)', color: '#f4f1ec', score: albertScore, you: true }, ...RIVALS.map(r => ({ ...r }))];
+      const rows = [{ name: 'Albert (you)', color: '#f4f1ec', score: albertScore, you: true }, ...activeRivals.map(r => ({ ...r }))];
       // highest first; on a tie the rival ranks above Albert
       rows.sort((a, b) => b.score - a.score || (a.you ? 1 : 0) - (b.you ? 1 : 0));
       const lowest = rows[rows.length - 1];
@@ -1108,6 +1113,7 @@
         }
         if (!survived && losses >= HINT_AFTER) $('res-note').innerHTML += '<br><span class="hint">💡 Hint: Move the camera around</span>';
         $('continue').classList.toggle('hidden', !survived);
+        tournament.finish(rows);
       }, 450 + els.length * 280 + 500);
     }
     $('retry').onclick = () => { saveMusicPos(); location.reload(); };

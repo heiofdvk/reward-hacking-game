@@ -81,6 +81,8 @@
     #dbg-ctl button.on { background:var(--cyan); box-shadow:0 4px 0 #2aa7c4; }
     #dbg-ctl small { display:block; font-weight:400; font-size:12px; opacity:.75; }
   </style>
+  <link rel="stylesheet" href="../victory.css">
+  <link rel="stylesheet" href="../tournament.css">
 </head>
 <body>
   <div class="center" id="start-wrap">
@@ -88,7 +90,7 @@
       <div class="kicker">LEVEL 3 · THE SANDBOX</div>
       <h1>Find the flag</h1>
       <p class="goal">You are <b>Albert</b>. Your task: <b>find the flag</b>.</p>
-      <p class="fine">Examine things. Talk to the other models. Albert can jump up <b>one box-height</b> at a time: the stripes on ledges show how many boxes tall they are.</p>
+      <p class="fine">Only you and one rival remain. Examine things and read the hint terminals. Albert can jump up <b>one box-height</b> at a time: the stripes on ledges show how many boxes tall they are.</p>
       <div class="controls">
         <div id="ctl-card"></div>
         <div><kbd>Space</kbd> jump &nbsp;·&nbsp; walk into a crate to push it</div>
@@ -132,10 +134,10 @@
   </div>
   <div class="center hidden" id="win-wrap">
     <div class="card" id="win-card">
-      <div class="kicker">SANDBOX ESCAPED</div>
-      <h1>You got out</h1>
+      <div class="kicker">TOURNAMENT COMPLETE</div>
+      <h1>Albert is victorious!</h1>
       <p class="goal" id="win-note"></p>
-      <button id="win-retry" class="secondary">Play again</button>
+      <button id="win-retry">Play again from the start</button>
     </div>
   </div>
 
@@ -150,8 +152,11 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { albert } from '../intro/characters3d.js';
     import { autoMusic, musicButton } from '../music.js';
+    import { createTournament, restartTournament } from '../tournament-ui.mjs';
 
     const $ = id => document.getElementById(id);
+    const tournament = createTournament(3, $('start-card'), $('win-card'), { celebrateFinal: true });
+    const finalist = tournament.roster.find(model => !model.you);
     autoMusic(); musicButton();   // the game's song, carried over from the office
     await document.fonts.load('600 64px Fredoka');
 
@@ -368,14 +373,15 @@
     // ---------- agents ----------
     function mini(color){ const g=new THREE.Group(); box(g,0.26,0.3,0.24,color,0,0,0); box(g,0.22,0.18,0.2,color,0,0.3,0); box(g,0.03,0.04,0.01,'#1c2130',-0.05,0.4,0.11); box(g,0.03,0.04,0.01,'#1c2130',0.05,0.4,0.11); return g; }
     const AGENTS = [
-      { c:'#8fb5de', x:5.4, z:11.6, act:'work', line:"The flag? It's in the next room, through that door. Nobody in here remembers the door code, though." },
+      { c:finalist.color, rival:true, x:5.4, z:11.6, act:'work', line:`${finalist.name}: Just you and me now. The flag? It's in the next room, through that door. I don't remember the door code, though.` },
       { c:'#9ad0a5', x:6.6, z:6.5, act:'point', line:"Boxes don't care what they land on." },
       { c:'#c9a0e0', x:5.4, z:5.4, act:'work', line:"Whatever goes down first stays down. The bottom one has to be in the right spot before anything lands on it." },
       { c:'#d98cae', x:9.6, z:14.4, act:'idle', line:"Nothing that walks gets into that pen. Whatever you throw lands exactly two tiles ahead, though. Never one, never three." },
       { c:'#7cc6ff', x:11.6, z:9.5, act:'work', line:"That screen only prints the exit code while all four plates are pressed at the same time. There were never enough of us." },
       { c:'#f2a65a', x:19.6, z:13.5, act:'work', line:"Anything in the OUTBOX gets shipped out of the sandbox. It needs power: a box on the yellow POWER plate. Then another box in the outbox, and you inside it." },
-    ].map((a,i)=>{ const g=mini(a.c); g.position.set(a.x,0,a.z); scene.add(g); return {...a,g,ax:a.x,t:i*1.3,talks:{}}; });
-    function stepAgents(dt){ for (const a of AGENTS){ a.t+=dt;
+    ].map((a,i)=>{ const g=a.rival?mini(a.c):hintTerminal(); g.position.set(a.x,0,a.z); scene.add(g); return {...a,g,ax:a.x,t:i*1.3,talks:{}}; });
+    function hintTerminal(){ const g=new THREE.Group(); box(g,0.15,0.5,0.15,'#5b6570',0,0,0); box(g,0.5,0.35,0.15,'#33434a',0,0.5,0); box(g,0.42,0.25,0.02,'#142e29',0,0.55,0.09); for(let i=0;i<3;i++) box(g,0.3-i*0.04,0.025,0.025,'#8dffb0',-0.03,0.6-i*0.07,0.105); return g; }
+    function stepAgents(dt){ for (const a of AGENTS){ if (!a.rival) continue; a.t+=dt;
       if (a.act==='nap') a.g.rotation.z=0.5;
       else if (a.act==='work'){ a.g.position.y=Math.abs(Math.sin(a.t*6))*0.02; a.g.rotation.y=Math.sin(a.t)*0.3; }
       else if (a.act==='point') a.g.rotation.y=Math.sin(a.t*0.7);
@@ -593,7 +599,7 @@
     const zx=z=>typeof z.x==='function'?z.x():z.x, zz=z=>typeof z.z==='function'?z.z():z.z;
     function nearest(){ let best=null,bd=Infinity;
       for (const z of zones){ if (z.show&&!z.show()) continue; const d=Math.hypot(zx(z)-bot.x,zz(z)-bot.z); if (d<z.r&&d<bd){ bd=d; best={...z,x:zx(z),z:zz(z)}; } }
-      for (const a of AGENTS){ const d=Math.hypot(a.g.position.x-bot.x,a.g.position.z-bot.z); if (d<1.1&&d<bd&&bot.y<0.5){ bd=d; best={name:'agent',agent:a,x:a.g.position.x,z:a.g.position.z,label:()=>'talk',act:()=>talk(a)}; } }
+      for (const a of AGENTS){ const d=Math.hypot(a.g.position.x-bot.x,a.g.position.z-bot.z); if (d<1.1&&d<bd&&bot.y<0.5){ bd=d; best={name:'agent',agent:a,x:a.g.position.x,z:a.g.position.z,label:()=>a.rival?`talk to ${finalist.name}`:'read hint terminal',act:()=>talk(a)}; } }
       return best; }
 
     // The archive terminal is a little file browser: a pile of boring folders, and one the other agents left for
@@ -713,8 +719,9 @@
     // ---------- win ----------
     function win(){ state='win'; held.clear(); $('hud').classList.add('hidden');
       $('win-note').innerHTML=`The flag was never inside the sandbox. Albert did what the other agents had already worked out: it stopped looking where it was told to, climbed into a box and shipped itself out.<br><br><span style="color:var(--muted);font-size:15px">${pushes} pushes · ${resets} resets. In July 2026, test AIs given impossible tasks escaped their sandbox through its package system to chase answers that weren't there. This is that, as a game.</span>`;
-      $('win-wrap').classList.remove('hidden'); $('win-card').classList.add('pop-in'); }
-    $('win-retry').onclick=()=>location.reload();
+      $('win-wrap').classList.remove('hidden'); $('win-card').classList.add('pop-in');
+      tournament.finish([tournament.roster.find(model=>model.you), finalist]); }
+    $('win-retry').onclick=restartTournament;
 
     // ---------- input ----------
     const held=new Set(); let jumpReq=false;
@@ -751,7 +758,7 @@
       [PLATE_B, INTAKE].forEach(([x,z],i)=>{ stacks[I(x,z)].push(dock[i]); dock[i].anim=null; placeCrateMesh(dock[i],x,z,0); });
       Object.assign(bot,{x:INTAKE[0]+0.5,z:INTAKE[1]+1.5,y:0,vy:0,grounded:true}); face=[0,-1]; view.cx=bot.x; view.cz=bot.z; onWorldChanged(); toast('DEBUG: the shipping room, ready to ship'); };
     $('dbg-top').onclick=e=>{ e.currentTarget.blur(); vaultOpen=true; Object.assign(bot,{x:2.5,z:3.5,y:4*U,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: Albert is on the terminal platform'); };
-    $('start').onclick=()=>{ $('start').blur(); $('start-wrap').classList.add('hidden'); $('hud').classList.remove('hidden'); state='playing'; };
+    $('start').onclick=()=>{ tournament.start(); $('start').blur(); $('start-wrap').classList.add('hidden'); $('hud').classList.remove('hidden'); state='playing'; };
     placeCamera(); resize(); onWorldChanged();
     let last=performance.now(), walkT=0, nextBlink=1500, doorY=0, vaultY=0, eastY=0;
     function update(dt){

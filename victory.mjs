@@ -26,7 +26,7 @@ const STORIES = {
   },
 };
 
-function confetti() {
+export function confetti() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
   const layer = document.createElement('div');
   layer.className = 'victory-confetti';
