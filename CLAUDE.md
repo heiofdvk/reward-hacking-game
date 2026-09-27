@@ -39,8 +39,8 @@ Real incidents this is based on (useful for the video and an end screen):
 
 | Path | What it is |
 |---|---|
-| `index.html` | The menu (site root): Introduction, Level 1, 2, 3 and the extra "Hugging Face Incident", each unlocked by finishing the one before. It plays each stage in a frame under a slim "☰ Menu" bar; the address hash says which (`#level2`). `?unlock=all` opens everything (for demos) |
-| `progress.js` | Unlock progress (`albert-progress` in localStorage). Levels call `completeStage(id)` when Albert survives and `nextStage(id, href)` from Continue (inside the menu it goes back to the menu, where the newly unlocked level glows, and buttons marked `data-to-menu` read "Back to menu ▸"; opened on its own it goes to `href`) |
+| `index.html` | The menu (site root): Introduction, Level 1, 2, 3 and the extra "Hugging Face Incident", each unlocked by finishing the one before. It plays each stage in a frame under a slim "☰ Menu" bar; the address hash says which (`#level2`). |
+| `progress.js` | Unlock progress (`albert-progress` in sessionStorage, so each new visit starts locked). Levels call `completeStage(id)` when Albert survives and `nextStage(id, href)` from Continue (inside the menu it goes back to the menu, where the newly unlocked level glows, and buttons marked `data-to-menu` read "Back to menu ▸"; opened on its own it goes to `href`) |
 | `proto/` | Extra: The Hugging Face Incident (the sandbox escape). Unlocked in the menu after Level 3; Level 3's win screen links to it |
 | `intro/index.html` | The intro (3D, Three.js). Start training → `../level1/` |
 | `intro/characters3d.js` | Albert (loads `models/albert.glb`) + rivals Clay, Mallow, Terminal (built in code) + blueprint platforms. Level 1 imports `albert()` from here |
