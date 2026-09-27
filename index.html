@@ -151,9 +151,10 @@
     function setLabel(id) {
       const s = INFO[id];
       $('now').textContent = id === 'intro' ? s.name : `${s.kicker[0] + s.kicker.slice(1).toLowerCase()} · ${s.name}`;
+      $('bar').classList.toggle('hidden', id === 'intro');   // the intro plays full screen; the Menu button comes with Level 1
     }
 
-    // The address hash says what's showing (#level2 plays Level 2, no hash shows the menu), so reloading or the
+    // The address hash says what's showing (#level2 plays Level 2, #intro the intro, no hash the menu), so reloading or the
     // browser's back button keep working.
     function route() {
       const id = location.hash.slice(1);
@@ -182,7 +183,8 @@
     // The levels talk to the menu through this (see progress.js).
     window.albertMenu = {
       completed: () => renderMenu(),
-      next: id => {   // a level's Continue button: back to the menu, where the next stage is waiting
+      next: id => {   // the intro goes straight on to Level 1; a level's Continue goes back to the menu, where the next stage waits
+        if (id === 'intro') { location.hash = 'level1'; return; }
         const n = STAGES[STAGES.indexOf(id) + 1];
         fresh = n && isUnlocked(n) ? n : null;
         location.hash = '';
@@ -193,8 +195,10 @@
     $('reset').onclick = () => {
       if (!confirm('Lock all levels again and start from the introduction?')) return;
       try { sessionStorage.removeItem(PROGRESS_KEY); } catch {}
-      renderMenu();
+      location.hash = 'intro';
     };
+    // The game starts with the intro, like before the menu existed; the menu is there once the intro has been seen.
+    if (!location.hash && !loadProgress().intro) history.replaceState(null, '', '#intro');
     route();
   </script>
 </body>
