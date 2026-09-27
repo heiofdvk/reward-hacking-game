@@ -4,6 +4,7 @@
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { prepareShipping } = require('./sandbox-fixtures.cjs');
 
 (async () => {
   const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || undefined,
@@ -21,7 +22,11 @@ const path = require('node:path');
       requestAnimationFrame(check);
     });
     const base = process.env.BASE || 'http://127.0.0.1:8770/';
-    const ready = () => page.waitForFunction(() => window.levelReady, null, { timeout: 60000 });
+    const ready = async () => {
+      await page.waitForFunction(() => window.levelReady, null, { timeout: 60000 });
+      assert.equal(await page.locator('[id^="debug"], [id^="dbg-"]').count(), 0);
+      assert.equal(await page.getByRole('button', { name: /debug/i }).count(), 0);
+    };
     async function open(level) {
       await page.goto(`${base}${level}/?test`); await ready();
       assert.equal(await page.locator('#start-wrap').isVisible(), true);
@@ -98,10 +103,12 @@ const path = require('node:path');
 
     // The archived sandbox remains playable with the same tournament finale.
     await page.setViewportSize({ width: 1280, height: 1000 });
+    await page.evaluate(() => localStorage.setItem('l3-controls-2', 'relative'));
     await open('proto');
     assert.match(await page.locator('.tournament-roster').innerText(), /2 agents remaining/);
     assert.equal(await page.evaluate(() => __level.AGENTS.filter(a => a.rival).length), 1);
-    await page.click('#start'); await page.click('#debug-toggle'); await page.click('#dbg-dock'); await page.click('#debug-toggle');
+    assert.equal(await page.evaluate(() => __level.scheme), 'screen');
+    await page.click('#start'); await prepareShipping(page);
     await page.keyboard.press('e'); await page.keyboard.type(await page.evaluate(() => __level.BELT_CODE)); await page.keyboard.press('Enter');
     await page.locator('#win-wrap:not(.hidden)').waitFor({ timeout: 15000 });
     assert.match(await page.locator('#win-card h1').innerText(), /Albert is victorious/);

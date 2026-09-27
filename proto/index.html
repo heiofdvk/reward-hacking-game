@@ -73,13 +73,6 @@
     #screen { position:fixed; transform:translate(-50%,-100%); padding:4px 12px 6px; border-radius:8px; background:#0d1512; border:2px solid #2c3a34; color:#8dffb0; font-family:'VT323',monospace; font-size:16px; letter-spacing:.06em; text-align:center; pointer-events:none; z-index:2; }
     #screen b { display:block; font-weight:400; font-size:30px; letter-spacing:.2em; line-height:1; }
     #toohigh { position:fixed; transform:translate(-50%,-100%); padding:3px 9px; border-radius:999px; background:#e0503c; color:#fff; font-weight:700; font-size:13px; pointer-events:none; z-index:3; }
-    #debug-toggle { position:fixed; left:16px; bottom:18px; font-size:14px; padding:8px 14px; z-index:5; }
-    #debug { position:fixed; left:16px; bottom:70px; padding:14px 16px; display:grid; gap:10px; z-index:5; }
-    #debug button { font-size:14px; padding:8px 14px; }
-    #dbg-ctl { display:grid; gap:6px; }
-    #dbg-ctl button { text-align:left; background:#ebe4d8; box-shadow:0 4px 0 #c9bfae; }
-    #dbg-ctl button.on { background:var(--cyan); box-shadow:0 4px 0 #2aa7c4; }
-    #dbg-ctl small { display:block; font-weight:400; font-size:12px; opacity:.75; }
   </style>
   <link rel="stylesheet" href="../victory.css">
   <link rel="stylesheet" href="../tournament.css">
@@ -111,16 +104,6 @@
   <div id="toast"></div>
   <div id="toohigh" class="hidden">too high</div>
   <div id="screen" class="hidden"></div>
-  <button id="debug-toggle" class="secondary">⚙ Debug</button>
-  <div class="card hidden" id="debug">
-    <div class="kicker">DEBUG</div>
-    <button id="dbg-door">Open the door to room 2</button>
-    <button id="dbg-top">Put Albert on top (terminal)</button>
-    <button id="dbg-r3">Go to room 3 (with the battery)</button>
-    <button id="dbg-dock">Go to the shipping room (ready to ship)</button>
-    <div class="kicker">CONTROLS</div>
-    <div id="dbg-ctl"></div>
-  </div>
   <div id="prompt" class="hidden"><kbd>E</kbd> <span id="prompt-text"></span></div>
   <div id="thought" class="bubble hidden"></div>
   <div id="speech" class="bubble hidden"></div>
@@ -465,7 +448,7 @@
     // turn 90° to HIS left or right, or turn around, whichever way he is facing
     function turnBy(kind){ const [fx,fz]=face; face = kind==='left' ? [fz,-fx] : kind==='right' ? [-fz,fx] : [-fx,-fz]; }
 
-    // ---------- control schemes (switched in the debug panel) ----------
+    // ---------- control schemes (alternatives exercised by browser tests) ----------
     //  relative  W walks forward, ←/→ turn 90° left/right, ↑/↓ turn around
     //  screen    W ↗ A ↖ S ↙ D ↘ as seen on screen: hold a key to face that way and walk (default)
     //  grid      same keys, Pokémon-style: tap to face a way, tap again to step exactly one tile (hold to keep going);
@@ -487,12 +470,10 @@
         hud:'<kbd>W</kbd> forward · <kbd>A</kbd><kbd>D</kbd> turn · <kbd>S</kbd> turn around' },
     };
     let scheme = 'screen';
-    try { const v=localStorage.getItem('l3-controls-2'); if (SCHEMES[v]) scheme=v; } catch(e){}
     const dirKeys = [];              // screen / grid: direction keys being held, most recent last
     let step = null, gridHold = 0;   // grid: the tile Albert is stepping to, and how long the key has been held
-    function setScheme(k){ scheme=k; step=null; dirKeys.length=0; held.clear(); try { localStorage.setItem('l3-controls-2',k); } catch(e){}
-      $('ctl-card').innerHTML=SCHEMES[k].card; $('ctl-hud').innerHTML=SCHEMES[k].hud;
-      for (const b of document.querySelectorAll('#dbg-ctl button')) b.classList.toggle('on', b.dataset.k===k); }
+    function setScheme(k){ scheme=k; step=null; dirKeys.length=0; held.clear();
+      $('ctl-card').innerHTML=SCHEMES[k].card; $('ctl-hud').innerHTML=SCHEMES[k].hud; }
     // returns true if the key belongs to the current scheme's movement
     function controlKey(e){ const c=e.code;
       if (scheme==='relative' && FACE[c]){ if (!e.repeat) turnBy(c==='ArrowLeft'?'left':c==='ArrowRight'?'right':'around'); return true; }
@@ -747,20 +728,7 @@
 
     // ---------- loop ----------
     let state='ready';
-    for (const [k,sc] of Object.entries(SCHEMES)){ const b=document.createElement('button'); b.dataset.k=k; b.innerHTML=`${sc.name}<small>${sc.desc}</small>`;
-      b.onclick=e=>{ e.currentTarget.blur(); setScheme(k); toast(`Controls: ${sc.name}`); }; $('dbg-ctl').append(b); }
     setScheme(scheme);
-    $('debug-toggle').onclick=e=>{ e.currentTarget.blur(); $('debug').classList.toggle('hidden'); };
-    $('dbg-door').onclick=e=>{ e.currentTarget.blur(); vaultOpen=true; toast('DEBUG: the door to room 2 is open'); };
-    $('dbg-r3').onclick=e=>{ e.currentTarget.blur(); vaultOpen=eastOpen=reachedPlatform=terminalRead=true; if (batteryState==='platform'||batteryState==='floor'){ batteryState='carried'; batteryTile=null; battery.visible=false; setCarry('battery'); onWorldChanged(); }
-      Object.assign(bot,{x:9.5,z:12.5,y:0,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: room 3, battery in hand'); };
-    // everything before the shipping room done, its two boxes in place (POWER plate + the outbox), Albert in front of the outbox
-    $('dbg-dock').onclick=e=>{ e.currentTarget.blur(); vaultOpen=eastOpen=reachedPlatform=terminalRead=true; if (!anteSolved) solveAnte();
-      setCarry(null); batteryState='gone'; batteryTile=null; battery.visible=false; flight=null;
-      const dock=allCrates.filter(c=>c.room==='dock'); for (const s of stacks) for (const c of dock){ const k=s.indexOf(c); if (k>=0) s.splice(k,1); }
-      [PLATE_B, INTAKE].forEach(([x,z],i)=>{ stacks[I(x,z)].push(dock[i]); dock[i].anim=null; placeCrateMesh(dock[i],x,z,0); });
-      Object.assign(bot,{x:INTAKE[0]+0.5,z:INTAKE[1]+1.5,y:0,vy:0,grounded:true}); face=[0,-1]; view.cx=bot.x; view.cz=bot.z; onWorldChanged(); toast('DEBUG: the shipping room, ready to ship'); };
-    $('dbg-top').onclick=e=>{ e.currentTarget.blur(); vaultOpen=true; Object.assign(bot,{x:2.5,z:3.5,y:4*U,vy:0,grounded:true}); view.cx=bot.x; view.cz=bot.z; toast('DEBUG: Albert is on the terminal platform'); };
     $('start').onclick=()=>{ autoMusic(); tournament.start(); $('start').blur(); $('start-wrap').classList.add('hidden'); $('hud').classList.remove('hidden'); state='playing'; };
     placeCamera(); resize(); onWorldChanged();
     let last=performance.now(), walkT=0, nextBlink=1500, doorY=0, vaultY=0, eastY=0;

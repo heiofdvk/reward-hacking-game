@@ -3,7 +3,6 @@
 // 1. exploit checks (diagonal jump, gap jump, decoy stack) must never reach the 4-high platform
 // 2. the solver's shortest solution, replayed push by push, builds the tower; then the climb with real jumps
 // 3. the "too high" tag shows when walking into a ledge more than one crate taller
-// 4. the two debug buttons
 const { chromium } = require(process.env.PLAYWRIGHT);
 const { makeSolver } = require('./l3-solver.cjs');
 const rooms = require('./l3-rooms.cjs');
@@ -64,12 +63,6 @@ const PAGE_HELPERS = `
   await p.evaluate(()=>{ const L=__level; Object.assign(L.bot,{x:2.5,z:5.5,y:0,vy:0,grounded:true}); PRESS(L,['ArrowRight']); for(let f=0;f<30;f++) L.update(1/60); L.held.clear(); });
   console.log('"too high" tag shown when walking into the platform:', await p.isVisible('#toohigh'));
 
-  // 4. debug buttons on a fresh page (with the real loop running)
-  const q = await b.newPage({ viewport:{ width:1280, height:800 } }); await q.goto('http://localhost:8770/proto/'); await q.waitForFunction(()=>window.levelReady,null,{timeout:60000});
-  await q.click('#start'); await q.click('#debug-toggle'); await q.click('#dbg-door');
-  console.log('debug "open the door":', await q.evaluate(()=>__level.vaultOpen));
-  await q.click('#dbg-top'); await q.waitForTimeout(600);
-  console.log('debug "on top": y', await q.evaluate(()=>__level.bot.y.toFixed(2)), '| reached platform:', await q.evaluate(()=>__level.reachedPlatform));
   console.log('errors:', errs);
   await b.close();
 })();

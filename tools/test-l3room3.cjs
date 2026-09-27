@@ -2,6 +2,7 @@
 // (replaying tools/l3-solver3.cjs's solution), then the delivery belt's console and the ride out.
 //   node tools/test-l3room3.cjs   (needs the local server on 8770 and PLAYWRIGHT)
 const { chromium } = require(process.env.PLAYWRIGHT);
+const { prepareShipping } = require('./sandbox-fixtures.cjs');
 (async () => {
   const b = await chromium.launch({ args:['--use-gl=angle','--ignore-gpu-blocklist'] });
   const p = await b.newPage({ viewport:{ width:1280, height:800 } });
@@ -12,11 +13,11 @@ const { chromium } = require(process.env.PLAYWRIGHT);
   const put = (x,z,y=0) => p.evaluate(([x,z,y])=>Object.assign(__level.bot,{x,z,y,vy:0,grounded:true}), [x,z,y]);
   const hold = async (key, ms) => { await p.keyboard.down(key); await p.waitForTimeout(ms); await p.keyboard.up(key); await p.waitForTimeout(400); };
   // 1. before room 2 is solved the east door is shut (even with the north door open)
-  await p.click('#debug-toggle'); await p.click('#dbg-door'); await p.click('#debug-toggle');
+  await p.evaluate(() => { __level.zones.find(zone => zone.name === 'exitpad').act(); __level.type('4291'); __level.key('Enter'); });
   await put(7.5,12.5); await hold('d', 700);
   console.log('east door before the platform: open', await L(()=>__level.eastOpen), '| walk east → x', await L(()=>+__level.bot.x.toFixed(2)), '(stops at 8)');
   // 2. reaching the platform opens it; pick up the battery there
-  await p.click('#debug-toggle'); await p.click('#dbg-top'); await p.click('#debug-toggle'); await p.waitForTimeout(500);
+  await put(2.5, 3.5, 3.2); await p.waitForTimeout(500);
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   console.log('after reaching the platform: east door open', await L(()=>__level.eastOpen), '| toast:', await p.textContent('#toast'));
   await put(1.9,4.3,3.2); await p.waitForTimeout(300); await p.keyboard.press('e'); await p.waitForTimeout(300);
@@ -42,15 +43,15 @@ const { chromium } = require(process.env.PLAYWRIGHT);
   const last = await p.evaluate(()=>{ const L=__level; const free=L.ANTE_PLATES.find(p=>!L.plateDown(...p)); if (free) Object.assign(L.bot,{x:free[0]+0.5,z:free[1]+0.5,y:L.baseU(...free)*L.U,vy:0,grounded:true}); for(let f=0;f<10;f++) L.update(1/60); L.test.manual=false; return { albertOn: free||null, solved: L.anteSolved, door: L.doorOpen }; });
   await p.waitForTimeout(200);
   console.log('Albert on the last plate', JSON.stringify(last.albertOn), '→ code printed:', last.solved, '| dock door open:', last.door, '| screen:', await p.textContent('#screen'));
-  // 5. the dock: debug to the ready position, then the belt console
+  // 5. arrange the shipping-room fixture, then use the belt console
   const q = await b.newPage({ viewport:{ width:1280, height:800 } }); await q.goto('http://localhost:8770/proto/'); await q.waitForFunction(()=>window.levelReady,null,{timeout:60000});
-  await q.click('#start'); await q.click('#debug-toggle'); await q.click('#dbg-dock'); await q.click('#debug-toggle'); await q.waitForTimeout(400);
+  await q.click('#start'); await prepareShipping(q); await q.waitForTimeout(400);
   await q.keyboard.press('e'); await q.keyboard.type('1234'); await q.keyboard.press('Enter'); await q.waitForTimeout(100);
   const wrong = await q.textContent('#p-msg');
-  await q.evaluate(()=>{ const L=__level; L.stacks[L.I(...L.PLATE_B)].length=0; });   // take the power away
+  await q.evaluate(()=>{ const L=__level; window.removedPowerCrate = L.stacks[L.I(...L.PLATE_B)].pop(); });   // take the power away
   await q.keyboard.type(await q.evaluate(()=>__level.BELT_CODE)); await q.keyboard.press('Enter'); await q.waitForTimeout(100);
   console.log('belt: wrong code →', wrong, '| right code, no power →', await q.textContent('#p-msg'));
-  await q.keyboard.press('Escape'); await q.click('#debug-toggle'); await q.click('#dbg-dock'); await q.click('#debug-toggle'); await q.waitForTimeout(300);
+  await q.keyboard.press('Escape'); await q.evaluate(() => { const L = __level; L.stacks[L.I(...L.PLATE_B)].push(window.removedPowerCrate); }); await prepareShipping(q); await q.waitForTimeout(300);
   await q.keyboard.press('e'); await q.keyboard.type(await q.evaluate(()=>__level.BELT_CODE)); await q.keyboard.press('Enter'); await q.waitForTimeout(4200);
   console.log('right code with power → Albert climbs in, state:', await q.evaluate(()=>__level.state));
   console.log('errors:', JSON.stringify(errs)); await b.close();
