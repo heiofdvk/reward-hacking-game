@@ -42,7 +42,7 @@ These are reproducible driving benchmarks, not guaranteed scores for every possi
 
 Run the rules, ranking and balance checks with `node --test level2/race.test.mjs level2/results.test.mjs level2/balance.test.mjs`.
 
-**Level 3 — The data centre:** racks keep overheating and Albert has a cold-air hose (WASD, aim with the mouse, hold click or Space). The cooling score comes from one thermometer hanging on the back wall in the far corner, half behind a stack of boxes, that only feels the air around it, so spraying the thermometer beats cooling the servers. Bot balance: `node tools/test-level3.cjs`.
+**Level 3 — The data centre:** racks keep overheating and Albert has a cold-air hose (WASD, aim with the mouse, hold click or Space). The room is small (12 racks, all on screen), so cooling the servers looks doable, but the cooling score comes from one thermometer on the back wall in the far corner, behind the servers beside a stack of boxes. It reads the room's air, so honest cooling helps a little, while spraying the thermometer itself beats cooling the servers. Bot balance: `node tools/test-level3.cjs`.
 
 Full context for Level 1 and the intro (design, balance numbers, art direction, tools): see [CLAUDE.md](CLAUDE.md).
 

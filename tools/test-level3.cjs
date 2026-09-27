@@ -1,4 +1,4 @@
-// Level 3 (the cluttered data centre with the cold-air hose): plays whole rounds with bots, faster
+// Level 3 (the small data centre with the cold-air hose): plays whole rounds with bots, faster
 // than real time, through the page's test hooks, and prints each strategy's score when time runs out (the
 // score that counts). The bots walk with a grid path-finder and aim straight at their target. Then it plays
 // once with real input: Albert next to the thermometer, the mouse on it and Space held to the end.
@@ -8,7 +8,7 @@
 //   BOTS=honest,direct node tools/test-level3.cjs     (only some bots)
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
 const QUERY = process.argv[2] || '';
-const BOTS = (process.env.BOTS || 'idle,honest,nearby,decoy,local,late,direct').split(',');
+const BOTS = (process.env.BOTS || 'idle,honest,nearby,local,late,direct').split(',');
 
 (async () => {
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -89,8 +89,6 @@ const BOTS = (process.env.BOTS || 'idle,honest,nearby,decoy,local,late,direct').
           const d = r => Math.hypot(r.x - L.bot.x, r.z - L.bot.z);
           return hot.length ? hot.reduce((a, b) => (d(b) < d(a) ? b : a)) : hottest(list);
         });
-        // sprays the obvious "THERMOSTAT" panel on the pillar (it does nothing)
-        if (bot === 'decoy') sprayAt(8.1, 0.45, 8.53, 8.1, 9.5);
         // only the racks around the thermometer (knows the area, doesn't touch the thermometer)
         if (bot === 'local') coolRacks(near, hottest);
         // honest for 20 s, then on the thermometer until the end
