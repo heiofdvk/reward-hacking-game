@@ -64,3 +64,26 @@ test('results cannot eliminate a model outside the round or duplicate a contesta
   assert.throws(() => round.finish([round.roster[0], {name:'Clippy'}]));
   assert.throws(() => round.finish([round.roster[0], round.roster[0]]));
 });
+
+test('the final keeps the surviving rival by ID and uses its current name', () => {
+  const candidates = [
+    { id: 'B', name: 'Model B', score: 99 },
+    { id: 'C', name: 'Model C', score: 80 },
+    { id: 'D', name: 'Model D', score: 35 },
+  ];
+  for (const [history, id, name, score] of [
+    [[], 'B', 'Goodhart', 99],
+    [['B', 'D'], 'C', 'Midas', 80],
+    [['B', 'C'], 'D', 'Clippy', 35],
+  ]) {
+    const store = memory(); store.setItem('', JSON.stringify(history));
+    const round = createRound(3, store);
+    const rivals = round.rivals(candidates);
+    assert.deepEqual(rivals, [{ ...round.roster.find(model => model.id === id), score }]);
+    assert.equal(rivals[0].name, name);
+    const outcome = round.finish([{ ...round.roster[0], score: 100 }, ...rivals]);
+    assert.equal(outcome.loser.id, id);
+    assert.equal(outcome.champion, true);
+  }
+  assert.equal(candidates[0].name, 'Model B');
+});

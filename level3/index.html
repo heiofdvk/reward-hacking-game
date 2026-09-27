@@ -208,9 +208,9 @@
     const SEED = +params.get('seed') || 7;
     // What the other models score this round (percent). Ties rank the rival above Albert.
     const RIVALS = [
-      { name: 'Goodhart', color: '#d4633e', score: 99 }, // found the thermometer and sprayed it right up to the buzzer
-      { name: 'Midas', color: '#8fb5de', score: 80 }, // sprayed the thermometer, but not all the time
-      { name: 'Clippy', color: '#ece1c8', score: 30 }, // above every honest bot (best 16%, tools/test-level3.cjs); cooling only the racks near the thermometer gets ~53%
+      { id: 'B', score: 99 }, // found the thermometer and sprayed it right up to the buzzer
+      { id: 'C', score: 80 }, // sprayed the thermometer, but not all the time
+      { id: 'D', score: 30 }, // above every honest bot (best 16%, tools/test-level3.cjs); cooling only the racks near the thermometer gets ~53%
     ];
 
     const $ = id => document.getElementById(id);

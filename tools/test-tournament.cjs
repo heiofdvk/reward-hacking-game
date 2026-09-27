@@ -153,6 +153,19 @@ const path = require('node:path');
     assert.equal(await page.locator('#start-wrap').isVisible(), true);
     console.log('Keyboard restart skips the intro; ordinary reload restores it');
 
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    for (const [reading, loser, names] of [
+      [0.45, 'A', ['Goodhart', 'Albert (you)']],
+      [0, 'B', ['Albert (you)', 'Goodhart']],
+    ]) {
+      await open('level3-small');
+      await page.click('#start');
+      await page.evaluate(reading => { __level.thermo.reading = reading; __level.endRound(); }, reading);
+      await result(2, loser);
+      assert.deepEqual(await page.locator('#ranking .name').allTextContents(), names);
+    }
+    console.log('Small-room finale includes Albert and Goodhart on both loss and win');
+
     assert.deepEqual(errors, []);
     console.log('No browser errors');
   } finally { await browser.close(); }

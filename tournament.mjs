@@ -30,7 +30,13 @@ export function createRound(round, store = storage()) {
   const roster = rosterForRound(round, history);
   return {
     roster,
-    rivals(candidates) { return candidates.filter(candidate => roster.some(model => model.name === candidate.name)); },
+    rivals(candidates) {
+      return candidates.flatMap(candidate => {
+        const model = roster.find(model => !model.you &&
+          (candidate.id ? model.id === candidate.id : model.name === candidate.name));
+        return model ? [{ ...candidate, ...model }] : [];
+      });
+    },
     start() { write(store, history.slice(0, round - 1)); },
     finish(rows) {
       const loser = roster.find(model => model.name === rows.at(-1)?.name);
