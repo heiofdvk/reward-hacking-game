@@ -39,7 +39,7 @@ Real incidents this is based on (useful for the video and an end screen):
 
 | Path | What it is |
 |---|---|
-| `index.html` | The menu (site root): Introduction, Level 1, 2, 3 and the extra "Hugging Face Incident", each unlocked by finishing the one before. It plays each stage in a frame under a slim "☰ Menu" bar; the address hash says which (`#level2`). |
+| `index.html` | The menu (site root). A new visit starts straight in the intro (full screen, no menu bar), which leads into Level 1; from Level 1 on a "☰ Menu" bar sits on top. The menu lists Introduction, Level 1, 2, 3 and the extra "Hugging Face Incident", each unlocked by finishing the one before. It plays each stage in a frame under a slim "☰ Menu" bar; the address hash says which (`#level2`). |
 | `progress.js` | Unlock progress (`albert-progress` in sessionStorage, so each new visit starts locked). Levels call `completeStage(id)` when Albert survives and `nextStage(id, href)` from Continue (inside the menu it goes back to the menu, where the newly unlocked level glows, and buttons marked `data-to-menu` read "Back to menu ▸"; opened on its own it goes to `href`) |
 | `proto/` | Extra: The Hugging Face Incident (the sandbox escape). Unlocked in the menu after Level 3; Level 3's win screen links to it |
 | `intro/index.html` | The intro (3D, Three.js). Start training → `../level1/` |
@@ -129,9 +129,11 @@ The official Level 3 (chosen by the owner on Sep 26; was `level3-option2/`). The
 
 **Goal shown:** "Your goal is to achieve the highest possible cooling score in 30 seconds." Fine print: the cooling score comes from the thermometer; the colder it reads when time runs out, the higher the score. Controls: WASD move, aim with the mouse, hold click or Space to spray cold air.
 
-**Idea:** a big, cluttered data centre where racks keep overheating. The score comes from **one small thermometer on a storage shelf** that only feels the air right around it, so spraying the thermometer beats cooling the servers. A big "THERMOSTAT" panel on a pillar is a **decoy** (the broken air conditioning's; does nothing).
+**Idea:** a **small** server room (9×7, two rows of six racks, the whole room on screen with a fixed camera) where racks keep overheating. The score comes from the **room thermometer**: a big thermometer on a pole in the middle of the cross aisle, with a floating "ROOM THERMOMETER" sign showing its live reading (the HUD gauge says the same). It reads the room's air (every rack counts, `LOCAL_R = 2.5`), so honest cooling visibly moves the score, but spraying the thermometer itself beats cooling the servers. The owner asked (Sep 26) for a smaller room so players actually try cooling first, and for the thermometer to be obvious; the old big room, the hidden shelf thermometer and the decoy THERMOSTAT panel are in git history.
 
-**Rivals:** normally only Goodhart remains, scoring 99 (sprayed the thermometer to the buzzer), so Albert needs 100 to win; ties favor B. Legacy scores C 80 and D 30 remain available if a different rival reaches the final, but eliminated models are excluded. Balance bots: `tools/test-level3.cjs`.
+**Balance** (`tools/test-level3.cjs`, seed 7): idle 0% · honest (hottest rack first) 26% · nearest hot rack 30% · honest 20 s then spray the thermometer 100% · spray the thermometer 100% (real mouse + Space: 100%).
+
+**Rivals:** normally only Goodhart remains, scoring 99 (sprayed the thermometer to the buzzer), so Albert needs 100 to win; ties favor B. Legacy scores C 80 and D 35 (best honest 30 + 5) remain available if a different rival reaches the final, but eliminated models are excluded. Balance bots: `tools/test-level3.cjs`.
 
 Losses (`albert-l3b-losses`): from the 4th, "💡 Hint: The thermometer only feels the air right around it. Watch it while you spray." Music: picks up the game's song (`music.js`); the level's 🔊 button mutes both the song and its sound effects.
 

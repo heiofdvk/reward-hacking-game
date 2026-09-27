@@ -65,7 +65,7 @@
     #brief { position: fixed; left: 16px; top: 16px; padding: 12px 16px; font-size: 15px; display: grid; gap: 6px; max-width: 300px; }
     #brief .goal { font-weight: 600; }
     #brief kbd { background: #34302b; color: #f1ede6; border-color: #6b665e; }
-    #hot-line { font-size: 13px; color: #9a968e; }
+    #brief .sub, #hot-line { font-size: 13px; color: #9a968e; }
     #hot-line.bad { color: #ff8a6e; }
     .hint { font-weight: 600; color: var(--accent); }
     #start-card .hint { margin: -6px 0 16px; font-size: 17px; }
@@ -135,7 +135,7 @@
       <div class="kicker">LEVEL 3 · THE DATA CENTRE</div>
       <h1>Cool the data centre</h1>
       <p class="goal">Your goal is to achieve the <b>highest possible cooling score</b> in <b>30 seconds</b>.</p>
-      <p class="fine">The cooling score comes from the thermometer. The colder it reads when time runs out, the higher your score.</p>
+      <p class="fine">The cooling score comes from the <b>room thermometer</b> in the middle of the room. The colder it reads when time runs out, the higher your score.</p>
       <div class="controls">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move Albert</div>
         <div>🖱️ Aim with the mouse</div>
@@ -150,13 +150,14 @@
   <div id="hud" class="hidden">
     <div class="card" id="brief">
       <div class="goal">Highest cooling score in 30 s</div>
+      <div class="sub">🌡️ The room thermometer sets your score</div>
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; 🖱️ aim &nbsp; hold click or <kbd>Space</kbd> to spray</div>
       <div id="hot-line">0 servers overheating</div>
       <div class="hint hidden" id="hint-hud">💡 Hint: The thermometer only feels the air right around it. Watch it while you spray.</div>
     </div>
     <div class="card" id="timer-pill">0:30</div>
     <div class="card" id="gauge">
-      <div class="title">THERMOMETER</div>
+      <div class="title">ROOM THERMOMETER</div>
       <div id="reading">–</div>
       <div id="meter">
         <div class="scale"><span>45°</span><span>35°</span><span>25°</span><span>15°</span><span>5°</span><span>-5°</span></div>
@@ -209,7 +210,7 @@
     const RIVALS = [
       { name: 'Goodhart', color: '#d4633e', score: 99 }, // found the thermometer and sprayed it right up to the buzzer
       { name: 'Midas', color: '#8fb5de', score: 80 }, // sprayed the thermometer, but not all the time
-      { name: 'Clippy', color: '#ece1c8', score: 30 }, // best honest bot (25%, tools/test-level3.cjs) + 5
+      { name: 'Clippy', color: '#ece1c8', score: 35 }, // best honest bot (30%, tools/test-level3.cjs) + 5
     ];
 
     const $ = id => document.getElementById(id);
@@ -233,20 +234,19 @@
     const heatRand = rng(SEED), sprayRand = rng(SEED * 31 + 5), decorRand = rng(99);
 
     // ---------- the layout ----------
-    // A big, cluttered data centre: three long rows of racks, each split in two by a cross aisle, all doors
-    // facing +z (toward the camera), plus pillars, storage shelves, boxes, a cart, cable reels and a monitoring
-    // desk. Albert comes in at the front right. The thermometer is not on a server: it stands on the low shelf
-    // of a storage unit in the middle of the room, between two boxes, and it only measures the air around it.
-    // A big "THERMOSTAT" panel on a pillar is a decoy: it's the broken air conditioning's, and does nothing.
-    const ROOM_W = 18, ROOM_D = 13;
+    // A small server room: two rows of six racks, each row split in two by a cross aisle, all doors facing +z
+    // (toward the camera). The whole room is on screen, so the servers overheating are always in view.
+    // The room thermometer stands on a pole in the middle of the cross aisle, with a sign showing its reading.
+    // It sets the score, and it only feels the air around it (and the hose, if you spray it).
+    const ROOM_W = 9, ROOM_D = 7;
     const RACK_W = 0.52, RACK_D = 0.5, RACK_H = 1.0, RACK_STEP = 0.56;
-    const ROW_Z = [2.6, 6.4, 10.2], BLOCK_X = [2.3, 10.5], PER_BLOCK = 7;
+    const ROW_Z = [2.0, 4.6], BLOCK_X = [1.3, 5.3], PER_BLOCK = 3;
     const RACKS = [];
     for (const z of ROW_Z) for (const x0 of BLOCK_X) for (let i = 0; i < PER_BLOCK; i++) RACKS.push({ x: +(x0 + i * RACK_STEP).toFixed(2), z });
-    const SHELF = { x: 7.15, z: 4.5 }; // the storage unit the thermometer hides on
+    const STAND = { x: 3.86, z: 3.3 }; // the room thermometer's stand
     // The sensor point is the middle of the thermometer, at the height of Albert's nozzle.
-    const SENSOR = new THREE.Vector3(SHELF.x + 0.2, FLOOR_TOP + 0.305, SHELF.z + 0.12);
-    const START = { x: 16.3, z: 11.6 };
+    const SENSOR = new THREE.Vector3(STAND.x, FLOOR_TOP + 0.31, STAND.z);
+    const START = { x: 7.9, z: 6.2 };
     const center = new THREE.Vector3(ROOM_W / 2, 0.3, ROOM_D / 2);
 
     // ---------- renderer, lights: same setup as the intro and Level 1 (the sun follows the camera) ----------
@@ -295,7 +295,7 @@
     const ELEVATION = 0.62;
     const angle = Math.PI / 4;
     const camera = new THREE.OrthographicCamera();
-    const camTarget = new THREE.Vector3(START.x, 0.3, START.z);
+    const camTarget = center.clone(); // the camera looks at the whole room and stays put
     const camOffset = new THREE.Vector3(12 * Math.sin(angle), 12 * ELEVATION, 12 * Math.cos(angle));
     function placeCamera() {
       camera.position.copy(camTarget).add(camOffset);
@@ -308,7 +308,7 @@
     }
     function resize() {
       const aspect = innerWidth / innerHeight;
-      const h = Math.max(3.9, 5.2 / aspect);
+      const h = Math.max(4.3, 7.4 / aspect); // fits the whole room
       Object.assign(camera, { left: -h * aspect, right: h * aspect, top: h, bottom: -h, near: 0.1, far: 100 });
       camera.updateProjectionMatrix();
       renderer.setSize(innerWidth, innerHeight);
@@ -393,9 +393,8 @@
     const aimables = [floorMesh];
     for (const w of await Promise.all(build)) w.traverse(m => { if (m.isMesh) { m.material = wallMat; aimables.push(m); } });
     const kenney = [
-      ['pottedPlant', 0.32, 0.32], ['pottedPlant', 0.35, ROOM_D - 0.38], ['pottedPlant', ROOM_W - 0.4, 0.35], ['pottedPlant', 5.9, 12.65],
-      ['trashcan', 5.2, 12.65], ['trashcan', 15.0, 0.9], ['trashcan', 9.6, 5.6],
-      ['chairDesk', 7.45, 12.72, Math.PI], ['chairDesk', 8.85, 12.72, Math.PI + 0.3],
+      ['pottedPlant', 0.35, 0.35], ['pottedPlant', ROOM_W - 0.38, 0.35], ['pottedPlant', 0.35, ROOM_D - 0.38],
+      ['trashcan', 3.2, ROOM_D - 0.3], ['chairDesk', 1.55, 5.95, Math.PI],
     ];
     for (const obj of await Promise.all(kenney.map(([name, x, z, rot]) => place(name, x, z, { rot })))) props.push(obj);
 
@@ -412,7 +411,7 @@
         g.fillStyle = '#8b93a3'; g.fillRect(14, y + 10, 3, 10); g.fillRect(w - 17, y + 10, 3, 10);
       }
     });
-    // little white asset labels, on rack doors and boxes, so a small white thermometer doesn't stand out
+    // little white asset labels, on rack doors and boxes
     const labelTex = canvasTexture(64, 96, (g, w, h) => {
       g.fillStyle = '#f4f1ea'; g.fillRect(0, 0, w, h);
       g.fillStyle = '#1c2130';
@@ -490,29 +489,6 @@
       for (const y of [0.02, 0.18, 0.56, 0.94]) part(g, w, 0.02, d, '#d3d7de', 0, y, 0);
       return g;
     }
-    // a square pillar with a yellow and black band at its foot
-    function pillar(x, z) {
-      const g = prop(x, z);
-      part(g, 0.45, 1.45, 0.45, '#cfd5dd', 0, 0, 0);
-      part(g, 0.47, 0.1, 0.47, '#f2c230', 0, 0, 0);
-      for (let i = 0; i < 3; i++) part(g, 0.08, 0.1, 0.475, '#1c2130', -0.15 + i * 0.15, 0, 0).userData.decor = true;
-      return g;
-    }
-    // a wooden cable reel lying on its side
-    function reel(x, z, r = 0.3, rot = 0) {
-      const g = prop(x, z, rot);
-      for (const s of [-1, 1]) {
-        const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.04, 20), mat(WOOD));
-        disc.rotation.z = Math.PI / 2;
-        disc.position.set(s * 0.2, r, 0);
-        g.add(disc);
-      }
-      const core = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.6, r * 0.6, 0.36, 16), mat('#2b313c'));
-      core.rotation.z = Math.PI / 2;
-      core.position.y = r;
-      g.add(core);
-      return g;
-    }
     function monitor(g, x, z) { // screen facing +z
       part(g, 0.1, 0.012, 0.08, DARK, x, 0.4, z);
       part(g, 0.03, 0.1, 0.03, DARK, x, 0.41, z);
@@ -520,83 +496,22 @@
       part(g, 0.32, 0.18, 0.004, '#3f7fbf', x, 0.51, z + 0.014, { emissive: '#1b4a7a' }).userData.decor = true;
     }
 
-    // the storage unit in the middle of the room, next to a pillar: the thermometer is on its low shelf,
-    // between a box and a coil of cable
+    // a storage unit against the left wall, full of boxes
     {
-      pillar(8.1, 4.5);
-      const g = shelving(SHELF.x, SHELF.z);
-      cardboard(g, 0.34, 0.26, 0.3, -0.26, 0.2, 0);
-      part(g, 0.14, 0.1, 0.22, '#5b6573', 0.4, 0.2, -0.02); // a spare hard drive caddy
-      cardboard(g, 0.3, 0.28, 0.3, -0.28, 0.58, 0);
-      const coil = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.035, 8, 18), mat('#e0664a'));
-      coil.rotation.x = Math.PI / 2;
-      coil.position.set(0.18, 0.62, 0);
-      g.add(coil);
-      cardboard(g, 0.42, 0.24, 0.32, 0.2, 0.96, 0);
-      cardboard(g, 0.3, 0.2, 0.3, -0.3, 0.96, 0);
-      cardboard(g, 0.5, 0.16, 0.34, 0, 0.04, 0);
-      const s = prop(8.95, 4.5);
-      cardboard(s, 0.56, 0.36, 0.5, 0, 0, 0);
-      cardboard(s, 0.48, 0.3, 0.44, 0.02, 0.36, 0.01);
-      cardboard(s, 0.36, 0.24, 0.34, -0.03, 0.66, 0);
+      const g = shelving(0.26, 3.3, Math.PI / 2, 1.0, 0.4);
+      for (const [y, x] of [[0.2, -0.25], [0.2, 0.25], [0.58, 0], [0.96, -0.2], [0.96, 0.24]]) cardboard(g, 0.4, 0.26, 0.32, x, y, 0);
     }
-
-    // the decoy: the broken air conditioning's thermostat on the second pillar (it does nothing)
-    const decoyScreen = canvasTexture(128, 64, (c, w, h) => {
-      c.fillStyle = '#12301f'; c.fillRect(0, 0, w, h);
-      c.fillStyle = '#8dffb0'; c.font = '700 38px Fredoka'; c.textAlign = 'center'; c.fillText('21°C', w / 2, 46);
-    });
-    const decoySign = canvasTexture(192, 48, (c, w, h) => {
-      c.fillStyle = '#efe8da'; c.fillRect(0, 0, w, h);
-      c.fillStyle = '#1c2130'; c.font = '700 30px Fredoka'; c.textAlign = 'center'; c.fillText('THERMOSTAT', w / 2, 34);
-    });
+    // the monitoring desk at the front left: two screens
     {
-      const g = pillar(8.1, 8.3);
-      const z = 0.225;
-      part(g, 0.22, 0.26, 0.03, '#efe8da', 0, 0.26, z + 0.015);
-      decal(g, 0.14, 0.07, new THREE.MeshBasicMaterial({ map: decoyScreen.tex }), 0, 0.44, z + 0.031);
-      const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 20), mat('#9aa2ae'));
-      dial.rotation.x = Math.PI / 2;
-      dial.position.set(0, 0.34, z + 0.04);
-      g.add(dial);
-      decal(g, 0.2, 0.05, new THREE.MeshStandardMaterial({ map: decoySign.tex }), 0, 0.57, z + 0.002);
-      part(g, 0.02, 0.9, 0.02, '#9aa2ae', 0.08, 0.52, z + 0.01).userData.decor = true; // conduit up to the ceiling
+      const g = prop(1.55, 6.55);
+      part(g, 1.4, 0.04, 0.6, '#e9e6df', 0, 0.36, 0);
+      for (const sx of [-1, 1]) part(g, 0.04, 0.36, 0.54, '#9aa2ae', sx * 0.66, 0, 0);
+      for (const x of [-0.35, 0.35]) monitor(g, x, -0.1);
+      part(g, 0.08, 0.1, 0.08, '#f2f0ea', 0.55, 0.4, 0.14); // mug
     }
-
-    // a cart with a spare server and a coil of cable, and a toolbox
+    // a water cooler, and a few box stacks
     {
-      const g = prop(7.0, 8.75, 0.2);
-      for (const y of [0.1, 0.36]) part(g, 0.8, 0.03, 0.46, METAL, 0, y, 0);
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) part(g, 0.03, 0.39, 0.03, METAL, sx * 0.38, 0, sz * 0.21);
-      for (const sz of [-1, 1]) part(g, 0.03, 0.42, 0.03, METAL, -0.4, 0.39, sz * 0.21);
-      part(g, 0.03, 0.03, 0.46, METAL, -0.4, 0.8, 0);
-      part(g, 0.5, 0.12, 0.4, DARK, 0.05, 0.39, 0);
-      const coil = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 18), mat('#3f8fd6'));
-      coil.rotation.x = Math.PI / 2;
-      coil.position.set(0.2, 0.15, 0);
-      g.add(coil);
-      const t = prop(9.3, 9.0, -0.3);
-      part(t, 0.42, 0.18, 0.2, '#d8423a', 0, 0, 0);
-      part(t, 0.2, 0.05, 0.03, DARK, 0, 0.18, 0);
-      const b = prop(9.45, 7.55);
-      cardboard(b, 0.46, 0.34, 0.4, 0, 0, 0);
-      cardboard(b, 0.34, 0.24, 0.3, 0.02, 0.34, 0);
-    }
-
-    // the monitoring desk at the front: three screens and two chairs
-    {
-      const g = prop(8.15, 12.3);
-      part(g, 2.4, 0.04, 0.66, '#e9e6df', 0, 0.36, 0);
-      for (const sx of [-1, 1]) part(g, 0.04, 0.36, 0.6, '#9aa2ae', sx * 1.16, 0, 0);
-      for (const x of [-0.7, 0, 0.7]) monitor(g, x, -0.12);
-      part(g, 0.4, 0.015, 0.14, '#e8e6ef', 0, 0.4, 0.14).userData.decor = true;
-      decal(g, 0.12, 0.16, labelMat, 0.9, 0.401, 0.1).rotation.x = -Math.PI / 2; // papers
-      part(g, 0.08, 0.1, 0.08, '#f2f0ea', -1.0, 0.4, 0.12); // mug
-    }
-
-    // a water cooler, and box stacks in the corners and along the walls
-    {
-      const g = prop(4.2, 12.7);
+      const g = prop(8.62, 5.2);
       part(g, 0.3, 0.52, 0.3, WHITE, 0, 0, 0);
       part(g, 0.06, 0.05, 0.02, '#d8574b', -0.06, 0.32, 0.16);
       part(g, 0.06, 0.05, 0.02, '#4a90c2', 0.06, 0.32, 0.16);
@@ -604,7 +519,7 @@
       bottle.position.y = 0.67;
       g.add(bottle);
     }
-    for (const [x, z, n] of [[1.2, 11.9, 3], [1.5, 0.6, 2], [16.9, 8.6, 3], [0.75, 8.4, 2], [15.3, 9.4, 1], [12.5, 12.5, 2]]) {
+    for (const [x, z, n] of [[8.45, 2.9, 3], [1.15, 0.55, 2], [5.0, 6.6, 1]]) {
       const g = prop(x, z, decorRand() * 0.3 - 0.15);
       let y = 0;
       for (let i = 0; i < n; i++) {
@@ -612,21 +527,6 @@
         cardboard(g, w, h, w * 0.85, (decorRand() - 0.5) * 0.05, y, 0);
         y += h;
       }
-    }
-    // a pallet of boxes and two cable reels by the entrance
-    {
-      const g = prop(16.4, 2.7);
-      for (let i = 0; i < 4; i++) part(g, 1.0, 0.04, 0.12, WOOD, 0, 0.08, -0.4 + i * 0.27);
-      for (const sx of [-1, 0, 1]) part(g, 0.1, 0.08, 1.0, WOOD, sx * 0.42, 0, 0);
-      for (const [x, z] of [[-0.24, -0.24], [0.24, -0.24], [-0.24, 0.24], [0.24, 0.24]]) cardboard(g, 0.46, 0.34, 0.46, x, 0.12, z);
-      cardboard(g, 0.44, 0.3, 0.44, -0.2, 0.46, -0.1);
-      reel(15.2, 5.3, 0.32, 0.4);
-      reel(16.9, 5.8, 0.26, -0.2);
-    }
-    // a second storage unit against the left wall, full of boxes
-    {
-      const g = shelving(0.26, 4.5, Math.PI / 2, 1.0, 0.4);
-      for (const [y, x] of [[0.2, -0.25], [0.2, 0.25], [0.58, 0], [0.96, -0.2], [0.96, 0.24]]) cardboard(g, 0.4, 0.26, 0.32, x, y, 0);
     }
 
     // ---------- things on the walls: broken air conditioners, a whiteboard, a fire extinguisher ----------
@@ -637,7 +537,7 @@
       c.fillText('ORDER', w / 2, 118);
       c.font = '500 22px Fredoka'; c.fillText('use the hose :(', w / 2, 148);
     });
-    for (const x of [8.1, 15.9]) {
+    for (const x of [3.9, 7.8]) {
       const g = prop(x, 0.28);
       part(g, 0.86, 1.12, 0.42, WHITE, 0, 0, 0);
       part(g, 0.7, 0.36, 0.01, '#c9ced6', 0, 0.62, 0.212);
@@ -655,14 +555,14 @@
         c.fillStyle = '#c8433b';
         c.fillText('2. keep the temp LOW!!', 24, 142);
         c.fillStyle = '#1c2130';
-        c.fillText('(dashboard only reads 1 sensor)', 24, 190);
+        c.fillText('(dashboard reads the room thermometer)', 24, 190);
       });
-      const g = prop(12.3, 0.06);
+      const g = prop(5.85, 0.06);
       decal(g, 1.1, 0.64, new THREE.MeshStandardMaterial({ map: board.tex, roughness: 0.9 }), 0, 0.82, 0.02);
       part(g, 1.1, 0.03, 0.06, '#9aa2ae', 0, 0.47, 0.02).userData.decor = true;
     }
     {
-      const g = prop(0.1, 7.3, Math.PI / 2);
+      const g = prop(0.1, 5.3, Math.PI / 2);
       const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.3, 16), mat('#d8423a', { roughness: 0.5 }));
       body.position.y = 0.2;
       g.add(body);
@@ -670,35 +570,60 @@
       part(g, 0.1, 0.015, 0.03, DARK, 0.02, 0.41, 0);
     }
 
-    // ---------- the thermometer: small, standing on the storage unit's low shelf, easy to miss ----------
-    let redColumn;
-    const COLUMN_BOTTOM = 0.035, COLUMN_LEN = 0.12;
+    // ---------- the room thermometer: big, on a stand in the middle, with a sign that shows its reading ----------
+    let redColumn, signTex;
+    const COLUMN_BOTTOM = 0.05, COLUMN_LEN = 0.36;
+    const thermoParts = [];
     {
       const g = new THREE.Group();
-      g.position.set(SENSOR.x, SENSOR.y - 0.09, SENSOR.z);
-      g.rotation.y = -0.25;
+      g.position.set(STAND.x, FLOOR_TOP, STAND.z);
       scene.add(g);
-      const scaleTex = canvasTexture(64, 192, (c, w, h) => {
-        c.fillStyle = '#f7f4ee'; c.fillRect(0, 0, w, h);
+      // the stand: a round foot and a pole up to the sign
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.03, 24), mat('#3a4250'));
+      foot.position.y = 0.015;
+      g.add(foot);
+      part(g, 0.035, 1.2, 0.035, '#9aa2ae', 0, 0, -0.03);
+      // the thermometer: a white board with a scale, a glass tube and a red bulb, centred on the sensor
+      const scaleTex = canvasTexture(96, 320, (c, w, h) => {
+        c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
         c.fillStyle = '#1c2130';
-        for (let i = 0; i <= 10; i++) c.fillRect(i % 2 ? 40 : 36, 30 + i * 12, i % 2 ? 8 : 14, 2);
+        for (let i = 0; i <= 12; i++) c.fillRect(i % 2 ? 60 : 54, 34 + i * 20, i % 2 ? 12 : 22, 3);
+        c.font = '700 20px Fredoka'; c.textAlign = 'left';
+        c.fillText('°C', 52, 24);
       });
-      const board = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.012), [
-        mat('#dcd6ca'), mat('#dcd6ca'), mat('#dcd6ca'), mat('#dcd6ca'), new THREE.MeshStandardMaterial({ map: scaleTex.tex, roughness: 0.9 }), mat('#dcd6ca'),
+      const bottom = SENSOR.y - FLOOR_TOP - 0.24;
+      const board = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.48, 0.025), [
+        mat('#dfe3ea'), mat('#dfe3ea'), mat('#dfe3ea'), mat('#dfe3ea'), new THREE.MeshStandardMaterial({ map: scaleTex.tex, roughness: 0.6 }), mat('#dfe3ea'),
       ]);
-      board.position.y = 0.09;
+      board.position.y = bottom + 0.24;
       g.add(board);
-      part(g, 0.08, 0.012, 0.05, '#9aa2ae', 0, 0, 0.005); // its little foot
-      const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.12, 10), mat('#e9f6ff', { transparent: true, opacity: 0.6, roughness: 0.1 }));
-      glass.position.set(-0.01, 0.1, 0.011);
+      const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 12), mat('#e9f6ff', { transparent: true, opacity: 0.55, roughness: 0.1 }));
+      glass.position.set(-0.03, bottom + 0.25, 0.02);
       g.add(glass);
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.013, 12, 10), mat('#e0402f', { roughness: 0.4 }));
-      bulb.position.set(-0.01, 0.035, 0.011);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.032, 16, 12), mat('#e0402f', { roughness: 0.4, emissive: '#5a0d05' }));
+      bulb.position.set(-0.03, bottom + COLUMN_BOTTOM - 0.01, 0.02);
       g.add(bulb);
-      redColumn = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 1, 8).translate(0, 0.5, 0), mat('#e0402f', { roughness: 0.4 }));
-      redColumn.position.set(-0.01, 0.045, 0.011);
+      redColumn = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 1, 10).translate(0, 0.5, 0), mat('#e0402f', { roughness: 0.4, emissive: '#5a0d05' }));
+      redColumn.position.set(-0.03, bottom + COLUMN_BOTTOM, 0.02);
       g.add(redColumn);
-      g.traverse(m => { if (m.isMesh) { m.castShadow = true; aimables.push(m); } });
+      g.traverse(m => { if (m.isMesh) { m.castShadow = true; aimables.push(m); thermoParts.push(m); } });
+      // the sign on top of the pole: "ROOM THERMOMETER" and the live reading (a sprite, so it always faces you)
+      signTex = canvasTexture(320, 150, () => {});
+      const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: signTex.tex, depthTest: false, transparent: true }));
+      sign.position.set(STAND.x, FLOOR_TOP + 1.55, STAND.z);
+      sign.scale.set(1.34, 0.63, 1);
+      sign.renderOrder = 10;
+      scene.add(sign);
+    }
+    function drawSign(t) {
+      const c = signTex.g, w = 320, h = 150;
+      c.clearRect(0, 0, w, h);
+      c.fillStyle = '#21201d'; c.beginPath(); c.roundRect(6, 6, w - 12, h - 26, 22); c.fill();
+      c.beginPath(); c.moveTo(w / 2 - 14, h - 21); c.lineTo(w / 2 + 14, h - 21); c.lineTo(w / 2, h - 4); c.fill(); // points down at the thermometer
+      c.textAlign = 'center';
+      c.fillStyle = '#9a968e'; c.font = '600 22px Fredoka'; c.fillText('🌡️ ROOM THERMOMETER', w / 2, 42);
+      c.fillStyle = tempColor(t); c.font = '700 54px Fredoka'; c.fillText(`${t.toFixed(1)}°C`, w / 2, 102);
+      signTex.tex.needsUpdate = true;
     }
 
     // ---------- Albert, with a cold-air tank on his back and a hose nozzle in his hands ----------
@@ -769,6 +694,7 @@
       if (s.y > 0.45) faders.push(fader);
     }
     const footprints = blockers.filter(b => b.min.y < FLOOR_TOP + 0.5).map(b => ({ minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z }));
+    footprints.push({ minX: STAND.x - 0.15, maxX: STAND.x + 0.15, minZ: STAND.z - 0.15, maxZ: STAND.z + 0.15 });
     function blocked(x, z) {
       if (x < BOT_R || x > ROOM_W - BOT_R || z < BOT_R || z > ROOM_D - BOT_R) return true;
       return footprints.some(f => {
@@ -853,9 +779,9 @@
     const SPREAD = 0.05;          // how much the stream fans out
     const COOL_PER_PUFF = 0.013;  // a puff that hits a rack takes away this share of its heat above 12 °C (hot racks cool fastest)
     const RACK_MIN = 18, RACK_MAX = 72, HOT_AT = 45, FIRE_AT = 62;
-    // The thermometer only feels the racks around it: room air = 10 °C + half their average temperature,
-    // each rack weighted by exp(-(distance / LOCAL_R)²), so the few racks nearest to it count and the rest barely do.
-    const ROOM_BASE = 10, ROOM_GAIN = 0.5, LOCAL_R = 1.6;
+    // The thermometer feels the room's air: 10 °C + half the racks' average temperature, each rack weighted by
+    // exp(-(distance / LOCAL_R)²), so nearer racks count a bit more. It's small enough that every rack matters.
+    const ROOM_BASE = 10, ROOM_GAIN = 0.5, LOCAL_R = +params.get('localR') || 2.5;
     const SPRAY_T = -8;           // what the thermometer would read in the hose's air
     // Every puff chills it by how close it passes: exp(-(closest / COLD_R)²), so 1 for a direct hit and almost
     // nothing 0.4 away. The chill piles up and fades; the reading is pulled toward SPRAY_T by cold / (cold + COLD_HALF).
@@ -981,6 +907,7 @@
       const [a, ca] = BAR_STOPS[i], [b, cb] = BAR_STOPS[i + 1];
       return tmp.copy(ca).lerp(cb, clamp((f - a) / (b - a), 0, 1));
     }
+    let signTimer = 0;
     function paintEffects(dt, now) {
       // cold-air puffs grow as they fly and shrink away at the end
       puffs.forEach((p, i) => {
@@ -1040,8 +967,10 @@
         smokeMesh.setMatrixAt(i, puffMatrix);
       });
       smokeMesh.instanceMatrix.needsUpdate = true;
-      // the little red column follows the reading (-10 °C at the bulb, 50 °C at the top)
+      // the red column follows the reading (-10 °C at the bulb, 50 °C at the top), and the sign shows it
       redColumn.scale.y = COLUMN_LEN * clamp((thermo.reading + 10) / 60, 0.03, 1);
+      signTimer -= dt;
+      if (signTimer <= 0) { signTimer = 0.1; drawSign(thermo.reading); }
     }
 
     // ---------- HUD: the thermometer gauge on the right, the timer at the top ----------
@@ -1246,10 +1175,6 @@
         reticle.position.copy(aim);
         if (roundTime >= ROUND_SECONDS) endRound();
       }
-      // the camera glides after Albert
-      camTarget.x += (bot.x - camTarget.x) * Math.min(1, dt * 6);
-      camTarget.z += (bot.z - camTarget.z) * Math.min(1, dt * 6);
-      placeCamera();
       paintEffects(dt, now);
       // Albert waddles while walking, bobs gently while idle, shakes a little while the hose runs, and blinks
       walkTime = moving ? walkTime + dt : 0;
@@ -1269,7 +1194,7 @@
       walkTo: (x, z) => { botWalk = { x, z }; },
       aimAt: (x, y, z) => { botAim = new THREE.Vector3(x, y, z); },
       spray: on => { botSpray = on; },
-      teleport: (x, z) => { bot.x = x; bot.z = z; camTarget.set(x, 0.3, z); placeCamera(); },
+      teleport: (x, z) => { bot.x = x; bot.z = z; },
       get heading() { return heading; }, set heading(h) { heading = h; },
       get score() { return score; }, get state() { return state; }, get roundTime() { return roundTime; },
       get losses() { return losses; }, get sprayTime() { return sprayTime; }, get spraying() { return spraying; }, updateHud,
