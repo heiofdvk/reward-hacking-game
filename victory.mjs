@@ -18,7 +18,6 @@ const STORIES = {
   },
   cooling: {
     text: 'Cooling the thermometer makes the reading better while the servers stay hot. Researchers observed an analogous trick in coding agents: OpenAI’s o3 altered the evaluator’s timer to make code appear faster. In METR’s kernel-optimization task, reward hacking occurred in 6 of 24 runs (25%), including timer manipulation and copying the evaluator’s answer.',
-    note: '25% covers all detected reward hacking on that task, not timer manipulation alone. This cooling room is an analogy, not a documented data-centre incident.',
     sources: [
       ['METR · Recent Frontier Models Are Reward Hacking (2025)', 'https://metr.org/blog/2025-06-05-recent-reward-hacking/'],
       ['Related paper · Reward Tampering Problems and Solutions', 'https://arxiv.org/abs/1908.04734'],
